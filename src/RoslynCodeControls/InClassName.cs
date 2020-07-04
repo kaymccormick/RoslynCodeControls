@@ -8,7 +8,7 @@ namespace RoslynCodeControls
         public InClassName(RoslynCodeControl roslynCodeControl, int lineNo, int offset, double y, double x,
             LineInfo lineInfo, TextFormatter textFormatter, double paragraphWidth, FontRendering currentRendering,
             double pixelsPerDip, CustomTextSource4 customTextSource4, double maxY, double maxX, DrawingGroup d,
-            DrawingContext dc)
+            DrawingContext dc, double fontSize, string fontFamilyName)
         {
             RoslynCodeControl = roslynCodeControl;
             LineNo = lineNo;
@@ -25,6 +25,8 @@ namespace RoslynCodeControls
             MaxX = maxX;
             D = d;
             Dc = dc;
+            FontSize = fontSize;
+            FontFamilyName = fontFamilyName;
         }
 
 

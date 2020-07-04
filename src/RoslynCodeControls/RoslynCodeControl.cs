@@ -366,16 +366,19 @@ namespace RoslynCodeControls
         {
             DefaultStyleKeyProperty.OverrideMetadata(typeof(RoslynCodeControl),
                 new FrameworkPropertyMetadata(typeof(RoslynCodeControl)));
-            SyntaxTreeProperty.OverrideMetadata(typeof(RoslynCodeControl), new FrameworkPropertyMetadata(default(SyntaxTree), FrameworkPropertyMetadataOptions.None, OnSyntaxTreeChanged_));
-            SyntaxNodeProperty.OverrideMetadata(typeof(RoslynCodeControl), new PropertyMetadata(default(SyntaxNode), OnNodeUpdated));
+            SyntaxTreeProperty.OverrideMetadata(typeof(RoslynCodeControl),
+                new FrameworkPropertyMetadata(default(SyntaxTree), FrameworkPropertyMetadataOptions.None,
+                    OnSyntaxTreeChanged_));
+            SyntaxNodeProperty.OverrideMetadata(typeof(RoslynCodeControl),
+                new PropertyMetadata(default(SyntaxNode), OnNodeUpdated));
             // TextElement.FontFamilyProperty.OverrideMetadata(typeof(RoslynCodeControl), new PropertyMetadata(null, PropertyChangedCallback));
             // TextElement.FontSizeProperty.OverrideMetadata(typeof(RoslynCodeControl), new PropertyMetadata(16.0, PropertyChangedCallback2));
         }
 
         private static void OnSyntaxTreeChanged_(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            var ss = (RoslynCodeControl)d;
-            ss.OnSyntaxTreeUpdated((SyntaxTree)e.NewValue);
+            var ss = (RoslynCodeControl) d;
+            ss.OnSyntaxTreeUpdated((SyntaxTree) e.NewValue);
         }
 
         private static async void PropertyChangedCallback2(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -764,7 +767,7 @@ namespace RoslynCodeControls
             try
             {
                 if (CustomTextSource == null) await UpdateTextSource();
-                
+
                 Debug.WriteLine(text);
                 //  if (_textDest.Children.Count == 0) _textDest.Children.Add(new DrawingGroup());
 
@@ -775,7 +778,8 @@ namespace RoslynCodeControls
                     var prev = SourceText.Substring(0, insertionPoint);
                     var next = SourceText.Substring(insertionPoint);
                     code = prev + text + next;
-                } else
+                }
+                else
                 {
                     code = SourceText;
                 }
@@ -805,61 +809,88 @@ namespace RoslynCodeControls
             ;
             var inn = new InClassName(this, insertionLineLineNumber, insertionLineOffset, originY, originX,
                 insertionLine, Formatter, OutputWidth, null, PixelsPerDip, CustomTextSource, MaxY, MaxX,
-                d, drawingContext) {FontSize = FontSize, FontFamilyName = typefaceName};
-            
+                d, drawingContext, FontSize, typefaceName);
+
             var lineInfo = await SecondaryDispatcher.InvokeAsync(
                 new Func<LineInfo>(() => Callback(inn, insertionPoint, inputRequest)),
                 DispatcherPriority.Send, CancellationToken.None);
-            await Dispatcher.InvokeAsync(() =>
+            var in2 = new In2(this, insertionPoint, code, inputRequest, text, inn, lineInfo);
+            await Dispatcher.Invoke(() => Callback2(in2));
+        }
+
+        private static async Task Callback2(In2 in2)
+        {
+            var roslynCodeControl = in2.RoslynCodeControl;
+            var inputRequest = in2.InputRequest;
+            var lineInfo = in2.LineInfo;
+            var insertionPoint = in2.InsertionPoint;
+            var text = in2.Text;
+            var inn = in2.In1;
+            var code = in2.Code;
+            if (inputRequest.Kind == InputRequestKind.Backspace)
             {
-                if (inputRequest.Kind == InputRequestKind.Backspace)
+                roslynCodeControl.InsertionPoint--;
+            }
+            else
+            {
+                roslynCodeControl.InsertionPoint = insertionPoint + (text?.Length ?? 0);
+            }
+
+            if (lineInfo == null) throw new InvalidOperationException();
+
+            if (roslynCodeControl.InsertionPoint == lineInfo.Offset + lineInfo.Length)
+            {
+                var newLineInfo = new LineInfo()
                 {
-                    InsertionPoint--;
-                }
-                else
-                {
-                    InsertionPoint = insertionPoint + (text?.Length ?? 0);
-                }
+                    LineNumber = lineInfo.LineNumber + 1,
+                    Offset = roslynCodeControl.InsertionPoint,
+                    Origin = new Point(roslynCodeControl._xOffset, roslynCodeControl.InsertionLine.Origin.Y + roslynCodeControl.InsertionLine.Height),
+                    PrevLine = roslynCodeControl.InsertionLine
+                };
+                roslynCodeControl.InsertionLine = newLineInfo;
+                
+                var drawingGroup = new DrawingGroup();
+                DrawingContext dc = drawingGroup.Open();
+                var inn2 = new InClassName(roslynCodeControl, newLineInfo.LineNumber, newLineInfo.Offset, newLineInfo.Origin.Y, newLineInfo.Origin.X, newLineInfo, roslynCodeControl.Formatter, inn.ParagraphWidth, inn.CurrentRendering, inn.PixelsPerDip, inn.CustomTextSource4, inn.MaxY, inn.MaxX, drawingGroup, dc, inn.FontSize, inn.FontFamilyName);
+                var dispatcherOperation = roslynCodeControl.SecondaryDispatcher.InvokeAsync(
+                    new Func<LineInfo>(() => roslynCodeControl.Callback3(inn2)),
+                    DispatcherPriority.Send, CancellationToken.None);
+                var lineInfo2 = await dispatcherOperation.Task.ConfigureAwait(true);
+                roslynCodeControl.InsertionLine = lineInfo2;
+                roslynCodeControl.UpdateCaretPosition();
 
-                if (lineInfo == null) throw new InvalidOleVariantTypeException();
+            }
+            else
+                roslynCodeControl.InsertionLine = (LineInfo) lineInfo;
 
-                if (InsertionPoint == lineInfo.Offset + lineInfo.Length)
-                    InsertionLine = new LineInfo()
-                    {
-                        LineNumber = lineInfo.LineNumber + 1, Offset = InsertionPoint,
-                        Origin = new Point(0, InsertionLine.Origin.Y + InsertionLine.Height),
-                        PrevLine = InsertionLine
-                    };
-                else
-                    InsertionLine = (LineInfo) lineInfo;
+            //AdvanceInsertionPoint(e.Text.Length);
+            roslynCodeControl.ChangingText = true;
+            Debug.WriteLine("About to update source text");
+            roslynCodeControl.SourceText = code;
+            Debug.WriteLine("Done updating source text");
+            roslynCodeControl.ChangingText = false;
 
-
-                if (InsertionLine.Offset + InsertionLine.Length <= insertionPoint)
-                {
-                    if (InsertionLine.NextLine != null)
-                    {
-                        InsertionLine = InsertionLine.NextLine;
-                    }
-                    else
-                    {
-                        InsertionLine.NextLine = new LineInfo()
-                        {
-                            LineNumber = InsertionLine.LineNumber + 1, PrevLine = InsertionLine,
-                            Origin = new Point(0, InsertionLine.Origin.Y + InsertionLine.Height),
-                            Offset = InsertionLine.Offset + InsertionLine.Length
-                        };
-                        InsertionLine = InsertionLine.NextLine;
-                    }
-                }
+        }
 
 
-                //AdvanceInsertionPoint(e.Text.Length);
-                ChangingText = true;
-                Debug.WriteLine("About to update source text");
-                SourceText = code;
-                Debug.WriteLine("Done updating source text");
-                ChangingText = false;
-            });
+        private LineInfo Callback3(InClassName inn)
+        {
+            try
+            {
+                inn.CurrentRendering = FontRendering.CreateInstance(inn.FontSize, TextAlignment.Left,
+                    new TextDecorationCollection(), Brushes.Black,
+                    new Typeface(new FontFamily(inn.FontFamilyName), FontStyles.Normal, FontWeights.Normal,
+                        FontStretches.Normal));
+                var lineInfo = RedrawLine((InClassName)inn, out var lineCtx);
+                return lineInfo;
+            }
+            catch (Exception ex)
+
+            {
+                Debug.WriteLine(ex.ToString());
+            }
+
+            return null;
         }
 
         private LineInfo Callback(InClassName inn, int insertionPoint, InputRequest inputRequest)
@@ -874,7 +905,10 @@ namespace RoslynCodeControls
                 CustomTextSource.TextInput(insertionPoint, inputRequest);
 
                 var lineInfo = RedrawLine((InClassName) inn, out var lineCtx);
+                if (inputRequest.Kind == InputRequestKind.NewLine)
+                {
 
+                }
                 return lineInfo;
             }
             catch (Exception ex)
@@ -1634,7 +1668,7 @@ namespace RoslynCodeControls
         private void UpdateCaretPosition()
         {
             var insertionPoint = InsertionPoint;
-            var l0 = LineInfos.FirstOrDefault(l => l.Offset + l.Length >= insertionPoint);
+            var l0 = LineInfos.FirstOrDefault(l => l.Offset + l.Length > insertionPoint);
             if (l0 != null)
             {
                 InsertionLine = l0;
@@ -2191,6 +2225,28 @@ namespace RoslynCodeControls
                 _updateOperation = value;
                 Debug.WriteLine("Setting update operation task");
             }
+        }
+    }
+
+    internal class In2
+    {
+        public RoslynCodeControl RoslynCodeControl { get; }
+        public int InsertionPoint { get; }
+        public string Code { get; }
+        public InputRequest InputRequest { get; }
+        public string Text { get; }
+        public InClassName In1 { get; }
+        public LineInfo LineInfo { get; }
+
+        public In2(RoslynCodeControl roslynCodeControl, in int insertionPoint, string code, InputRequest inputRequest, string text, InClassName in1, LineInfo lineInfo)
+        {
+            RoslynCodeControl = roslynCodeControl;
+            InsertionPoint = insertionPoint;
+            Code = code;
+            InputRequest = inputRequest;
+            Text = text;
+            In1 = in1;
+            LineInfo = lineInfo;
         }
     }
 
