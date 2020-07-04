@@ -419,11 +419,23 @@ namespace RoslynCodeControls
             // CommandBindings.Add(new CommandBinding(WpfAppCommands.Compile, CompileExecuted));
             CommandBindings.Add(new CommandBinding(EditingCommands.EnterLineBreak, OnEnterLineBreak,
                 CanEnterLineBreak));
+            CommandBindings.Add(new CommandBinding(EditingCommands.Backspace, OnBackspace));
 
-            ;
             InputBindings.Add(new KeyBinding(EditingCommands.EnterLineBreak, Key.Enter, ModifierKeys.None));
+            InputBindings.Add(new KeyBinding(EditingCommands.Backspace, Key.Back, ModifierKeys.None));
 
 
+        }
+
+        private async void OnBackspace(object sender, ExecutedRoutedEventArgs e)
+        {
+            if (_handlingInput)
+                return;
+            _handlingInput = true;
+            var b = await DoInput(new InputRequest(InputRequestKind.Backspace));
+            if (!b)
+                Debug.WriteLine("Backspace failed");
+            _handlingInput = false;
         }
 
         private void ContinuationFunction(Task<UpdateInfo> z)
@@ -459,9 +471,13 @@ namespace RoslynCodeControls
 
         private async void OnEnterLineBreak(object sender, ExecutedRoutedEventArgs e)
         {
-            var b = await DoInput("\r\n");
+            if (_handlingInput)
+                return;
+            _handlingInput = true;
+            var b = await DoInput(new InputRequest(InputRequestKind.NewLine));
             if (!b)
                 Debug.WriteLine("Newline failed");
+            _handlingInput = false;
             // ChangingText = true;
             // Debug.WriteLine("Enter line break");
             // InsertionPoint = TextSource.EnterLineBreak(InsertionPoint);
@@ -472,8 +488,11 @@ namespace RoslynCodeControls
 
         private void CanEnterLineBreak(object sender, CanExecuteRoutedEventArgs e)
         {
-            e.CanExecute = true;
-            e.Handled = true;
+            if (!_handlingInput)
+            {
+                e.CanExecute = true;
+                e.Handled = true;
+            }
         }
 
         private async void Executed(object sender, ExecutedRoutedEventArgs e)
@@ -719,116 +738,49 @@ namespace RoslynCodeControls
         protected override async void OnPreviewTextInput(TextCompositionEventArgs e)
         {
             base.OnPreviewTextInput(e);
+            if (_handlingInput)
+                return;
             var eText = e.Text;
             e.Handled = true;
             try
             {
-                await DoInput(eText);
+                _handlingInput = true;
+                await DoInput(new InputRequest(InputRequestKind.TextInput, eText));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.ToString());
             }
+            finally
+            {
+                _handlingInput = false;
+            }
         }
 
-        public async Task<bool> DoInput(string eText)
+        public async Task<bool> DoInput(InputRequest inputRequest)
         {
+
+            var text = inputRequest.Text;
             try
             {
                 if (CustomTextSource == null) await UpdateTextSource();
-                Debug.WriteLine(eText);
+                
+                Debug.WriteLine(text);
                 //  if (_textDest.Children.Count == 0) _textDest.Children.Add(new DrawingGroup());
 
                 var insertionPoint = InsertionPoint;
-                var prev = SourceText.Substring(0, insertionPoint);
-                var next = SourceText.Substring(insertionPoint);
-                var code = prev + eText + next;
-                if (InsertionLine != null)
+                string code;
+                if (inputRequest.Kind != InputRequestKind.Backspace)
                 {
-#if false
-                var l = InsertionLine.Text.Substring(0, InsertionPoint - InsertionLine.Offset) + e.Text;
-                var end = InsertionLine.Offset + InsertionLine.Length;
-                if (end - InsertionPoint > 0)
+                    var prev = SourceText.Substring(0, insertionPoint);
+                    var next = SourceText.Substring(insertionPoint);
+                    code = prev + text + next;
+                } else
                 {
-                    var start = InsertionPoint - InsertionLine.Offset;
-                    var length = end - InsertionPoint;
-                    if (start + length > InsertionLine.Text.Length)
-                        length = length - (start + length - InsertionLine.Text.Length);
-                    l += InsertionLine.Text.Substring(start, length);
-                }
-#endif
+                    code = SourceText;
                 }
 
-                if (InsertionLine != null && InsertionLine.LineNumber == 1)
-                {
-                }
-
-                ChangingText = true;
-                var insertionLineOffset = InsertionLine?.Offset ?? 0;
-                var originY = InsertionLine?.Origin.Y ?? 0;
-                var originX = InsertionLine?.Origin.X ?? 0;
-                var insertionLineLineNumber = InsertionLine?.LineNumber ?? 0;
-                var insertionLine = InsertionLine;
-
-                var l = new List<LineInfo>();
-
-
-                var d = new DrawingGroup();
-                var drawingContext = d.Open();
-                var typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
-                ;
-                var inn = new InClassName(this, insertionLineLineNumber, insertionLineOffset, originY, originX,
-                    insertionLine, Formatter, OutputWidth, null, PixelsPerDip, CustomTextSource, MaxY, MaxX,
-                    d, drawingContext) {FontSize = FontSize, FontFamilyName = typefaceName};
-                var lineInfo = await SecondaryDispatcher.InvokeAsync(
-                    new Func<LineInfo>(() => Callback(inn, insertionPoint, eText)),
-                    DispatcherPriority.Send, CancellationToken.None);
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    InsertionPoint = insertionPoint + eText.Length;
-                    if (lineInfo == null) throw new InvalidOleVariantTypeException();
-
-                    if (InsertionPoint == lineInfo.Offset + lineInfo.Length)
-                        InsertionLine = new LineInfo()
-                        {
-                            LineNumber = lineInfo.LineNumber + 1, Offset = InsertionPoint,
-                            Origin = new Point(0, InsertionLine.Origin.Y + InsertionLine.Height),
-                            PrevLine = InsertionLine
-                        };
-                    else
-                        InsertionLine = (LineInfo) lineInfo;
-
-
-                    if (InsertionLine.Offset + InsertionLine.Length <= insertionPoint)
-                    {
-                        if (InsertionLine.NextLine != null)
-                        {
-                            InsertionLine = InsertionLine.NextLine;
-                        }
-                        else
-                        {
-                            InsertionLine.NextLine = new LineInfo()
-                            {
-                                LineNumber = InsertionLine.LineNumber + 1, PrevLine = InsertionLine,
-                                Origin = new Point(0, InsertionLine.Origin.Y + InsertionLine.Height),
-                                Offset = InsertionLine.Offset + InsertionLine.Length
-                            };
-                            InsertionLine = InsertionLine.NextLine;
-                        }
-                    }
-
-                    if (eText.Length == 1)
-                    {
-                        //_textCaret.SetValue(Canvas.LeftProperty, 0);
-                    }
-
-                    //AdvanceInsertionPoint(e.Text.Length);
-
-                    Debug.WriteLine("About to update source text");
-                    SourceText = code;
-                    Debug.WriteLine("Done updating source text");
-                    ChangingText = false;
-                });
+                await DoUpdateText(insertionPoint, code, inputRequest);
                 return true;
             }
             catch (Exception ex)
@@ -838,19 +790,90 @@ namespace RoslynCodeControls
             }
         }
 
-        private LineInfo Callback(InClassName inn, int insertionPoin, string eText)
+        private async Task DoUpdateText(int insertionPoint, string code, InputRequest inputRequest)
         {
+            var text = inputRequest.Text;
+            var insertionLineOffset = InsertionLine?.Offset ?? 0;
+            var originY = InsertionLine?.Origin.Y ?? 0;
+            var originX = InsertionLine?.Origin.X ?? 0;
+            var insertionLineLineNumber = InsertionLine?.LineNumber ?? 0;
+            var insertionLine = InsertionLine;
+
+            var d = new DrawingGroup();
+            var drawingContext = d.Open();
+            var typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
+            ;
+            var inn = new InClassName(this, insertionLineLineNumber, insertionLineOffset, originY, originX,
+                insertionLine, Formatter, OutputWidth, null, PixelsPerDip, CustomTextSource, MaxY, MaxX,
+                d, drawingContext) {FontSize = FontSize, FontFamilyName = typefaceName};
+            
+            var lineInfo = await SecondaryDispatcher.InvokeAsync(
+                new Func<LineInfo>(() => Callback(inn, insertionPoint, inputRequest)),
+                DispatcherPriority.Send, CancellationToken.None);
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (inputRequest.Kind == InputRequestKind.Backspace)
+                {
+                    InsertionPoint--;
+                }
+                else
+                {
+                    InsertionPoint = insertionPoint + (text?.Length ?? 0);
+                }
+
+                if (lineInfo == null) throw new InvalidOleVariantTypeException();
+
+                if (InsertionPoint == lineInfo.Offset + lineInfo.Length)
+                    InsertionLine = new LineInfo()
+                    {
+                        LineNumber = lineInfo.LineNumber + 1, Offset = InsertionPoint,
+                        Origin = new Point(0, InsertionLine.Origin.Y + InsertionLine.Height),
+                        PrevLine = InsertionLine
+                    };
+                else
+                    InsertionLine = (LineInfo) lineInfo;
+
+
+                if (InsertionLine.Offset + InsertionLine.Length <= insertionPoint)
+                {
+                    if (InsertionLine.NextLine != null)
+                    {
+                        InsertionLine = InsertionLine.NextLine;
+                    }
+                    else
+                    {
+                        InsertionLine.NextLine = new LineInfo()
+                        {
+                            LineNumber = InsertionLine.LineNumber + 1, PrevLine = InsertionLine,
+                            Origin = new Point(0, InsertionLine.Origin.Y + InsertionLine.Height),
+                            Offset = InsertionLine.Offset + InsertionLine.Length
+                        };
+                        InsertionLine = InsertionLine.NextLine;
+                    }
+                }
+
+
+                //AdvanceInsertionPoint(e.Text.Length);
+                ChangingText = true;
+                Debug.WriteLine("About to update source text");
+                SourceText = code;
+                Debug.WriteLine("Done updating source text");
+                ChangingText = false;
+            });
+        }
+
+        private LineInfo Callback(InClassName inn, int insertionPoint, InputRequest inputRequest)
+        {
+            var text = inputRequest.Text;
             try
             {
                 inn.CurrentRendering = FontRendering.CreateInstance(inn.FontSize, TextAlignment.Left,
                     new TextDecorationCollection(), Brushes.Black,
                     new Typeface(new FontFamily(inn.FontFamilyName), FontStyles.Normal, FontWeights.Normal,
                         FontStretches.Normal));
-                CustomTextSource.TextInput(insertionPoin, eText);
-
+                CustomTextSource.TextInput(insertionPoint, inputRequest);
 
                 var lineInfo = RedrawLine((InClassName) inn, out var lineCtx);
-
 
                 return lineInfo;
             }
@@ -1625,6 +1648,12 @@ namespace RoslynCodeControls
                     var x = ch.Bounds.Right - ch.Bounds.Width / 2;
                     _textCaret.SetValue(Canvas.LeftProperty, x);
                 }
+                else
+                {
+                    var c = l0.Regions.LastOrDefault()?.Characters.LastOrDefault();
+                    var x = c?.Bounds.Right ?? _xOffset;
+                    _textCaret.SetValue(Canvas.LeftProperty, x);
+                }
             }
         }
 
@@ -1693,6 +1722,7 @@ namespace RoslynCodeControls
         private Task _updateFormattedTestTask;
         private ChannelReader<UpdateInfo> _reader;
         private Channel<UpdateInfo> _channel;
+        private bool _handlingInput;
 
         /// <inheritdoc />
         protected override void OnMouseMove(MouseEventArgs e)
@@ -2164,9 +2194,38 @@ namespace RoslynCodeControls
         }
     }
 
+    public enum InputRequestKind
+    {
+        TextInput,
+        NewLine,
+        Backspace
+    }
+
     public class UpdateInfo
     {
         public BitmapSource ImageSource { get; set; }
         public Rect Rect { get; set; }
+    }
+
+    public class InputRequest
+    {
+        private readonly string _text;
+        public InputRequestKind Kind { get; }
+
+        public string Text
+        {
+            get { return Kind == InputRequestKind.TextInput ? _text : Kind == InputRequestKind.NewLine ? "\r\n" : null;  }
+        }
+
+        public InputRequest(InputRequestKind kind, string text)
+        {
+            Kind = kind;
+            _text = text;
+        }
+
+        public InputRequest(InputRequestKind kind)
+        {
+            Kind = kind;
+        }
     }
 }

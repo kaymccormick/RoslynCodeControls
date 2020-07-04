@@ -165,9 +165,11 @@ namespace RoslynCodeControls
 
             if (textSourceCharacterIndex == 0)
             {
+                _runs.Clear();
                 SyntaxInfos = GetSyntaxInfos().GetEnumerator();
                 if (!SyntaxInfos.MoveNext())
                 {
+                    
                     var endOfParagraph = new TextEndOfParagraph(2);
                     _runs.Add(endOfParagraph);
                     return endOfParagraph;
@@ -186,6 +188,18 @@ namespace RoslynCodeControls
             {
                 if (!SyntaxInfos.MoveNext())
                 {
+                    if (textSourceCharacterIndex < Length)
+                    {
+                        var len = Length - textSourceCharacterIndex;
+                        var buf = new char[len];
+                        Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
+                        if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
+                        var t = string.Join("", buf);
+                        var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t));
+                        _runs.Add(customTextCharacters);
+                        return customTextCharacters;
+                    }
+
                     var endOfParagraph = new TextEndOfParagraph(2);
                     _runs.Add(endOfParagraph);
                     return endOfParagraph;
@@ -864,14 +878,23 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         /// </summary>
         /// <param name="insertionPoint"></param>
         /// <param name="text"></param>
-        public override void TextInput(int insertionPoint, string text)
+        public override void TextInput(int insertionPoint, InputRequest inputRequest)
         {
-
+            var text = inputRequest.Text;
             Debug.WriteLine($"Insertion point is {insertionPoint}.");
             Debug.WriteLine($"Input text is \"{text}\"");
-            var change = new TextChange(new TextSpan(insertionPoint, 0), text);
+            TextChange change;
+            if (inputRequest.Kind == InputRequestKind.Backspace)
+            {
+                change = new TextChange(new TextSpan(insertionPoint - 1, 1), "");
+            }
+            else
+            {
+                change = new TextChange(new TextSpan(insertionPoint, 0), text);
+            }
+            
             var newText = Text.WithChanges(change);
-            if (newText.Length != Text.Length + text.Length) Debug.WriteLine($"Unexpected length");
+            if (text != null && newText.Length != Text.Length + text.Length) Debug.WriteLine($"Unexpected length");
             var newTree = Tree.WithChangedText(newText);
             _newTree = newTree;
             // Compilation = CSharpCompilation.Create("edit", new[]{newTree}, new[]{MetadataReference.CreateFromFile(typeof(object).Assembly.Location)});
@@ -1165,11 +1188,6 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 #endif
         }
 
-        public int EnterLineBreak(int insertionPoint)
-        {
-            TextInput(insertionPoint, "\r\n");
-            return insertionPoint + 2;
-        }
 
         public event PropertyChangedEventHandler PropertyChanged;
 

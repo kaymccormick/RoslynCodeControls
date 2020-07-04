@@ -8,9 +8,14 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"></RowDefinition></Grid.RowDefinitions>
         <Border BorderBrush="BlueViolet" BorderThickness="3">
         <roslynCodeControls:RoslynCodeControl FontSize="24" FontFamily="Lucida Console"  xml:space="preserve" x:Name="CodeControl">
 </roslynCodeControls:RoslynCodeControl>
         </Border>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" TextElement.FontSize="24">
+            <TextBlock Text="{Binding ElementName=CodeControl,Path=InsertionPoint}"></TextBlock>
+        </StackPanel>
     </Grid>
 </Window>

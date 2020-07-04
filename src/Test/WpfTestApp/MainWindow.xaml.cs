@@ -23,7 +23,7 @@ namespace WpfTestApp
         public MainWindow()
         {
             InitializeComponent();
-            CodeControl.SourceText = "public class Test\r\n{\r\n}\r\n";
+            CodeControl.SourceText = "";//public class Test\r\n{\r\n}\r\n";
             CodeControl.Focus();
             Keyboard.Focus(CodeControl);
         }

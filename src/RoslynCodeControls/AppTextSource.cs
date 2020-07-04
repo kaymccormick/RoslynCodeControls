@@ -33,6 +33,6 @@ namespace RoslynCodeControls
         /// </summary>
         /// <param name="InsertionPoint"></param>
         /// <param name="text"></param>
-        public abstract void TextInput(int InsertionPoint, string text);
+        public abstract void TextInput(int insertionPoint, InputRequest inputRequest);
     }
 }
