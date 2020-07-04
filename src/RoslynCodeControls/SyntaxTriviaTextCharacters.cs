@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace RoslynCodeControls
 {
-    internal class SyntaxTriviaTextCharacters : CustomTextCharacters
+    public class SyntaxTriviaTextCharacters : CustomTextCharacters
     {
         public SyntaxTrivia Trivia { get; }
         public SyntaxNode Node { get; }
