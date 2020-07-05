@@ -28,6 +28,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using TextLine = System.Windows.Media.TextFormatting.TextLine;
 
 // ReSharper disable ConvertToUsingDeclaration
 
@@ -367,6 +368,7 @@ namespace RoslynCodeControls
 
         static RoslynCodeControl()
         {
+            FocusableProperty.OverrideMetadata(typeof(RoslynCodeControl), new FrameworkPropertyMetadata(true)); 
             DefaultStyleKeyProperty.OverrideMetadata(typeof(RoslynCodeControl),
                 new FrameworkPropertyMetadata(typeof(RoslynCodeControl)));
             SyntaxTreeProperty.OverrideMetadata(typeof(RoslynCodeControl),
@@ -410,25 +412,222 @@ namespace RoslynCodeControls
             CSharpCompilationOptions = new CSharpCompilationOptions(default(OutputKind));
             PixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             // CommandBindings.Add(new CommandBinding(WpfAppCommands.Compile, CompileExecuted));
-            CommandBindings.Add(new CommandBinding(EditingCommands.EnterLineBreak, OnEnterLineBreak,
-                CanEnterLineBreak));
-            CommandBindings.Add(new CommandBinding(EditingCommands.Backspace, OnBackspace));
-            CommandBindings.Add(new CommandBinding(EditingCommands.MoveRightByCharacter, OnMoveRightByCharacter));
-            CommandBindings.Add(new CommandBinding(EditingCommands.MoveLeftByCharacter, OnMoveLeftByCharacter));
-
-
-            InputBindings.Add(new KeyBinding(EditingCommands.EnterLineBreak, Key.Enter, ModifierKeys.None));
-            InputBindings.Add(new KeyBinding(EditingCommands.Backspace, Key.Back, ModifierKeys.None));
-            InputBindings.Add(new KeyBinding(EditingCommands.MoveRightByCharacter, Key.Right, ModifierKeys.None));
-            InputBindings.Add(new KeyBinding(EditingCommands.MoveLeftByCharacter, Key.Left, ModifierKeys.None));
+            SetupCommands(this, this);
         }
 
-        private void OnMoveLeftByCharacter(object sender, ExecutedRoutedEventArgs e)
+        protected override void OnPreviewGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+        {
+            base.OnPreviewGotKeyboardFocus(e);
+            // if (_focusing)
+                // return;
+            // if (_scrollViewer != null)
+            // {
+                // _focusing = true;
+                // Keyboard.Focus(_scrollViewer);
+                // _focusing = false;
+            // }
+        }
+
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        {
+            base.OnPreviewKeyDown(e);
+            if (e.Handled)
+            {
+                return;
+            }
+            switch (e.Key)
+            {
+                case Key.Left:
+                    e.Handled = true;
+                    if (CanMoveLeftByCharacter())
+                    {
+                        MoveLeftByCharacter();
+                    }
+
+                    break;
+
+                case Key.Up:
+                    e.Handled = true;
+                    if (CanMoveUpByLine())
+                    {
+                        MoveUpByLine();
+                    }
+
+                    break;
+                case Key.Right:
+                    e.Handled = true;
+                    if (CanMoveRightByCharacter())
+                    {
+                        MoveRightByCharacter();
+                        
+                    }
+
+                    break;
+                case Key.Down:
+                    e.Handled = true;
+                    if (CanMoveDownByLine())
+                    {
+                        MoveDownByLine();
+                        
+                    }
+
+                    break;
+
+            }
+        }
+
+        public void MoveLeftByCharacter()
         {
             if (InsertionPoint > 0) InsertionPoint--;
         }
 
+        private static void SetupCommands(RoslynCodeControl control1, UIElement control)
+        {
+            control.CommandBindings.Add(new CommandBinding(EditingCommands.EnterLineBreak, control1.OnEnterLineBreak, control1.CanEnterLineBreak));
+            control.CommandBindings.Add(new CommandBinding(EditingCommands.Backspace, control1.OnBackspace));
+            control.CommandBindings.Add(new CommandBinding(EditingCommands.MoveRightByCharacter, control1.OnMoveRightByCharacter, control1.CanExecuteMoveRightByCharacter));
+            control.CommandBindings.Add(new CommandBinding(EditingCommands.MoveLeftByCharacter, control1.OnMoveLeftByCharacter, control1.CanExecuteMoveLeftByCharacter));
+            control.CommandBindings.Add(new CommandBinding(EditingCommands.MoveUpByLine, control1.OnMoveUpByLine, control1.CanExecuteOnMoveUpByLine));
+            control.CommandBindings.Add(new CommandBinding(EditingCommands.MoveDownByLine, control1.OnMoveDownByLine, control1.CanExecuteOnMoveDownByLine));
+
+
+            control.InputBindings.Add(new KeyBinding(EditingCommands.EnterLineBreak, Key.Enter, ModifierKeys.None));
+            control.InputBindings.Add(new KeyBinding(EditingCommands.Backspace, Key.Back, ModifierKeys.None));
+            control.InputBindings.Add(new KeyBinding(EditingCommands.MoveRightByCharacter, Key.Right, ModifierKeys.None));
+            control.InputBindings.Add(new KeyBinding(EditingCommands.MoveLeftByCharacter, Key.Left, ModifierKeys.None));
+            control.InputBindings.Add(new KeyBinding(EditingCommands.MoveUpByLine, Key.Up, ModifierKeys.None));
+            control.InputBindings.Add(new KeyBinding(EditingCommands.MoveDownByLine, Key.Down, ModifierKeys.None));
+        }
+
+        private void OnMoveDownByLine(object sender, ExecutedRoutedEventArgs e)
+        {
+            MoveDownByLine();
+        }
+
+        public void MoveDownByLine()
+        {
+            var ci = InsertionCharInfo;
+            if (ci != null)
+            {
+                var upCi = CharInfos.FirstOrDefault(ci0 =>
+                    ci0.LineNumber == ci.LineNumber + 1 && ci0.XOrigin >= ci.XOrigin);
+                if (upCi != null)
+                {
+                    InsertionPoint = upCi.Index;
+                    InsertionCharInfo = upCi;
+                }
+                else
+                {
+                    upCi = CharInfos.LastOrDefault(ci0 => ci0.LineNumber == ci.LineNumber + 1);
+                    if (upCi != null)
+                    {
+                        InsertionPoint = upCi.Index + 1;
+                        InsertionCharInfo = upCi;
+                    }
+                    else
+                    {
+                    }
+                }
+            }
+        }
+
+        private void CanExecuteOnMoveDownByLine(object sender, CanExecuteRoutedEventArgs e)
+        {
+            if (e.Handled)
+                return;
+            e.CanExecute = CanMoveDownByLine();
+            e.Handled = true;
+        }
+
+        private bool CanMoveDownByLine()
+        {
+            return CustomTextSource != null && !_handlingInput &&
+                   InsertionCharInfo != null &&
+                   CharInfos.Any(ci => ci.LineNumber >= InsertionCharInfo.LineNumber + 1);
+        }
+
+        private void CanExecuteOnMoveUpByLine(object sender, CanExecuteRoutedEventArgs e)
+        {
+            if (e.Handled)
+                return;
+            e.CanExecute = CanMoveUpByLine();
+            e.Handled = true;
+        }
+
+        private bool CanMoveUpByLine()
+        {
+            return CustomTextSource != null && !_handlingInput && (InsertionCharInfo?.LineNumber ?? 0) > 0;
+        }
+
+        private void CanExecuteMoveRightByCharacter(object sender, CanExecuteRoutedEventArgs e)
+        {
+            if (e.Handled)
+                return;
+            e.CanExecute = CanMoveRightByCharacter();
+            e.Handled = true;
+        }
+
+        private bool CanMoveRightByCharacter()
+        {
+            return CustomTextSource != null && !_handlingInput && InsertionPoint < CustomTextSource.Length - 2;
+        }
+
+        private void CanExecuteMoveLeftByCharacter(object sender, CanExecuteRoutedEventArgs e)
+        {
+            if (e.Handled)
+                return;
+            e.CanExecute = CanMoveLeftByCharacter();
+            e.Handled = true;
+        }
+
+        private bool CanMoveLeftByCharacter()
+        {
+            return CustomTextSource != null && !_handlingInput && InsertionPoint > 0;
+        }
+
+        private void OnMoveUpByLine(object sender, ExecutedRoutedEventArgs e)
+        {
+            MoveUpByLine();
+        }
+
+        public void MoveUpByLine()
+        {
+            var ci = InsertionCharInfo;
+            if (ci != null)
+            {
+                var upCi = CharInfos.FirstOrDefault(ci0 =>
+                    ci0.LineNumber == ci.LineNumber - 1 && ci0.XOrigin >= ci.XOrigin);
+                if (upCi != null)
+                {
+                    InsertionPoint = upCi.Index;
+                    InsertionCharInfo = upCi;
+                }
+                else
+                {
+                    upCi = CharInfos.LastOrDefault(ci0 => ci0.LineNumber == ci.LineNumber + 1);
+                    if (upCi != null)
+                    {
+                        InsertionPoint = upCi.Index + 1;
+                        InsertionCharInfo = upCi;
+                    }
+                    else
+                    {
+                    }
+                }
+            }
+        }
+
+        private void OnMoveLeftByCharacter(object sender, ExecutedRoutedEventArgs e)
+        {
+            MoveLeftByCharacter();
+        }
+
         private void OnMoveRightByCharacter(object sender, ExecutedRoutedEventArgs e)
+        {
+            MoveRightByCharacter();
+        }
+
+        public void MoveRightByCharacter()
         {
             InsertionPoint++;
         }
@@ -559,7 +758,16 @@ namespace RoslynCodeControls
         public override void OnApplyTemplate()
         {
             _scrollViewer = (ScrollViewer) GetTemplateChild("ScrollViewer");
-            if (_scrollViewer != null) OutputWidth = _scrollViewer.ActualWidth;
+            if (_scrollViewer != null)
+            {
+                OutputWidth = _scrollViewer.ActualWidth;
+                // if (IsKeyboardFocused)
+                // {
+                //     _focusing = true;
+                //     Keyboard.Focus(_scrollViewer);
+                //     _focusing = false;
+                // }
+            }
             // if(OutputWidth == 0)
             // {
             // throw new InvalidOperationException();
@@ -775,7 +983,7 @@ namespace RoslynCodeControls
                     new TextDecorationCollection(), Brushes.Black,
                     new Typeface(new FontFamily(inn.FontFamilyName), FontStyles.Normal, FontWeights.Normal,
                         FontStretches.Normal));
-                var lineInfo = RedrawLine((InClassName) inn, out var lineCtx);
+                var lineInfo = RedrawLine(inn);
                 return lineInfo;
             }
             catch (Exception ex)
@@ -798,12 +1006,7 @@ namespace RoslynCodeControls
                         FontStretches.Normal));
                 CustomTextSource.TextInput(insertionPoint, inputRequest);
 
-                var lineInfo = RedrawLine((InClassName) inn, out var lineCtx);
-                if (inputRequest.Kind == InputRequestKind.NewLine)
-                {
-                }
-
-                return lineInfo;
+                return RedrawLine(inn);
             }
             catch (Exception ex)
 
@@ -829,19 +1032,30 @@ namespace RoslynCodeControls
             _textCaret.BeginAnimation(VisibilityProperty, null);
         }
 
-        private static LineInfo RedrawLine(InClassName inClassName, out LineContext lineCtx)
+        private static LineInfo RedrawLine(InClassName inClassName)
         {
             LineInfo outLineInfo;
+            LineInfo prevLine = null;
+            int lineNo = inClassName.LineNo;
+            var lineOriginPoint = new Point(inClassName.X, inClassName.Y);
             using (var myTextLine = inClassName.TextFormatter.FormatLine(inClassName.CustomTextSource4,
                 inClassName.Offset, inClassName.ParagraphWidth,
                 new GenericTextParagraphProperties(inClassName.CurrentRendering, inClassName.PixelsPerDip), null))
             {
+                int runCount = inClassName.CustomTextSource4.RunInfos.Count(ri => true);
+                var textStorePosition = inClassName.Offset;
+                List<CharInfo> allCharInfos = new List<CharInfo>();
+                _ = HandleTextLine(ref textStorePosition, out _, ref prevLine, ref lineNo, lineOriginPoint,
+                    inClassName.ParagraphWidth, inClassName.CustomTextSource4, runCount, myTextLine, allCharInfos,
+                    inClassName.CustomTextSource4.RunInfos, inClassName.Dc, out outLineInfo);
+            }
+#if false
                 lineCtx = new LineContext()
                 {
                     LineNumber = inClassName.LineNo,
                     CurCellRow = inClassName.LineNo,
                     // LineInfo = inClassName.LineInfo,
-                    LineOriginPoint = new Point(inClassName.X, inClassName.Y),
+                    LineOriginPoint = lineOriginPoint,
                     MyTextLine = myTextLine,
                     MaxX = inClassName.MaxX,
                     MaxY = inClassName.MaxY,
@@ -852,25 +1066,17 @@ namespace RoslynCodeControls
                 inClassName.Dc.Dispatcher.Invoke(() => { myTextLine.Draw(inClassName.Dc, o, InvertAxes.None); });
                 var regions = new List<RegionInfo>();
                 FormattingHelper.HandleTextLine(regions, ref lineCtx, out var lineI, inClassName.RoslynCodeControl);
+#endif
+            var lineCtxMaxX = outLineInfo.Origin.X + outLineInfo.Size.Width;
+            var lineCtxMaxY = outLineInfo.Origin.Y + outLineInfo.Size.Height;
 
-                inClassName.RoslynCodeControl.Dispatcher.Invoke(() =>
+            inClassName.RoslynCodeControl.Dispatcher.Invoke(() =>
                 {
                     if (inClassName.RoslynCodeControl.LineInfos.Count <= inClassName.LineNo)
-                        inClassName.RoslynCodeControl.LineInfos.Add(lineI);
+                        inClassName.RoslynCodeControl.LineInfos.Add(outLineInfo);
                     else
-                        inClassName.RoslynCodeControl.LineInfos[inClassName.LineNo] = lineI;
-                });
-                outLineInfo = lineI;
-            }
-
-            Debug.WriteLine(
-                $"{inClassName.RoslynCodeControl._rect.Width}x{inClassName.RoslynCodeControl._rect.Height}");
-
-
-            var lineCtxMaxX = lineCtx.MaxX;
-            var lineCtxMaxY = lineCtx.MaxY;
-            inClassName.RoslynCodeControl.Dispatcher.Invoke(() =>
-            {
+                        inClassName.RoslynCodeControl.LineInfos[inClassName.LineNo] = outLineInfo;
+                
                 inClassName.Dc.Close();
                 var textDest = inClassName.RoslynCodeControl._textDest;
                 var i = inClassName.LineNo / 100;
@@ -895,7 +1101,6 @@ namespace RoslynCodeControls
 
 
                 inClassName.RoslynCodeControl.MaxX = Math.Max(inClassName.RoslynCodeControl.MaxX, lineCtxMaxX);
-
                 inClassName.RoslynCodeControl.MaxY = Math.Max(inClassName.RoslynCodeControl.MaxY, lineCtxMaxY);
                 inClassName.RoslynCodeControl.Rectangle.Width = lineCtxMaxX;
                 inClassName.RoslynCodeControl.Rectangle.Height = lineCtxMaxY;
@@ -1041,6 +1246,12 @@ namespace RoslynCodeControls
             PerformingUpdate = false;
             InitialUpdate = false;
             RaiseEvent(new RoutedEventArgs(RenderCompleteEvent, this));
+            var insertionPoint = InsertionPoint;
+            if (insertionPoint == 0)
+            {
+                InsertionCharInfo = CharInfos.FirstOrDefault();
+            }
+            CommandManager.InvalidateRequerySuggested();
         }
 
         public DispatcherOperation<CustomTextSource4> InnerUpdateDispatcherOperation
@@ -1090,7 +1301,7 @@ namespace RoslynCodeControls
         }
 
         private static CustomTextSource4 InnerUpdate(RoslynCodeControl roslynCodeControl, int textStorePosition,
-            TextLineBreak prev, LineInfo prevLine, int line, Point linePosition,
+            TextLineBreak prev, LineInfo prevLine, int lineNo, Point linePosition,
             CharacterCell prevCell, RegionInfo prevRegion,
             TextFormatter textFormatter, double paragraphWidth, double pixelsPerDip,
             double emSize0, SyntaxTree tree, SyntaxNode node0, Compilation compilation, string faceName,
@@ -1116,7 +1327,7 @@ namespace RoslynCodeControls
             var lineContext = new LineContext();
             var genericTextParagraphProperties =
                 new GenericTextParagraphProperties(currentRendering, pixelsPerDip);
-            var runsInfos = new List<Tuple<TextRun, Rect>>();
+            var runsInfos = new List<TextRunInfo>();
             var allCharInfos = new List<CharInfo>(80 * 100);
             while (textStorePosition < customTextSource4.Length)
             {
@@ -1129,44 +1340,82 @@ namespace RoslynCodeControls
                     genericTextParagraphProperties,
                     prev))
                 {
-                    var nRuns = customTextSource4.Runs.Count - runCount;
+                    linePosition = HandleTextLine(ref textStorePosition,
+                        out prev, ref prevLine, ref lineNo, linePosition, paragraphWidth, customTextSource4, runCount,
+                        myTextLine, allCharInfos, runsInfos, myDc, out var lineInfo);
+                }
+
+                if (lineNo > 0 && lineNo % 100 == 0)
+                {
+                    myDc.Close();
+                    myGroup.Freeze();
+                    var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
+                    channelWriter.WriteAsync(curUi);
+                    myGroup = new DrawingGroup();
+                    myDc = myGroup.Open();
+                }
+            }
+
+
+            if (lineNo % 100 != 0)
+            {
+                myDc.Close();
+                myGroup.Freeze();
+                var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
+                channelWriter.WriteAsync(curUi);
+            }
+            else
+            {
+                myDc.Close();
+            }
+
+            customTextSource4.RunInfos = runsInfos;
+            return customTextSource4;
+        }
+
+        private static Point HandleTextLine(ref int textStorePosition, out TextLineBreak prev, ref LineInfo prevLine,
+            ref int lineNo, Point linePosition, double paragraphWidth, CustomTextSource4 customTextSource4,
+            int runCount,
+            TextLine myTextLine, List<CharInfo> allCharInfos, List<TextRunInfo> runsInfos, DrawingContext myDc,
+            out LineInfo lineInfo)
+        {
+            var nRuns = customTextSource4.Runs.Count - runCount;
 #if DEBUGTEXTSOURCE
                     Debug.WriteLine("num runs for line is "  + nRuns);
 #endif
-                    var lineChars = new List<char>();
+            if (myTextLine.HasOverflowed) Debug.WriteLine("overflowed");
 
-                    if (myTextLine.HasOverflowed) Debug.WriteLine("overflowed");
+            if (myTextLine.Width > paragraphWidth) Debug.WriteLine("overflowed2");
+            lineInfo = new LineInfo
+            {
+                Offset = textStorePosition, Length = myTextLine.Length, PrevLine = prevLine, LineNumber = lineNo
+            };
 
-                    if (myTextLine.Width > paragraphWidth) Debug.WriteLine("overflowed2");
-                    var lineInfo = new LineInfo {Offset = textStorePosition, Length = myTextLine.Length};
-                    lineInfo.PrevLine = prevLine;
-                    lineInfo.LineNumber = line;
+            if (prevLine != null) prevLine.NextLine = lineInfo;
 
-                    if (prevLine != null) prevLine.NextLine = lineInfo;
+            prevLine = lineInfo;
+            lineInfo.Size = new Size(myTextLine.WidthIncludingTrailingWhitespace, myTextLine.Height);
+            lineInfo.Origin = new Point(linePosition.X, linePosition.Y);
 
-                    prevLine = lineInfo;
-                    lineInfo.Size = new Size(myTextLine.WidthIncludingTrailingWhitespace, myTextLine.Height);
-                    lineInfo.Origin = new Point(linePosition.X, linePosition.Y);
+            var location = linePosition;
 
-                    var location = linePosition;
-                    var group = 0;
-
-                    var textRunSpans = myTextLine.GetTextRunSpans();
-                    var spans = textRunSpans;
-                    var cell = linePosition;
-                    var cellColumn = 0;
-                    var characterOffset = textStorePosition;
-                    var regionOffset = textStorePosition;
-
-                    var curPos = linePosition;
-                    var positions = new List<Rect>();
-                    var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
-                    var textRuns = customTextSource4.Runs.GetRange(runCount, nRuns);
-                    var enum1 = textRuns.GetEnumerator();
-                    enum1.MoveNext();
-                    var linec = 0;
-                    var xOrigin = linePosition.X;
-                    var charInfos = new List<CharInfo>(myTextLine.Length);
+            var textRunSpans = myTextLine.GetTextRunSpans();
+            var spans = textRunSpans;
+            var cell = linePosition;
+            var characterOffset = textStorePosition;
+            var regionOffset = textStorePosition;
+            
+            var curPos = linePosition;
+            var positions = new List<Rect>();
+            var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
+            var textRuns = customTextSource4.Runs.GetRange(runCount, nRuns);
+            using (var enum1 = textRuns.GetEnumerator())
+            {
+                enum1.MoveNext();
+                var lineCharIndex = 0;
+                var xOrigin = linePosition.X;
+                //var charInfos = new List<CharInfo>(myTextLine.Length);
+                if (indexedGlyphRuns != null)
                     foreach (var glyphRunC in indexedGlyphRuns)
                     {
                         var gl = glyphRunC.GlyphRun;
@@ -1174,23 +1423,26 @@ namespace RoslynCodeControls
 
                         for (var i = 0; i < gl.Characters.Count; i++)
                         {
-                            var glAdvanceWidth = gl.AdvanceWidths[i];
+                            var i0 = gl.ClusterMap?[i]?? i;
+                            var glAdvanceWidth = gl.AdvanceWidths[i0];
                             var glCharacter = gl.Characters[i];
-                            var glCaretStop = gl.CaretStops?[i];
-                            var ci = new CharInfo(textStorePosition + linec, linec, i, glCharacter, glAdvanceWidth,
+                            var glCaretStop = gl.CaretStops?[i0];
+                            var ci = new CharInfo(lineNo, textStorePosition + lineCharIndex, lineCharIndex, i,
+                                glCharacter, glAdvanceWidth,
                                 glCaretStop, xOrigin, linePosition.Y);
-                            linec++;
+                            lineCharIndex++;
                             xOrigin += glAdvanceWidth;
-                            charInfos.Add(ci);
+                            //charInfos.Add(ci);
                             allCharInfos.Add(ci);
                         }
 
                         var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
-                        runsInfos.Add(Tuple.Create(enum1.Current, item));
+                        runsInfos.Add(new TextRunInfo(enum1.Current, item));
                         positions.Add(item);
                         curPos.X += advanceSum;
                         enum1.MoveNext();
                     }
+            }
 #if DEBUGTEXTSOURCE
                     if (positions.Count != nRuns - 1)
                     {
@@ -1211,215 +1463,194 @@ namespace RoslynCodeControls
                         Debug.WriteLine(z);
                     }
 #endif
-                    // FormattingHelper.HandleTextLine(null, ref lineContext, out var lineInfo2, null);
-#if false
-                    var eol = myTextLine.GetTextRunSpans().Select(xx => xx.Value).OfType<TextEndOfLine>();
-                    if (eol.Any())
-                    {
-                        // dc.DrawRectangle(Brushes.Aqua, null,
-                        // new Rect(linePosition.X + myTextLine.WidthIncludingTrailingWhitespace + 2,
-                        // linePosition.Y + 2, 10, 10));
-                    }
-                    else
-                    {
-                        Debug.WriteLine("no end of line");
-                        foreach (var textRunSpan in myTextLine.GetTextRunSpans())
-                            Debug.WriteLine(textRunSpan.Value.ToString());
-                    }
 
-                    var lineRegions = new List<RegionInfo>();
-                    lineInfo.Regions = lineRegions;
-                    var lineString = "";
-                    var xoffset = lineInfo.Origin.X;
-                    var xoffsets = new List<double>();
+            //OldHandleTextLine(linePosition, myTextLine, lineInfo, lineChars, cell, cellColumn, prevCell, characterOffset, location, spans, regionOffset);
 
-                    var curOffset = linePosition;
-                    foreach (var rect in myTextLine.GetIndexedGlyphRuns())
-                    {
-                        var rectGlyphRun = rect.GlyphRun;
+            myTextLine.Draw(myDc, linePosition, InvertAxes.None);
+            linePosition.Y += myTextLine.Height;
+            lineNo++;
 
-                        if (rectGlyphRun != null)
-                        {
-                            var size = new Size(0, 0);
-                            var cellBounds =
-                                new List<CharacterCell>();
-                            var emSize = rectGlyphRun.FontRenderingEmSize;
+            prev = null;
 
+            // Update the index position in the text store.
+            textStorePosition += myTextLine.Length;
+            return linePosition;
+        }
 
-                            if (rectGlyphRun.Characters.Count > rectGlyphRun.GlyphIndices.Count)
-                                Debug.WriteLine($"Character mismatch");
-
-                            var xx = new RectangleGeometry(new Rect(curOffset,
-                                new Size(rectGlyphRun.AdvanceWidths.Sum(),
-                                    rectGlyphRun.GlyphTypeface.Height * rectGlyphRun.FontRenderingEmSize)));
-                            curOffset.Y += myTextLine.Height;
-                            var x = new CombinedGeometry();
-
-                            for (var i = 0; i < rectGlyphRun.GlyphIndices.Count; i++)
-                            {
-                                var advanceWidth = rectGlyphRun.AdvanceWidths[i];
-
-                                xoffsets.Add(xoffset);
-                                xoffset += advanceWidth;
-                                size.Width += advanceWidth;
-                                var gi = rectGlyphRun.GlyphIndices[i];
-                                var c = rectGlyphRun.Characters[i];
-                                lineChars.Add(c);
-                                lineString += c;
-                                var advWidth = rectGlyphRun.GlyphTypeface.AdvanceWidths[gi];
-                                var advHeight = rectGlyphRun.GlyphTypeface.AdvanceHeights[gi];
-
-                                var s = new Size(advWidth * emSize,
-                                    (advHeight
-                                     + rectGlyphRun.GlyphTypeface.BottomSideBearings[gi])
-                                    * emSize);
-
-                                var topSide = rectGlyphRun.GlyphTypeface.TopSideBearings[gi];
-                                var bounds = new Rect(new Point(cell.X, cell.Y + topSide), s);
-                                if (!bounds.IsEmpty)
-                                {
-                                    // ReSharper disable once UnusedVariable
-                                    var glyphTypefaceBaseline = rectGlyphRun.GlyphTypeface.Baseline;
-                                    //Debug.WriteLine(glyphTypefaceBaseline.ToString());
-                                    //bounds.Offset(cell.X, cell.Y + glyphTypefaceBaseline);
-                                    // dc.DrawRectangle(Brushes.White, null,  bounds);
-                                    // dc.DrawText(
-                                    // new FormattedText(cellColumn.ToString(), CultureInfo.CurrentCulture,
-                                    // FlowDirection.LeftToRight, new Typeface("Arial"), _emSize * .66, Brushes.Aqua,
-                                    // new NumberSubstitution(), _pixelsPerDip), new Point(bounds.Left, bounds.Top));
-                                }
-
-                                var char0 = new CharacterCell(bounds, new Point(cellColumn, chars.Count - 1), c)
-                                {
-                                    PreviousCell = prevCell
-                                };
-
-                                if (prevCell != null)
-                                    prevCell.NextCell = char0;
-                                prevCell = char0;
-
-                                cellBounds.Add(char0);
-                                cell.Offset(rectGlyphRun.AdvanceWidths[i], 0);
-
-                                cellColumn++;
-                                characterOffset++;
-                                //                                _textDest.Children.Add(new GeometryDrawing(null, new Pen(Brushes.DarkOrange, 2), new RectangleGeometry(bounds)));
-                            }
-
-                            //var bb = rect.GlyphRun.BuildGeometry().Bounds;
-
-                            size.Height += myTextLine.Height;
-                            var r = new Rect(location, size);
-                            location.Offset(size.Width, 0);
-//                            dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r);
-                            //rects.Add(r);
-                            if (@group < spans.Count)
-                            {
-                                var textSpan = spans[@group];
-                                var textSpanValue = textSpan.Value;
-                                SyntaxNode node = null;
-                                SyntaxToken? token = null;
-                                SyntaxTrivia? trivia = null;
-                                SyntaxToken? AttachedToken = null;
-                                SyntaxNode attachedNode = null;
-
-                                SyntaxNode structuredTrivia = null;
-                                TriviaPosition? triviaPosition = null;
-                                if (textSpanValue is SyntaxTokenTextCharacters stc)
-                                {
-                                    node = stc.SyntaxNode;
-                                    token = stc.Token;
-                                }
-                                else
-                                {
-                                    if (textSpanValue is SyntaxTriviaTextCharacters stc2)
-                                    {
-                                        trivia = stc2.Trivia;
-                                        AttachedToken = stc2.Token;
-                                        attachedNode = stc2.SyntaxNode;
-                                        structuredTrivia = stc2.StructuredTrivia;
-                                        triviaPosition = stc2.TriviaPosition;
-                                    }
-                                }
-
-                                var tuple = new RegionInfo(textSpanValue, r, cellBounds)
-                                {
-                                    Line = lineInfo,
-                                    Offset = regionOffset,
-                                    Length = textSpan.Length,
-                                    SyntaxNode = node,
-                                    AttachedToken = AttachedToken,
-                                    AttachedNode = attachedNode,
-                                    SyntaxToken = token,
-                                    Trivia = trivia,
-                                    TriviaPosition = triviaPosition,
-                                    PrevRegion = prevRegion,
-                                    StructuredTrivia = structuredTrivia
-                                };
-                                foreach (var ch in tuple.Characters) ch.Region = tuple;
-                                lineRegions.Add(tuple);
-
-                                //roslynCodeControl.GeoTuples.Add(Tuple.Create(xx, tuple));
-
-                                if (prevRegion != null) prevRegion.NextRegion = tuple;
-                                prevRegion = tuple;
-                                // Infos.Add(tuple);
-                            }
-
-                            @group++;
-                            regionOffset = characterOffset;
-                        }
-
-                        lineInfo.Text = lineString;
-                        lineInfo.Regions = lineRegions;
-                        //                        Debug.WriteLine(rect.ToString());
-                        //dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r1);
-                    }
-
-
-                    //Debug.WriteLine(line.ToString() + ddBounds.ToString());
-                    //dc.DrawRectangle(null, new Pen(Brushes.Red, 1), ddBounds);
-#endif
-                    // Draw the formatted text into the drawing context.
-                    var p = new Point(linePosition.X + myTextLine.WidthIncludingTrailingWhitespace, linePosition.Y);
-                    var w = myTextLine.Width;
-
-                    myTextLine.Draw(myDc, linePosition, InvertAxes.None);
-                    linePosition.Y += myTextLine.Height;
-                    line++;
-
-                    prev = null;
-
-                    // Update the index position in the text store.
-                    textStorePosition += myTextLine.Length;
-                }
-
-                if (line > 0 && line % 100 == 0)
-                {
-                    myDc.Close();
-                    myGroup.Freeze();
-                    var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
-                    channelWriter.WriteAsync(curUi);
-                    myGroup = new DrawingGroup();
-                    myDc = myGroup.Open();
-                }
-            }
-
-
-            if (line % 100 != 0)
+        private static void OldHandleTextLine(Point linePosition, TextLine myTextLine, LineInfo lineInfo, List<char> lineChars,
+            Point cell, double cellColumn, CharacterCell prevCell, int characterOffset, Point location, IList<TextSpan<TextRun>> spans,
+            int regionOffset)
+        {
+            var eol = myTextLine.GetTextRunSpans().Select(xx => xx.Value).OfType<TextEndOfLine>();
+            if (eol.Any())
             {
-                myDc.Close();
-                myGroup.Freeze();
-                var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
-                channelWriter.WriteAsync(curUi);
+                // dc.DrawRectangle(Brushes.Aqua, null,
+                // new Rect(linePosition.X + myTextLine.WidthIncludingTrailingWhitespace + 2,
+                // linePosition.Y + 2, 10, 10));
             }
             else
             {
-                myDc.Close();
+                Debug.WriteLine("no end of line");
+                foreach (var textRunSpan in myTextLine.GetTextRunSpans())
+                    Debug.WriteLine(textRunSpan.Value.ToString());
             }
 
-            customTextSource4.RunInfos = runsInfos;
-            return customTextSource4;
+            var lineRegions = new List<RegionInfo>();
+            lineInfo.Regions = lineRegions;
+            var lineString = "";
+            var xoffset = lineInfo.Origin.X;
+            var xoffsets = new List<double>();
+
+            var curOffset = linePosition;
+            foreach (var rect in myTextLine.GetIndexedGlyphRuns())
+            {
+                var rectGlyphRun = rect.GlyphRun;
+
+                int @group = 0;
+                if (rectGlyphRun != null)
+                {
+                    var size = new Size(0, 0);
+                    var cellBounds =
+                        new List<CharacterCell>();
+                    var emSize = rectGlyphRun.FontRenderingEmSize;
+
+
+                    if (rectGlyphRun.Characters.Count > rectGlyphRun.GlyphIndices.Count)
+                        Debug.WriteLine($"Character mismatch");
+
+                    var xx = new RectangleGeometry(new Rect(curOffset,
+                        new Size(rectGlyphRun.AdvanceWidths.Sum(),
+                            rectGlyphRun.GlyphTypeface.Height * rectGlyphRun.FontRenderingEmSize)));
+                    curOffset.Y += myTextLine.Height;
+                    var x = new CombinedGeometry();
+
+                    List<char> chars = null;
+                    for (var i = 0; i < rectGlyphRun.GlyphIndices.Count; i++)
+                    {
+                        var advanceWidth = rectGlyphRun.AdvanceWidths[i];
+
+                        xoffsets.Add(xoffset);
+                        xoffset += advanceWidth;
+                        size.Width += advanceWidth;
+                        var gi = rectGlyphRun.GlyphIndices[i];
+                        var c = rectGlyphRun.Characters[i];
+                        lineChars.Add(c);
+                        lineString += c;
+                        var advWidth = rectGlyphRun.GlyphTypeface.AdvanceWidths[gi];
+                        var advHeight = rectGlyphRun.GlyphTypeface.AdvanceHeights[gi];
+
+                        var s = new Size(advWidth * emSize,
+                            (advHeight
+                             + rectGlyphRun.GlyphTypeface.BottomSideBearings[gi])
+                            * emSize);
+
+                        var topSide = rectGlyphRun.GlyphTypeface.TopSideBearings[gi];
+                        var bounds = new Rect(new Point(cell.X, cell.Y + topSide), s);
+                        if (!bounds.IsEmpty)
+                        {
+                            // ReSharper disable once UnusedVariable
+                            var glyphTypefaceBaseline = rectGlyphRun.GlyphTypeface.Baseline;
+                            //Debug.WriteLine(glyphTypefaceBaseline.ToString());
+                            //bounds.Offset(cell.X, cell.Y + glyphTypefaceBaseline);
+                            // dc.DrawRectangle(Brushes.White, null,  bounds);
+                            // dc.DrawText(
+                            // new FormattedText(cellColumn.ToString(), CultureInfo.CurrentCulture,
+                            // FlowDirection.LeftToRight, new Typeface("Arial"), _emSize * .66, Brushes.Aqua,
+                            // new NumberSubstitution(), _pixelsPerDip), new Point(bounds.Left, bounds.Top));
+                        }
+
+
+                        var char0 = new CharacterCell(bounds, new Point(cellColumn, chars.Count - 1), c)
+                        {
+                            PreviousCell = prevCell
+                        };
+
+                        if (prevCell != null)
+                            prevCell.NextCell = char0;
+                        prevCell = char0;
+
+                        cellBounds.Add(char0);
+                        cell.Offset(rectGlyphRun.AdvanceWidths[i], 0);
+
+                        cellColumn++;
+                        characterOffset++;
+                        //                                _textDest.Children.Add(new GeometryDrawing(null, new Pen(Brushes.DarkOrange, 2), new RectangleGeometry(bounds)));
+                    }
+
+                    //var bb = rect.GlyphRun.BuildGeometry().Bounds;
+
+                    size.Height += myTextLine.Height;
+                    var r = new Rect(location, size);
+                    location.Offset(size.Width, 0);
+//                            dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r);
+                    //rects.Add(r);
+                    RegionInfo prevRegion = null;
+                    if (@group < spans.Count)
+                    {
+                        var textSpan = spans[@group];
+                        var textSpanValue = textSpan.Value;
+                        SyntaxNode node = null;
+                        SyntaxToken? token = null;
+                        SyntaxTrivia? trivia = null;
+                        SyntaxToken? AttachedToken = null;
+                        SyntaxNode attachedNode = null;
+
+                        SyntaxNode structuredTrivia = null;
+                        TriviaPosition? triviaPosition = null;
+                        if (textSpanValue is SyntaxTokenTextCharacters stc)
+                        {
+                            node = stc.Node;
+                            token = stc.Token;
+                        }
+                        else
+                        {
+                            if (textSpanValue is SyntaxTriviaTextCharacters stc2)
+                            {
+                                trivia = stc2.Trivia;
+                                AttachedToken = stc2.Token;
+                                attachedNode = stc2.Node;
+                                structuredTrivia = stc2.StructuredTrivia;
+                                triviaPosition = stc2.TriviaPosition;
+                            }
+                        }
+
+                        var tuple = new RegionInfo(textSpanValue, r, cellBounds)
+                        {
+                            Line = lineInfo,
+                            Offset = regionOffset,
+                            Length = textSpan.Length,
+                            SyntaxNode = node,
+                            AttachedToken = AttachedToken,
+                            AttachedNode = attachedNode,
+                            SyntaxToken = token,
+                            Trivia = trivia,
+                            TriviaPosition = triviaPosition,
+                            PrevRegion = prevRegion,
+                            StructuredTrivia = structuredTrivia
+                        };
+                        foreach (var ch in tuple.Characters) ch.Region = tuple;
+                        lineRegions.Add(tuple);
+
+                        //roslynCodeControl.GeoTuples.Add(Tuple.Create(xx, tuple));
+
+                        if (prevRegion != null) prevRegion.NextRegion = tuple;
+                        prevRegion = tuple;
+                        // Infos.Add(tuple);
+                    }
+
+                    @group++;
+                    regionOffset = characterOffset;
+                }
+
+                lineInfo.Text = lineString;
+                lineInfo.Regions = lineRegions;
+                //                        Debug.WriteLine(rect.ToString());
+                //dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r1);
+            }
+
+
+            //Debug.WriteLine(line.ToString() + ddBounds.ToString());
+            //dc.DrawRectangle(null, new Pen(Brushes.Red, 1), ddBounds);
         }
 
         private void UpdateCaretPosition(int? oldValue = null, int? newValue = null)
@@ -1446,7 +1677,13 @@ namespace RoslynCodeControls
                 ciIndex = CharInfos.Count - 1;
             else if (forward) ciIndex++;
 
+            if (ciIndex == -1)
+            {
+                ciIndex = 0;
+            }
+
             ci = CharInfos[ciIndex];
+
             Debug.WriteLine($"Character is {ci.Character}");
             if (forward)
             {
@@ -1462,17 +1699,12 @@ namespace RoslynCodeControls
                 }
                 else
                 {
-                    
                     _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
                     _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth);
                     if (CharInfos.Count > ciIndex + 1 && CharInfos[ciIndex + 1].Index == ci.Index + 1)
-                    {
                         InsertionCharInfo = CharInfos[ciIndex + 1];
-                    }
                     else
-                    {
                         InsertionCharInfo = null;
-                    }
                 }
             }
             else
@@ -1552,6 +1784,8 @@ namespace RoslynCodeControls
         private Channel<UpdateInfo> _channel;
         private bool _handlingInput;
         private bool _updatingCaret;
+        private Rectangle _rectangle;
+        private bool _focusing;
 
         /// <inheritdoc />
         protected override void OnMouseMove(MouseEventArgs e)
@@ -1562,15 +1796,16 @@ namespace RoslynCodeControls
                 var point = e.GetPosition(Rectangle);
                 if (CustomTextSource?.RunInfos != null)
                 {
-                    var runInfo = CustomTextSource.RunInfos.Where(zz1 => zz1.Item2.Contains(point));
+                    var runInfo = CustomTextSource.RunInfos.Where(zz1 => zz1.Rect.Contains(point)).ToList();
                     if (runInfo.Any())
                     {
                         Debug.WriteLine(runInfo.Count().ToString());
                         var first = runInfo.First();
-                        Debug.WriteLine(first.Item2.ToString());
-                        Debug.WriteLine(first.Item1.ToString() ?? "");
-                        if (first.Item1 is CustomTextCharacters c0) Debug.WriteLine(c0.Text);
-                        HoverRegionInfo = new RegionInfo(first.Item1, first.Item2, new List<CharacterCell>());
+                        Debug.WriteLine(first.Rect.ToString());
+                        Debug.WriteLine(first.TextRun.ToString() ?? "");
+                        if (first.TextRun is CustomTextCharacters c0) Debug.WriteLine(c0.Text);
+                        // fake out hover region info
+                        HoverRegionInfo = new RegionInfo(first.TextRun, first.Rect, new List<CharacterCell>());
                     }
                 }
 
@@ -1971,7 +2206,18 @@ namespace RoslynCodeControls
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public Rectangle Rectangle { get; set; }
+        public Rectangle Rectangle
+        {
+            get { return _rectangle; }
+            set
+            {
+                _rectangle = value;
+                if (_rectangle != null)
+                {
+                    
+                }
+            }
+        }
 
         public DispatcherOperation<Task> UpdateOperation
         {
@@ -1995,11 +2241,14 @@ namespace RoslynCodeControls
         public double XOrigin { get; }
         public double YOrigin { get; }
         public int Index { get; set; }
+        public int LineNumber { get; set; }
 
-        public CharInfo(in int index, in int lineIndex, in int runIndex, char character, double advanceWidth,
+        public CharInfo(in int lineNo, in int index, in int lineIndex, in int runIndex, char character,
+            double advanceWidth,
             bool? caretStop,
             double xOrigin, double yOrigin)
         {
+            LineNumber = lineNo;
             Index = index;
             LineIndex = lineIndex;
             RunIndex = runIndex;
@@ -2071,6 +2320,13 @@ namespace RoslynCodeControls
         public InputRequest(InputRequestKind kind)
         {
             Kind = kind;
+        }
+    }
+
+    public class CustomScrollViewer : ScrollViewer
+    {
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
         }
     }
 }

@@ -646,7 +646,17 @@ namespace RoslynCodeControls
         {
             var pp = BasicProps();
             var kind = CSharpExtensions.Kind(token);
-
+            switch (kind)
+            {
+                case SyntaxKind.OpenBraceToken:
+                case SyntaxKind.CloseBraceToken:
+                case SyntaxKind.OpenBracketToken:
+                case SyntaxKind.CloseBracketToken:
+                case SyntaxKind.OpenParenToken:
+                case SyntaxKind.CloseParenToken:
+                    pp.SetForegroundBrush(Brushes.Red);
+                    break;
+            }
             if (token.ContainsDiagnostics)
             {
                 var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
@@ -1164,7 +1174,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
             set { _runs = value; }
         }
 
-        public List<Tuple<TextRun, Rect>> RunInfos { get; set; }
+        public List<TextRunInfo> RunInfos { get; set; }
 
         /// <summary>
         /// 
@@ -1199,13 +1209,24 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         }
     }
 
+    public class TextRunInfo
+    {
+        public TextRun TextRun { get; }
+        public Rect Rect { get; }
+
+        public TextRunInfo(TextRun textRun, Rect rect)
+        {
+            TextRun = textRun;
+            Rect = rect;
+        }
+    }
+
     public class CustomTextEndOfParagraph : TextEndOfParagraph
     {
         public int? Index { get; set; }
 
         public CustomTextEndOfParagraph(int i):base(i)
         {
-            throw new NotImplementedException();
         }
     }
 

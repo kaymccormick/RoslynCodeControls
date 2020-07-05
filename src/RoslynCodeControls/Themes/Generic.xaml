@@ -44,11 +44,10 @@
                             </Grid.ColumnDefinitions>
                             <ScrollViewer VerticalAlignment="Stretch" x:Name="ScrollViewer"
                                           HorizontalContentAlignment="Left"
-                                          VerticalContentAlignment="Top" Focusable="True">
-
+                                          VerticalContentAlignment="Top">
                                 <Grid x:Name="InnerGrid">
                                     <Rectangle x:Name="Rectangle" VerticalAlignment="Top" HorizontalAlignment="Left"
-                                               TextElement.FontSize="12" Stroke="Aquamarine">
+                                               TextElement.FontSize="12">
                                         <Rectangle.Fill>
                                             <DrawingBrush x:Name="DrawingBrush" AlignmentX="Left" AlignmentY="Top"
                                                           TileMode="None"
