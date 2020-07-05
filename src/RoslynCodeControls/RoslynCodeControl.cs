@@ -452,9 +452,18 @@ namespace RoslynCodeControls
         private void ContinuationFunction(Task<UpdateInfo> z)
         {
             var ui = z.Result;
-            var dc = _textDest.Append();
-            dc.DrawImage(ui.ImageSource, ui.Rect);
-            dc.Close();
+            DrawingGroup dg = ui.DrawingGroup;
+            var dg2 = new DrawingGroup();
+            foreach (var dgChild in dg.Children)
+            {
+                //dg.Children.Remove(dgChild);
+                dg2.Children.Add(dgChild);
+            }
+            _textDest.Children.Add(dg2);
+            // var dc = _textDest.Append();
+            
+            // dc.DrawImage(ui.ImageSource, ui.Rect);
+            // dc.Close();
 
 
             // if (w >= roslynCodeControl.MaxX) roslynCodeControl.MaxX = w;
@@ -462,8 +471,12 @@ namespace RoslynCodeControls
             // var rectangleWidth = roslynCodeControl.MaxX + roslynCodeControl._xOffset;
             // roslynCodeControl._rectangle.Width = rectangleWidth;
 
-            _rectangle.Height = ui.Rect.Bottom;
-            _myDrawingBrush.Viewbox = new Rect(0, 0, _rectangle.ActualWidth, ui.Rect.Bottom);
+            var uiRect = dg2.Bounds;
+            MaxY = Math.Max(MaxY, uiRect.Bottom);
+            MaxX = Math.Max(MaxX, uiRect.Right);
+            _rectangle.Height = MaxY;
+            _rectangle.Width = MaxX;
+            _myDrawingBrush.Viewbox = new Rect(0, 0, _rectangle.ActualWidth, uiRect.Bottom);
             _myDrawingBrush.ViewboxUnits = BrushMappingMode.Absolute;
             _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
                 TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
@@ -988,15 +1001,41 @@ namespace RoslynCodeControls
             inClassName.RoslynCodeControl.Dispatcher.Invoke(() =>
             {
                 inClassName.Dc.Close();
-                if (inClassName.RoslynCodeControl._textDest.Children.Count <= inClassName.LineNo)
-                    inClassName.RoslynCodeControl._textDest.Children.Add(inClassName.D);
+                var textDest = inClassName.RoslynCodeControl._textDest;
+                var i = inClassName.LineNo / 100;
+                var j = inClassName.LineNo % 100;
+                if (textDest.Children.Count <= i)
+                {
+                    var drawingGroup = new DrawingGroup();
+                    for (int k = 0; k < j; k++)
+                    {
+                        drawingGroup.Children.Add(new DrawingGroup());
+                    }
+                    drawingGroup.Children.Add(inClassName.D);
+                    textDest.Children.Add(drawingGroup);
+                }
                 else
-                    inClassName.RoslynCodeControl._textDest.Children[inClassName.LineNo] = inClassName.D;
+                {
+                    var drawingGroup = (DrawingGroup)textDest.Children[i];
+                    for (int k = 0; k < j; k++)
+                    {
+                        drawingGroup.Children.Add(new DrawingGroup());
+                    }
+
+                    if (j >= drawingGroup.Children.Count)
+                    {
+                        drawingGroup.Children.Add(inClassName.D);
+                    }
+                    else
+                    {
+                        drawingGroup.Children[j] = inClassName.D;
+                    }
+                }
 
 
-                inClassName.RoslynCodeControl.MaxX = lineCtxMaxX;
+                inClassName.RoslynCodeControl.MaxX = Math.Max(inClassName.RoslynCodeControl.MaxX, lineCtxMaxX);
 
-                inClassName.RoslynCodeControl.MaxY = lineCtxMaxY;
+                inClassName.RoslynCodeControl.MaxY = Math.Max(inClassName.RoslynCodeControl.MaxY, lineCtxMaxY);
                 inClassName.RoslynCodeControl._rectangle.Width = lineCtxMaxX;
                 inClassName.RoslynCodeControl._rectangle.Height = lineCtxMaxY;
                 inClassName.RoslynCodeControl._rect2.Width = lineCtxMaxX;
@@ -1590,17 +1629,20 @@ namespace RoslynCodeControls
                         return rtb;
                     }
 
-
-                    var out1 = SaveImage(myGroup);
-                    out1.Freeze();
-                    myDc = myGroup.Open();
-                    var rect = myGroup.Bounds; //new Rect(0, 0, myGroup.Bounds.Width, myGroup.Bounds.Height);
-                    var w = myGroup.Bounds.Width;
-                    // Debug.WriteLine("width = " + w);
-                    var y = myGroup.Bounds.Bottom;
-                    // Debug.WriteLine("bottom = " + (int) y);
-                    var curUi = new UpdateInfo() {ImageSource = out1, Rect = rect};
+                    myGroup.Freeze();
+                    var curUi = new UpdateInfo() { DrawingGroup = myGroup };
                     channelWriter.WriteAsync(curUi);
+
+                    // var out1 = SaveImage(myGroup);
+                    // out1.Freeze();
+                    myGroup = new DrawingGroup();
+                    myDc = myGroup.Open();
+                    // var rect = myGroup.Bounds; //new Rect(0, 0, myGroup.Bounds.Width, myGroup.Bounds.Height);
+                    // var w = myGroup.Bounds.Width;
+                    // Debug.WriteLine("width = " + w);
+                    // var y = myGroup.Bounds.Bottom;
+                    // Debug.WriteLine("bottom = " + (int) y);
+                    
 #if false
                     roslynCodeControl.Dispatcher.Invoke(() =>
                     {
@@ -1648,24 +1690,25 @@ namespace RoslynCodeControls
                     rtb.Render(v);
                     return rtb;
                 }
-
-
-                var out1 = SaveImage(myGroup);
-                out1.Freeze();
-                myDc = myGroup.Open();
-                var rect = myGroup.Bounds; //new Rect(0, 0, myGroup.Bounds.Width, myGroup.Bounds.Height);
-                var w = myGroup.Bounds.Width;
-                // Debug.WriteLine("width = " + w);
-                var y = myGroup.Bounds.Bottom;
-                var curUi = new UpdateInfo() {ImageSource = out1, Rect = rect};
+                myGroup.Freeze();
+                var curUi = new UpdateInfo() { DrawingGroup = myGroup };
                 channelWriter.WriteAsync(curUi);
+
+                // var out1 = SaveImage(myGroup);
+                // out1.Freeze();
+                // myDc = myGroup.Open();
+                // var rect = myGroup.Bounds; //new Rect(0, 0, myGroup.Bounds.Width, myGroup.Bounds.Height);
+                // var w = myGroup.Bounds.Width;
+                // Debug.WriteLine("width = " + w);
+                // var y = myGroup.Bounds.Bottom;
+                // var curUi = new UpdateInfo() {ImageSource = out1, Rect = rect};
+                // channelWriter.WriteAsync(curUi);
 
                 var span = DateTime.Now - startTime;
                 // Debug.WriteLine("Process line took " + span);
                 startTime = DateTime.Now;
-            }
-
-            myDc.Close();
+            } else
+                myDc.Close();
 
             customTextSource4.RunInfos = runsInfos;
             return customTextSource4;
@@ -2295,6 +2338,7 @@ namespace RoslynCodeControls
     {
         public BitmapSource ImageSource { get; set; }
         public Rect Rect { get; set; }
+        public DrawingGroup DrawingGroup { get; set; }
     }
 
     public class InputRequest
