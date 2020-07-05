@@ -497,8 +497,10 @@ namespace RoslynCodeControls
         {
             var text = await SyntaxTree.GetTextAsync();
             var root = await SyntaxTree.GetRootAsync();
-            await using var s = new FileStream(@"C:\temp\serialize.bin", FileMode.Create);
-            root.SerializeTo(s);
+            using (var s = new FileStream(@"C:\temp\serialize.bin", FileMode.Create))
+            {
+                root.SerializeTo(s);
+            }
         }
 
         protected virtual void OnSyntaxTreeUpdated(SyntaxTree newValue)
@@ -744,7 +746,7 @@ namespace RoslynCodeControls
                 
                 var drawingGroup = new DrawingGroup();
                 DrawingContext dc = drawingGroup.Open();
-                var inn2 = new InClassName(roslynCodeControl, newLineInfo.LineNumber, newLineInfo.Offset, newLineInfo.Origin.Y, newLineInfo.Origin.X, newLineInfo, roslynCodeControl.Formatter, inn.ParagraphWidth, inn.CurrentRendering, inn.PixelsPerDip, inn.CustomTextSource4, inn.MaxY, inn.MaxX, drawingGroup, dc, inn.FontSize, inn.FontFamilyName);
+                var inn2 = new InClassName(roslynCodeControl, newLineInfo.LineNumber, newLineInfo.Offset, newLineInfo.Origin.Y, newLineInfo.Origin.X, newLineInfo, RoslynCodeControl.Formatter, inn.ParagraphWidth, inn.CurrentRendering, inn.PixelsPerDip, inn.CustomTextSource4, inn.MaxY, inn.MaxX, drawingGroup, dc, inn.FontSize, inn.FontFamilyName);
                 var dispatcherOperation = roslynCodeControl.SecondaryDispatcher.InvokeAsync(
                     new Func<LineInfo>(() => Callback3(inn2)),
                     DispatcherPriority.Send, CancellationToken.None);
@@ -1090,10 +1092,11 @@ namespace RoslynCodeControls
             base.OnFilenameChanged(oldValue, newValue);
             if (newValue != null)
             {
-                using var sr = File.OpenText(newValue);
-                var code = await sr.ReadToEndAsync();
-
-                SourceText = code;
+                using (var sr = File.OpenText(newValue))
+                {
+                    var code = await sr.ReadToEndAsync();
+                    SourceText = code;
+                }
             }
         }
 
