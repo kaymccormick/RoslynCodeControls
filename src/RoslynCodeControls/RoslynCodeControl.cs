@@ -423,11 +423,19 @@ namespace RoslynCodeControls
             CommandBindings.Add(new CommandBinding(EditingCommands.EnterLineBreak, OnEnterLineBreak,
                 CanEnterLineBreak));
             CommandBindings.Add(new CommandBinding(EditingCommands.Backspace, OnBackspace));
+            CommandBindings.Add(new CommandBinding(EditingCommands.MoveRightByCharacter, OnMoveRightByCharacter));
+
 
             InputBindings.Add(new KeyBinding(EditingCommands.EnterLineBreak, Key.Enter, ModifierKeys.None));
             InputBindings.Add(new KeyBinding(EditingCommands.Backspace, Key.Back, ModifierKeys.None));
+            InputBindings.Add(new KeyBinding(EditingCommands.MoveRightByCharacter, Key.Right, ModifierKeys.None));
 
 
+        }
+
+        private void OnMoveRightByCharacter(object sender, ExecutedRoutedEventArgs e)
+        {
+            InsertionPoint++;
         }
 
         private async void OnBackspace(object sender, ExecutedRoutedEventArgs e)
@@ -707,33 +715,33 @@ namespace RoslynCodeControls
                         _textCaret.SetValue(Canvas.LeftProperty, InsertionCharacter.Bounds.Left);
                 }
                     break;
-                case Key.Right:
-                {
-                    Debug.WriteLine("incrementing insertion point");
-                    e.Handled = true;
-                    if (InsertionCharacter != null && InsertionCharacter.NextCell == null)
-                        break;
-                    var ip = ++InsertionPoint;
-                    Debug.WriteLine($"Insertion point: {ip}");
-
-                    var newc = InsertionCharacter.NextCell;
-                    if (newc.Region != null && newc.Region != InsertionRegion)
-                    {
-                        InsertionRegion = newc.Region;
-                        if (newc.Region.Line != InsertionLine) InsertionLine = newc.Region.Line;
-                    }
-
-                    InsertionCharacter = newc;
-
-                    var top = InsertionLine.Origin.Y;
-                    Debug.WriteLine("Setting top to " + top);
-
-                    _textCaret.SetValue(Canvas.TopProperty, top);
-                    _textCaret.SetValue(Canvas.LeftProperty, InsertionCharacter.Bounds.Left);
-
-
-                    break;
-                }
+                // case Key.Right:
+                // {
+                //     Debug.WriteLine("incrementing insertion point");
+                //     e.Handled = true;
+                //     if (InsertionCharacter != null && InsertionCharacter.NextCell == null)
+                //         break;
+                //     var ip = ++InsertionPoint;
+                //     Debug.WriteLine($"Insertion point: {ip}");
+                //
+                //     var newc = InsertionCharacter.NextCell;
+                //     if (newc.Region != null && newc.Region != InsertionRegion)
+                //     {
+                //         InsertionRegion = newc.Region;
+                //         if (newc.Region.Line != InsertionLine) InsertionLine = newc.Region.Line;
+                //     }
+                //
+                //     InsertionCharacter = newc;
+                //
+                //     var top = InsertionLine.Origin.Y;
+                //     Debug.WriteLine("Setting top to " + top);
+                //
+                //     _textCaret.SetValue(Canvas.TopProperty, top);
+                //     _textCaret.SetValue(Canvas.LeftProperty, InsertionCharacter.Bounds.Left);
+                //
+                //
+                //     break;
+                // }
             }
         }
 
@@ -1668,6 +1676,32 @@ namespace RoslynCodeControls
         private void UpdateCaretPosition()
         {
             var insertionPoint = InsertionPoint;
+            var run = CustomTextSource.Runs.FirstOrDefault(r =>
+            {
+                if (r is CustomTextCharacters ctc)
+                {
+                    if (ctc.Index.HasValue && ctc.Index.Value + ctc.Length >= insertionPoint)
+                    {
+                        return true;
+                    }
+                } else if (r is CustomTextEndOfLine ceol)
+                {
+                    if (ceol.Index.HasValue && ceol.Index.Value + ceol.Length  >= insertionPoint)
+                    {
+                        return true;
+                    }
+                
+
+            } else if (r is CustomTextEndOfParagraph ceop)
+            {
+                if (ceop.Index.HasValue && ceop.Index.Value + ceop.Length >= insertionPoint)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+            });
             var l0 = LineInfos.FirstOrDefault(l => l.Offset + l.Length > insertionPoint);
             if (l0 != null)
             {

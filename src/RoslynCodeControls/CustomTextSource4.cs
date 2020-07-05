@@ -170,7 +170,7 @@ namespace RoslynCodeControls
                 if (!SyntaxInfos.MoveNext())
                 {
                     
-                    var endOfParagraph = new TextEndOfParagraph(2);
+                    var endOfParagraph = new CustomTextEndOfParagraph(2){Index=textSourceCharacterIndex};
                     _runs.Add(endOfParagraph);
                     return endOfParagraph;
                 }
@@ -179,7 +179,7 @@ namespace RoslynCodeControls
             var si = SyntaxInfos.Current;
             if (si == null)
             {
-                var endOfParagraph = new TextEndOfParagraph(2);
+                var endOfParagraph = new CustomTextEndOfParagraph(2){Index=textSourceCharacterIndex};
                 _runs.Add(endOfParagraph);
                 return endOfParagraph;
             }
@@ -195,12 +195,12 @@ namespace RoslynCodeControls
                         Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
                         if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
                         var t = string.Join("", buf);
-                        var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t));
+                        var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t)){Index=textSourceCharacterIndex};
                         _runs.Add(customTextCharacters);
                         return customTextCharacters;
                     }
 
-                    var endOfParagraph = new TextEndOfParagraph(2);
+                    var endOfParagraph = new CustomTextEndOfParagraph(2){Index=textSourceCharacterIndex};
                     _runs.Add(endOfParagraph);
                     return endOfParagraph;
                 }
@@ -216,7 +216,8 @@ namespace RoslynCodeControls
                 Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
                 if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
                 var t = string.Join("", buf);
-                var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t));
+                var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
+                    {Index = textSourceCharacterIndex};
                 _runs.Add(customTextCharacters);
                 return customTextCharacters;
             }
@@ -228,14 +229,14 @@ namespace RoslynCodeControls
                 var syntaxKind = CSharpExtensions.Kind(si.SyntaxTrivia.Value);
                 if (syntaxKind == SyntaxKind.EndOfLineTrivia || syntaxKind == SyntaxKind.XmlTextLiteralNewLineToken)
                 {
-                    var customTextEndOfLine = new CustomTextEndOfLine(2);
+                    var customTextEndOfLine = new CustomTextEndOfLine(2){Index=textSourceCharacterIndex};
                     _runs.Add(customTextEndOfLine);
                     return customTextEndOfLine;
                 }
 
                 var p = PropsFor(si.SyntaxTrivia.Value, si.Text);
                 var syntaxTriviaTextCharacters = new SyntaxTriviaTextCharacters(si.Text, p, si.Span1,
-                    si.SyntaxTrivia.Value, si.Node, si.Token, si.TriviaPosition, si.StructuredTrivia);
+                    si.SyntaxTrivia.Value, si.Node, si.Token, si.TriviaPosition, si.StructuredTrivia){Index = si.Span1.Start};
                 _runs.Add(syntaxTriviaTextCharacters);
                 return syntaxTriviaTextCharacters;
             }
@@ -243,18 +244,18 @@ namespace RoslynCodeControls
             {
                 if (CSharpExtensions.Kind(si.SyntaxToken.Value) == SyntaxKind.XmlTextLiteralNewLineToken)
                 {
-                    var customTextEndOfLine = new CustomTextEndOfLine(2);
+                    var customTextEndOfLine = new CustomTextEndOfLine(2){Index=textSourceCharacterIndex};
                     _runs.Add(customTextEndOfLine);
                     return customTextEndOfLine;
                 }
                 var syntaxTokenTextCharacters = new SyntaxTokenTextCharacters(si.Text, si.Text.Length,
                     PropsFor(si.SyntaxToken.Value, si.Text),
-                    si.SyntaxToken.Value, si.SyntaxToken.Value.Parent);
+                    si.SyntaxToken.Value, si.SyntaxToken.Value.Parent) { Index=si.Span1.Start};
                 _runs.Add(syntaxTokenTextCharacters);
                 return syntaxTokenTextCharacters;
             }
 
-            var textEndOfParagraph = new TextEndOfParagraph(2);
+            var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index=textSourceCharacterIndex};
             _runs.Add(textEndOfParagraph);
             return textEndOfParagraph;
             Debug.WriteLine($"index: {textSourceCharacterIndex}");
@@ -1195,6 +1196,16 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class CustomTextEndOfParagraph : TextEndOfParagraph
+    {
+        public int? Index { get; set; }
+
+        public CustomTextEndOfParagraph(int i):base(i)
+        {
+            throw new NotImplementedException();
         }
     }
 

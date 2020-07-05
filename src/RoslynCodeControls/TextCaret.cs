@@ -24,7 +24,7 @@ namespace RoslynCodeControls
 
         protected override Size MeasureCore(Size availableSize)
         {
-            return new Size(_caretWidth + 1, lineHeight);
+            return new Size(_caretWidth, lineHeight);
         }
 
         protected override void OnRender(DrawingContext drawingContext)

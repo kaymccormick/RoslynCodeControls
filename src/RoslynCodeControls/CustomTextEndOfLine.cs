@@ -10,6 +10,8 @@ namespace RoslynCodeControls
     public class CustomTextEndOfLine : TextEndOfLine, ICustomSpan
     {
         private TextSpan _span;
+        public int? Index { get; set; }
+
 
         /// <inheritdoc />
         public TextSpan Span
