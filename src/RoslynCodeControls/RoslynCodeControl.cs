@@ -136,12 +136,6 @@ namespace RoslynCodeControls
             set { SetValue(HoverRegionInfoProperty, value); }
         }
 
-        /// <inheritdoc />
-        public override void EndInit()
-        {
-            base.EndInit();
-        }
-
         /// <summary>
         /// 
         /// </summary>
@@ -246,8 +240,8 @@ namespace RoslynCodeControls
         /// <param name="st"></param>
         /// <param name="node"></param>
         /// <param name="compilation"></param>
-        /// <param name="s1"></param>
-        /// <param name="typefaceManager"></param>
+        /// <param name="synchContext"></param>
+        /// <param name="fontSize"></param>
         /// <returns></returns>
         protected CustomTextSource4 CreateAndInitTextSource(double pixelsPerDip,
             Typeface tf, SyntaxTree st, SyntaxNode node, Compilation compilation,
@@ -346,7 +340,7 @@ namespace RoslynCodeControls
         /// <summary>
         /// 
         /// </summary>
-        private List<CompilationError> Errors { get; } = new List<CompilationError>();
+        public List<CompilationError> Errors { get; } = new List<CompilationError>();
 
         private void MarkLocation(Location diagnosticLocation)
         {
@@ -363,19 +357,6 @@ namespace RoslynCodeControls
             }
         }
 
-#if false
-        protected override Size MeasureOverride(Size constraint)
-        {
-            _grid.Measure(constraint);
-            var gridDesiredSize = _grid.DesiredSize;
-            Debug.WriteLine(gridDesiredSize.ToString());
-            return gridDesiredSize;
-            Debug.WriteLine(constraint.ToString());
-            return base.MeasureOverride(constraint);
-            return new Size(max_x, _pos.Y);
-        }
-#endif
-
         static RoslynCodeControl()
         {
             DefaultStyleKeyProperty.OverrideMetadata(typeof(RoslynCodeControl),
@@ -385,8 +366,6 @@ namespace RoslynCodeControls
                     OnSyntaxTreeChanged_));
             SyntaxNodeProperty.OverrideMetadata(typeof(RoslynCodeControl),
                 new PropertyMetadata(default(SyntaxNode), OnNodeUpdated));
-            // TextElement.FontFamilyProperty.OverrideMetadata(typeof(RoslynCodeControl), new PropertyMetadata(null, PropertyChangedCallback));
-            // TextElement.FontSizeProperty.OverrideMetadata(typeof(RoslynCodeControl), new PropertyMetadata(16.0, PropertyChangedCallback2));
         }
 
         private static void OnSyntaxTreeChanged_(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -394,45 +373,34 @@ namespace RoslynCodeControls
             var ss = (RoslynCodeControl) d;
             ss.OnSyntaxTreeUpdated((SyntaxTree) e.NewValue);
         }
-
-        private static async void PropertyChangedCallback2(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            Debug.WriteLine(e.NewValue.ToString());
-            //    await ((RoslynCodeControl)d).UpdateTextSource();
-        }
-
-        private static async void PropertyChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            //   await ((RoslynCodeControl) d).UpdateTextSource();
-        }
-
+        
         /// <summary>
         /// 
         /// </summary>
         public RoslynCodeControl()
-
         {
             _channel = Channel.CreateUnbounded<UpdateInfo>(new UnboundedChannelOptions()
                 {SingleReader = true, SingleWriter = true});
             _reader = _channel.Reader;
             _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
                 TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
-            var xx = new DoubleAnimationUsingPath();
-            _x1 = new ObjectAnimationUsingKeyFrames();
-            _x1.RepeatBehavior = RepeatBehavior.Forever;
-            _x1.Duration = new Duration(TimeSpan.FromSeconds(1));
+            _x1 = new ObjectAnimationUsingKeyFrames
+            {
+                RepeatBehavior = RepeatBehavior.Forever,
+                Duration = new Duration(TimeSpan.FromSeconds(1))
+            };
             Debug.WriteLine(_x1.Duration.ToString());
 
-            var c = new ObjectKeyFrameCollection();
-            c.Add(new DiscreteObjectKeyFrame(Visibility.Visible));
-            c.Add(new DiscreteObjectKeyFrame(Visibility.Hidden, KeyTime.FromPercent(.6)));
-            c.Add(new DiscreteObjectKeyFrame(Visibility.Visible, KeyTime.FromPercent(.4)));
+            var c = new ObjectKeyFrameCollection
+            {
+                new DiscreteObjectKeyFrame(Visibility.Visible),
+                new DiscreteObjectKeyFrame(Visibility.Hidden, KeyTime.FromPercent(.6)),
+                new DiscreteObjectKeyFrame(Visibility.Visible, KeyTime.FromPercent(.4))
+            };
             _x1.KeyFrames = c;
-
 
             CSharpCompilationOptions = new CSharpCompilationOptions(default(OutputKind));
             PixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            // CommandBindings.Add(new CommandBinding(WpfAppCommands.SerializeContents, Executed));
             // CommandBindings.Add(new CommandBinding(WpfAppCommands.Compile, CompileExecuted));
             CommandBindings.Add(new CommandBinding(EditingCommands.EnterLineBreak, OnEnterLineBreak,
                 CanEnterLineBreak));
@@ -445,8 +413,6 @@ namespace RoslynCodeControls
             InputBindings.Add(new KeyBinding(EditingCommands.Backspace, Key.Back, ModifierKeys.None));
             InputBindings.Add(new KeyBinding(EditingCommands.MoveRightByCharacter, Key.Right, ModifierKeys.None));
             InputBindings.Add(new KeyBinding(EditingCommands.MoveLeftByCharacter, Key.Left, ModifierKeys.None));
-
-
         }
 
         private void OnMoveLeftByCharacter(object sender, ExecutedRoutedEventArgs e)
@@ -477,7 +443,7 @@ namespace RoslynCodeControls
         {
             var ui = z.Result;
             CharInfos.AddRange(ui.CharInfos);
-            DrawingGroup dg = ui.DrawingGroup;
+            var dg = ui.DrawingGroup;
             var dg2 = new DrawingGroup();
             foreach (var dgChild in dg.Children)
             {
@@ -485,24 +451,13 @@ namespace RoslynCodeControls
                 dg2.Children.Add(dgChild);
             }
             _textDest.Children.Add(dg2);
-            // var dc = _textDest.Append();
-            
-            // dc.DrawImage(ui.ImageSource, ui.Rect);
-            // dc.Close();
-
-
-            // if (w >= roslynCodeControl.MaxX) roslynCodeControl.MaxX = w;
-
-            // var rectangleWidth = roslynCodeControl.MaxX + roslynCodeControl._xOffset;
-            // roslynCodeControl._rectangle.Width = rectangleWidth;
-
             var uiRect = dg2.Bounds;
             var maxY = Math.Max(MaxY, uiRect.Bottom);
             MaxY = maxY;
             var maxX = Math.Max(MaxX, uiRect.Right);
             MaxX = maxX;
-            _rectangle.Height = maxY;
-            _rectangle.Width = maxX;
+            Rectangle.Height = maxY;
+            Rectangle.Width = maxX;
             _myDrawingBrush.Viewbox = new Rect(0, 0, maxX, maxY);
             _myDrawingBrush.ViewboxUnits = BrushMappingMode.Absolute;
             _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
@@ -520,8 +475,6 @@ namespace RoslynCodeControls
         //         });
         // }
 
-        // public static RoutedEvent ErrorEvent = EventManager.RegisterRoutedEvent(typeof(RoslynCodeControl))
-
         private async void OnEnterLineBreak(object sender, ExecutedRoutedEventArgs e)
         {
             if (_handlingInput)
@@ -531,35 +484,23 @@ namespace RoslynCodeControls
             if (!b)
                 Debug.WriteLine("Newline failed");
             _handlingInput = false;
-            // ChangingText = true;
-            // Debug.WriteLine("Enter line break");
-            // InsertionPoint = TextSource.EnterLineBreak(InsertionPoint);
-
-            // SourceText += "\r\n";
-            // ChangingText = false;
         }
 
         private void CanEnterLineBreak(object sender, CanExecuteRoutedEventArgs e)
         {
-            if (!_handlingInput)
-            {
-                e.CanExecute = true;
-                e.Handled = true;
-            }
+            if (_handlingInput) return;
+            e.CanExecute = true;
+            e.Handled = true;
         }
 
         private async void Executed(object sender, ExecutedRoutedEventArgs e)
         {
             var text = await SyntaxTree.GetTextAsync();
             var root = await SyntaxTree.GetRootAsync();
-            using (var s = new FileStream(@"C:\temp\serialize.bin", FileMode.Create))
-
-            {
-                root.SerializeTo(s);
-            }
+            await using var s = new FileStream(@"C:\temp\serialize.bin", FileMode.Create);
+            root.SerializeTo(s);
         }
 
-        /// <inheritdoc />
         protected virtual void OnSyntaxTreeUpdated(SyntaxTree newValue)
         {
             _text = newValue.GetText();
@@ -586,16 +527,12 @@ namespace RoslynCodeControls
             if (Compilation != null && Compilation.SyntaxTrees.Contains(SyntaxTree) == false)
             {
                 throw new InvalidOperationException();
-                Compilation = null;
-                Debug.WriteLine("Compilation does not contain syntax tree.");
             }
 
             if (SyntaxNode == null || SyntaxTree == null) return;
             if (ReferenceEquals(SyntaxNode.SyntaxTree, SyntaxTree) == false)
                 throw new InvalidOperationException("SyntaxNode is not within syntax tree");
 
-            //_errorTextSource = Errors.Any() ? new ErrorsTextSource(PixelsPerDip, Errors, TypefaceManager) : null;
-            //_baseProps = TextSource.BaseProps;
             await UpdateFormattedText();
         }
 
@@ -615,11 +552,8 @@ namespace RoslynCodeControls
             return measureOverride;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
         /// <inheritdoc />
-        public override async void OnApplyTemplate()
+        public override void OnApplyTemplate()
         {
             _scrollViewer = (ScrollViewer) GetTemplateChild("ScrollViewer");
             if (_scrollViewer != null) OutputWidth = _scrollViewer.ActualWidth;
@@ -629,18 +563,11 @@ namespace RoslynCodeControls
             // }
 
             Debug.WriteLine(OutputWidth.ToString());
-            CodeControl = (RoslynCodeControl) GetTemplateChild("CodeControl");
-            _rectangle = (Rectangle) GetTemplateChild("Rectangle");
-            RegionDG = (DrawingGroup) GetTemplateChild("Region");
+            
+            Rectangle = (Rectangle) GetTemplateChild("Rectangle");
             var dpd = DependencyPropertyDescriptor.FromProperty(TextElement.FontSizeProperty, typeof(Rectangle));
             var dpd2 = DependencyPropertyDescriptor.FromProperty(TextElement.FontFamilyProperty, typeof(Rectangle));
             Translate = (TranslateTransform) GetTemplateChild("TranslateTransform");
-
-            if (_rectangle != null)
-            {
-                // dpd.AddValueChanged(_rectangle, Handler);
-                // dpd2.AddValueChanged(_rectangle, Handler2);
-            }
 
             _grid = (Grid) GetTemplateChild("Grid");
             _canvas = (Canvas) GetTemplateChild("Canvas");
@@ -660,12 +587,7 @@ namespace RoslynCodeControls
             _rect2 = (Rectangle) GetTemplateChild("Rect2");
             _dg2 = (DrawingGroup) GetTemplateChild("DG2");
             UiLoaded = true;
-
-            // StartSecondaryThread();
-            //if (TextSource != null) UpdateFormattedText();
         }
-
-        public DrawingGroup RegionDG { get; set; }
 
         public static void StartSecondaryThread()
         {
@@ -686,36 +608,23 @@ namespace RoslynCodeControls
             var d = Dispatcher.CurrentDispatcher;
             // Dispatcher.Invoke(() =>
             // {
-            SecondaryDispatcher1 = d;
+            StaticSecondaryDispatcher = d;
             // });
             Dispatcher.Run();
         }
 
-        public static Dispatcher SecondaryDispatcher1 { get; set; }
+        public static Dispatcher StaticSecondaryDispatcher { get; set; }
 
         public Dispatcher SecondaryDispatcher
         {
-            get { return SecondaryDispatcher1; }
+            get { return StaticSecondaryDispatcher; }
         }
-
-        private async Task DoUpdateTextSource()
-        {
-            await UpdateTextSource();
-        }
-
-
-        public RoslynCodeControl CodeControl { get; set; }
-
 
         /// <summary>
         /// 
         /// </summary>
         public LineInfo InsertionLine { get; set; }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public CharacterCell InsertionCharacter { get; set; }
 
         /// <summary>
         /// 
@@ -754,7 +663,6 @@ namespace RoslynCodeControls
                 if (CustomTextSource == null) await UpdateTextSource();
 
                 Debug.WriteLine(text);
-                //  if (_textDest.Children.Count == 0) _textDest.Children.Add(new DrawingGroup());
 
                 var insertionPoint = InsertionPoint;
                 string code;
@@ -838,7 +746,7 @@ namespace RoslynCodeControls
                 DrawingContext dc = drawingGroup.Open();
                 var inn2 = new InClassName(roslynCodeControl, newLineInfo.LineNumber, newLineInfo.Offset, newLineInfo.Origin.Y, newLineInfo.Origin.X, newLineInfo, roslynCodeControl.Formatter, inn.ParagraphWidth, inn.CurrentRendering, inn.PixelsPerDip, inn.CustomTextSource4, inn.MaxY, inn.MaxX, drawingGroup, dc, inn.FontSize, inn.FontFamilyName);
                 var dispatcherOperation = roslynCodeControl.SecondaryDispatcher.InvokeAsync(
-                    new Func<LineInfo>(() => roslynCodeControl.Callback3(inn2)),
+                    new Func<LineInfo>(() => Callback3(inn2)),
                     DispatcherPriority.Send, CancellationToken.None);
                 var lineInfo2 = await dispatcherOperation.Task.ConfigureAwait(true);
                 roslynCodeControl.InsertionLine = lineInfo2;
@@ -846,19 +754,17 @@ namespace RoslynCodeControls
 
             }
             else
-                roslynCodeControl.InsertionLine = (LineInfo) lineInfo;
+                roslynCodeControl.InsertionLine = lineInfo;
 
-            //AdvanceInsertionPoint(e.Text.Length);
             roslynCodeControl.ChangingText = true;
             Debug.WriteLine("About to update source text");
             roslynCodeControl.SourceText = code;
             Debug.WriteLine("Done updating source text");
             roslynCodeControl.ChangingText = false;
-
         }
 
 
-        private LineInfo Callback3(InClassName inn)
+        private static LineInfo Callback3(InClassName inn)
         {
             try
             {
@@ -922,8 +828,6 @@ namespace RoslynCodeControls
 
         private static LineInfo RedrawLine(InClassName inClassName, out LineContext lineCtx)
         {
-            //if (roslynCodeControl.LineInfos.Count == 0) roslynCodeControl.LineInfos.Add(null);
-
             LineInfo outLineInfo;
             using (var myTextLine = inClassName.TextFormatter.FormatLine(inClassName.CustomTextSource4,
                 inClassName.Offset, inClassName.ParagraphWidth,
@@ -1000,8 +904,8 @@ namespace RoslynCodeControls
                 inClassName.RoslynCodeControl.MaxX = Math.Max(inClassName.RoslynCodeControl.MaxX, lineCtxMaxX);
 
                 inClassName.RoslynCodeControl.MaxY = Math.Max(inClassName.RoslynCodeControl.MaxY, lineCtxMaxY);
-                inClassName.RoslynCodeControl._rectangle.Width = lineCtxMaxX;
-                inClassName.RoslynCodeControl._rectangle.Height = lineCtxMaxY;
+                inClassName.RoslynCodeControl.Rectangle.Width = lineCtxMaxX;
+                inClassName.RoslynCodeControl.Rectangle.Height = lineCtxMaxY;
                 inClassName.RoslynCodeControl._rect2.Width = lineCtxMaxX;
                 inClassName.RoslynCodeControl._rect2.Height = lineCtxMaxY;
             });
@@ -1009,17 +913,10 @@ namespace RoslynCodeControls
             return outLineInfo;
         }
 
-        private void 
-            AdvanceInsertionPoint(int textLength)
-        {
-            InsertionPoint += textLength;
-        }
-
-
         /// <summary>
         /// 
         /// </summary>
-        private Typeface CreateTypeface(FontFamily fontFamily, FontStyle fontStyle, FontStretch fontStretch,
+        private static Typeface CreateTypeface(FontFamily fontFamily, FontStyle fontStyle, FontStretch fontStretch,
             FontWeight fontWeight)
         {
             return new Typeface(fontFamily, fontStyle, fontWeight, fontStretch);
@@ -1031,41 +928,21 @@ namespace RoslynCodeControls
             Debug.WriteLine($"{newTemplate}");
         }
 
-        private void OnPropertyChangedz(DependencyPropertyChangedEventArgs e)
-        {
-            base.OnPropertyChanged(e);
-            Debug.WriteLine($"{e.Property.Name}");
-            if (e.Property.Name == "DesignerView1")
-            {
-                Debug.WriteLine($"{e.Property.Name} {e.OldValue} = {e.NewValue}");
-                foreach (var m in e.NewValue.GetType().GetMethods())
-                    Debug.WriteLine(m.ToString());
-                foreach (var ii in e.NewValue.GetType().GetInterfaces())
-                    Debug.WriteLine(ii.ToString());
-            }
-            else if (e.Property.Name == "InstanceBuilderContext")
-            {
-                Debug.WriteLine($"{e.Property.Name} {e.OldValue} = {e.NewValue}");
-            }
-        }
-
-
         /// <summary>
         /// 
         /// </summary>
-        protected TextFormatter Formatter { get; set; } = TextFormatter.Create();
+        // ReSharper disable once MemberCanBePrivate.Global
+        protected static TextFormatter Formatter { get; } = TextFormatter.Create();
 
         /// <inheritdoc />
         protected override Size ArrangeOverride(Size arrangeBounds)
         {
             _nliens = (int) (arrangeBounds.Height / (FontFamily.LineSpacing * FontSize));
-            // Debug.WriteLine("poassible lines " + _nliens.ToString());
+            
             var arrangeOverride = base.ArrangeOverride(arrangeBounds);
-            // Debug.WriteLine(arrangeOverride);
-            // Debug.WriteLine(_scrollViewer.ActualWidth);
-            var sbar = (ScrollBar) _scrollViewer.Template.FindName("PART_VerticalScrollBar", _scrollViewer);
+            var scrollBar = (ScrollBar) _scrollViewer.Template.FindName("PART_VerticalScrollBar", _scrollViewer);
 
-            OutputWidth = _scrollViewer.ActualWidth - sbar.ActualWidth - _rectangle.StrokeThickness * 2;
+            OutputWidth = _scrollViewer.ActualWidth - scrollBar.ActualWidth - Rectangle.StrokeThickness * 2;
             if (InitialUpdate)
             {
                 if (PerformingUpdate)
@@ -1109,87 +986,68 @@ namespace RoslynCodeControls
                 return;
             }
 
-            try
+            Debug.WriteLine("Enteirng updateformattedtext " + PerformingUpdate);
+            if (PerformingUpdate)
             {
-                Debug.WriteLine("Enteirng updateformattedtext " + PerformingUpdate);
-                if (PerformingUpdate)
-                {
-                    Debug.WriteLine("Already performing update");
-                    return;
-                    throw new InvalidOperationException("Already performing update");
-                }
+                Debug.WriteLine("Already performing update");
+                return;
+            }
 
-                PerformingUpdate = true;
-                RaiseEvent(new RoutedEventArgs(RenderStartEvent, this));
-                // Geometries.Clear();
+            PerformingUpdate = true;
+            RaiseEvent(new RoutedEventArgs(RenderStartEvent, this));
 
-                // GeoTuples.Clear();
+            var textStorePosition = 0;
+            var linePosition = new Point(_xOffset, 0);
 
-                // Make sure all UI is loaded
+            _textDest.Children.Clear();
 
-                var textStorePosition = 0;
-                var linePosition = new Point(_xOffset, 0);
+            TextLineBreak prev = null;
+            LineInfo prevLine = null;
+            CharacterCell prevCell = null;
+            RegionInfo prevRegion = null;
+            var line = 0;
+            if (_nliens == 0) _nliens = 10;
 
-                // Create a DrawingGroup object for storing formatted text.
+            Debug.WriteLine("Calling inner update");
+            var compilation = Compilation;
 
-                _textDest.Children.Clear();
-
-                // Format each line of text from the text store and draw it.
-                TextLineBreak prev = null;
-                LineInfo prevLine = null;
-                CharacterCell prevCell = null;
-                RegionInfo prevRegion = null;
-                var line = 0;
-                if (_nliens == 0) _nliens = 10;
-
-                Debug.WriteLine("Calling inner update");
-                var compilation = Compilation;
-
-                var node0 = SyntaxNode;
-                var tree = SyntaxTree;
-                // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
-                var fontFamilyFamilyName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
-                Debug.WriteLine(fontFamilyFamilyName);
-                Debug.WriteLine("OutputWidth " + OutputWidth);
-                _rectangle.Width = OutputWidth + _rectangle.StrokeThickness * 2;
-                var emSize = FontSize;
-                var dispatcherOperation = SecondaryDispatcher.InvokeAsync(() => InnerUpdate(this, textStorePosition,
-                    prev, prevLine, line, linePosition, prevCell,
-                    prevRegion,
-                    Formatter, OutputWidth, PixelsPerDip, emSize, tree, node0, compilation,
-                    fontFamilyFamilyName, _channel.Writer));
-                InnerUpdateDispatcherOperation = dispatcherOperation;
-                var source = await dispatcherOperation.Task
-                    .ContinueWith(
-                        task =>
+            var node0 = SyntaxNode;
+            var tree = SyntaxTree;
+            // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            var fontFamilyFamilyName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
+            Debug.WriteLine(fontFamilyFamilyName);
+            Debug.WriteLine("OutputWidth " + OutputWidth);
+            Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
+            var emSize = FontSize;
+            var dispatcherOperation = SecondaryDispatcher.InvokeAsync(() => InnerUpdate(this, textStorePosition,
+                prev, prevLine, line, linePosition, prevCell,
+                prevRegion,
+                Formatter, OutputWidth, PixelsPerDip, emSize, tree, node0, compilation,
+                fontFamilyFamilyName, _channel.Writer));
+            InnerUpdateDispatcherOperation = dispatcherOperation;
+            var source = await dispatcherOperation.Task
+                .ContinueWith(
+                    task =>
+                    {
+                        if (task.IsFaulted)
                         {
-                            if (task.IsFaulted)
-                            {
-                                var xx1 = task.Exception.Flatten().ToString();
-                                Debug.WriteLine(xx1);
-                                Debug.WriteLine(task.Exception.ToString());
-                            }
+                            var xx1 = task.Exception?.Flatten().ToString() ?? "";
+                            Debug.WriteLine(xx1);
+                            Debug.WriteLine(task.Exception.ToString());
+                        }
 
-                            return task.Result;
-                        }).ConfigureAwait(true);
-                InnerUpdateDispatcherOperation = null;
-                _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
-                CustomTextSource = source;
-                Debug.WriteLine("Return from await inner update");
+                        return task.Result;
+                    }).ConfigureAwait(true);
+            InnerUpdateDispatcherOperation = null;
+            _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
+            CustomTextSource = source;
+            Debug.WriteLine("Return from await inner update");
                 
-                Debug.WriteLine("Setting reactangle width to " + MaxX);
+            Debug.WriteLine("Setting reactangle width to " + MaxX);
 
-                PerformingUpdate = false;
-                InitialUpdate = false;
-                RaiseEvent(new RoutedEventArgs(RenderCompleteEvent, this));
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
-            finally
-            {
-            }
+            PerformingUpdate = false;
+            InitialUpdate = false;
+            RaiseEvent(new RoutedEventArgs(RenderCompleteEvent, this));
         }
 
         public DispatcherOperation<CustomTextSource4> InnerUpdateDispatcherOperation
@@ -1232,13 +1090,10 @@ namespace RoslynCodeControls
             base.OnFilenameChanged(oldValue, newValue);
             if (newValue != null)
             {
-                using (var sr = File.OpenText(newValue))
-                {
+                using var sr = File.OpenText(newValue);
+                var code = await sr.ReadToEndAsync();
 
-                    var code = await sr.ReadToEndAsync();
-
-                    SourceText = code;
-                }
+                SourceText = code;
             }
         }
 
@@ -1251,24 +1106,24 @@ namespace RoslynCodeControls
         {
             var s1 = new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher);
             if (s1 == null) throw new InvalidOperationException("no synchh context");
-            var tf = roslynCodeControl.CreateTypeface(new FontFamily(faceName), FontStyles.Normal,
+            var tf = CreateTypeface(new FontFamily(faceName), FontStyles.Normal,
                 FontStretches.Normal,
                 FontWeights.Normal);
 
-            var CurrentRendering1 = FontRendering.CreateInstance(emSize0,
+            var currentRendering = FontRendering.CreateInstance(emSize0,
                 TextAlignment.Left,
                 null,
                 Brushes.Black,
                 tf);
             var customTextSource4 =
                 roslynCodeControl.CreateAndInitTextSource(pixelsPerDip, tf, tree, node0, compilation, s1, emSize0);
-            var chars = new List<List<char>>();
+            
             var startTime = DateTime.Now;
             var myGroup = new DrawingGroup();
             var myDc = myGroup.Open();
             var lineContext = new LineContext();
             var genericTextParagraphProperties =
-                new GenericTextParagraphProperties(CurrentRendering1, pixelsPerDip);
+                new GenericTextParagraphProperties(currentRendering, pixelsPerDip);
             var runsInfos = new List<Tuple<TextRun, Rect>>();
             List<CharInfo> allCharInfos = new List<CharInfo>(80 * 100);
             while (textStorePosition < customTextSource4.Length)
@@ -1287,7 +1142,7 @@ namespace RoslynCodeControls
                     Debug.WriteLine("num runs for line is "  + nRuns);
 #endif
                     var lineChars = new List<char>();
-                    chars.Add(lineChars);
+                    
                     if (myTextLine.HasOverflowed) Debug.WriteLine("overflowed");
 
                     if (myTextLine.Width > paragraphWidth) Debug.WriteLine("overflowed2");
@@ -1538,44 +1393,13 @@ namespace RoslynCodeControls
 
                     myTextLine.Draw(myDc, linePosition, InvertAxes.None);
                     linePosition.Y += myTextLine.Height;
-                    if (false)
-                        roslynCodeControl.Dispatcher.Invoke(() =>
-                        {
-                            if (w >= roslynCodeControl.MaxX) roslynCodeControl.MaxX = w;
-                            var dc = roslynCodeControl._textDest.Append();
-                            myTextLine.Draw(dc, linePosition, InvertAxes.None);
-                            dc.Close();
-
-                            // roslynCodeControl.Translate.X = -1 * roslynCodeControl._textDest.Bounds.Left;
-
-                            var rectangleWidth = roslynCodeControl.MaxX + roslynCodeControl._xOffset;
-                            roslynCodeControl._rectangle.Width = rectangleWidth;
-                            var rectangleHeight =
-                                Math.Min(roslynCodeControl._pos.Y, roslynCodeControl.ActualHeight);
-                            roslynCodeControl._rectangle.Height = rectangleHeight;
-                            roslynCodeControl._myDrawingBrush.Viewbox =
-                                new Rect(0, 0, rectangleWidth, rectangleHeight);
-                            roslynCodeControl._myDrawingBrush.ViewboxUnits = BrushMappingMode.Absolute;
-                            roslynCodeControl.LineInfos.Add(lineInfo);
-                        });
-                    // ReSharper disable once UnusedVariable
-
-                    // var textLineBreak = myTextLine.GetTextLineBreak();
-                    // if (textLineBreak != null)
-                    // Debug.WriteLine(textLineBreak.ToString());
                     line++;
 
                     prev = null;
-                    // if (prev != null) Debug.WriteLine("Line break!");
 
                     // Update the index position in the text store.
                     textStorePosition += myTextLine.Length;
-                    // Update the line position coordinate for the displayed line.
                 }
-
-#if false
-                roslynCodeControl.Dispatcher.Invoke(() => { roslynCodeControl._pos = linePosition; });
-#endif
 
                 if (line > 0 && line % 100 == 0)
                 {
@@ -1602,14 +1426,11 @@ namespace RoslynCodeControls
             return customTextSource4;
         }
 
-        public GeometryCollection Geometries { get; set; } = new GeometryCollection(200);
-
         private void UpdateCaretPosition(int? oldValue = null, int? newValue = null)
         {
             Debug.WriteLine($"{nameof(UpdateCaretPosition)} ( {oldValue} , {newValue} )");
-            int insertionPoint = 0;
-            insertionPoint = !newValue.HasValue ? InsertionPoint : newValue.Value;
-            bool forward = true;
+            var insertionPoint = newValue ?? InsertionPoint;
+            var forward = true;
             if (oldValue.HasValue && newValue.HasValue)
             {
                 forward = newValue.Value > oldValue.Value;
@@ -1640,9 +1461,6 @@ namespace RoslynCodeControls
             else if(forward)
             {
                 ciIndex++;
-            } else
-            {
-                
             }
 
             ci = CharInfos[ciIndex];
@@ -1684,42 +1502,6 @@ namespace RoslynCodeControls
                     _textCaret.SetValue(Canvas.LeftProperty, leftValue);
                 }
             }
-            // {
-                // ci = CharInfos.LastOrDefault();
-                // if (ci != null)
-                // {
-                    // _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
-                    // _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth);
-                // }
-                // else
-                // {
-                    // _textCaret.SetValue(Canvas.TopProperty, 0);
-                    // _textCaret.SetValue(Canvas.LeftProperty, 0);
-                // }
-            // }
-
-            return;
-            var l0 = LineInfos.FirstOrDefault(l => l.Offset + l.Length > insertionPoint);
-            if (l0 != null)
-            {
-                InsertionLine = l0;
-                _textCaret.SetValue(Canvas.TopProperty, l0.Origin.Y);
-                var rr = l0.Regions.FirstOrDefault(r => r.Offset + r.Length > insertionPoint);
-                InsertionRegion = rr;
-                if (rr != null)
-                {
-                    var ch = rr.Characters[insertionPoint - rr.Offset];
-                    InsertionCharacter = ch;
-                    var x = ch.Bounds.Right - ch.Bounds.Width / 2;
-                    _textCaret.SetValue(Canvas.LeftProperty, x);
-                }
-                else
-                {
-                    var c = l0.Regions.LastOrDefault()?.Characters.LastOrDefault();
-                    var x = c?.Bounds.Right ?? _xOffset;
-                    _textCaret.SetValue(Canvas.LeftProperty, x);
-                }
-            }
         }
 
         /// <summary>
@@ -1737,21 +1519,13 @@ namespace RoslynCodeControls
 
         // ReSharper disable once NotAccessedField.Local
         private Grid _grid;
-        private Rectangle _rectangle;
         private ScrollViewer _scrollViewer;
-        private GenericTextRunProperties _baseProps;
 
         /// <summary>
         /// 
         /// </summary>
         public Typeface Typeface { get; protected set; }
 
-        private FontFamily _fontFamily;
-        private readonly FontStyle _fontStyle = FontStyles.Normal;
-        private readonly FontWeight _fontWeight = FontWeights.Normal;
-        private readonly FontStretch _fontStretch = FontStretches.Normal;
-
-        
         // ReSharper disable once NotAccessedField.Local
         private int _startColumn;
 
@@ -1764,24 +1538,18 @@ namespace RoslynCodeControls
         private Grid _innerGrid;
         private TextCaret _textCaret;
         private Canvas _canvas;
-        private FontRendering _currentRendering;
         private CustomTextSource4 _store;
 
         private int _selectionEnd;
         private SyntaxNode _startNode;
         private SyntaxNode _endNode;
-        private Rectangle geometryRectangle = new Rectangle();
         private SourceText _text;
         private int _nliens;
-        private ComboBox _fontSizeCombo;
-        private ComboBox _fontCombo;
         private ObjectAnimationUsingKeyFrames _x1;
         private CustomTextSource4 _customTextSource;
-        private Dispatcher _secondaryDispatcher;
         private double _xOffset = 0.0;
         private ISymbol _enclosingSymbol;
         private DispatcherOperation<Task> _updateOperation;
-        private DocumentPaginator _documentPaginator1 = null;
         private bool _performingUpdate;
         private DispatcherOperation<CustomTextSource4> _innerUpdateDispatcherOperation;
         private Task _updateFormattedTestTask;
@@ -1796,10 +1564,7 @@ namespace RoslynCodeControls
             DrawingContext dc = null;
             try
             {
-                //dc = _dg2.Open();
-                // if (SelectionEnabled && e.LeftButton == MouseButtonState.Pressed)
-                // {
-                var point = e.GetPosition(_rectangle);
+                var point = e.GetPosition(Rectangle);
                 if (CustomTextSource?.RunInfos != null)
                 {
                     var runInfo = CustomTextSource.RunInfos.Where(zz1 => zz1.Item2.Contains(point));
@@ -2109,7 +1874,7 @@ namespace RoslynCodeControls
 
                             IsSelecting = true;
                             e.Handled = true;
-                            _rectangle.CaptureMouse();
+                            Rectangle.CaptureMouse();
                         }
                     }
             }
@@ -2121,11 +1886,6 @@ namespace RoslynCodeControls
             {
                 dc?.Close();
             }
-        }
-
-        private bool z(SyntaxNode arg)
-        {
-            return arg.Kind() == SyntaxKind.ForEachStatement;
         }
 
         /// <inheritdoc />
@@ -2152,7 +1912,7 @@ namespace RoslynCodeControls
                                 }
                     }
 
-                _rectangle.ReleaseMouseCapture();
+                Rectangle.ReleaseMouseCapture();
             }
         }
 
@@ -2160,11 +1920,6 @@ namespace RoslynCodeControls
         protected override void OnMouseDown(MouseButtonEventArgs e)
         {
             InsertionPoint = HoverOffset;
-        }
-
-        /// <inheritdoc />
-        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
-        {
         }
 
         private static void OnNodeUpdated(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -2185,17 +1940,13 @@ namespace RoslynCodeControls
                 MaxX = 0;
                 MaxY = 0;
                 _pos = new Point(_xOffset, 0);
-                if (_scrollViewer != null) _scrollViewer.ScrollToTop();
+                _scrollViewer?.ScrollToTop();
                 if (SecondaryDispatcher != null)
                     await UpdateTextSource();
 
                 //UpdateFormattedText();
             }
         }
-
-
-        public List<Tuple<RectangleGeometry, RegionInfo>> GeoTuples { get; set; } =
-            new List<Tuple<RectangleGeometry, RegionInfo>>();
 
         /// <inheritdoc />
         public void PrepareDrawLines(LineContext lineContext, bool clear)
@@ -2225,28 +1976,7 @@ namespace RoslynCodeControls
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        // /// <inheritdoc />
-        // public DocumentPaginator DocumentPaginator
-        // {
-        //     get
-        //     {
-        //         if (_documentPaginator1 == null)
-        //         {
-        //             var target = new CodePaginator(this);
-        //             var i = ProxyUtilsBase.CreateInterceptor(s => Debug.WriteLine(s));
-        //             var pr = ProxyGeneratorHelper.ProxyGenerator.CreateClassProxyWithTarget<CodePaginator>(target, i);
-        //             _documentPaginator1 = pr;
-        //         }
-        //
-        //         return _documentPaginator1;
-        //     }
-        // }
-
-        public Rectangle Rectangle1
-        {
-            get { return _rectangle; }
-            set { _rectangle = value; }
-        }
+        public Rectangle Rectangle { get; set; }
 
         public DispatcherOperation<Task> UpdateOperation
         {
