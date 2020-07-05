@@ -7,15 +7,26 @@
         xmlns:roslynCodeControls="clr-namespace:RoslynCodeControls;assembly=RoslynCodeControls"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
+    <Window.Resources>
+        <local:CharConverter x:Key="CharConverter" />
+    </Window.Resources>
     <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="*"/>
-        <RowDefinition Height="Auto"></RowDefinition></Grid.RowDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Border BorderBrush="BlueViolet" BorderThickness="3">
-        <roslynCodeControls:RoslynCodeControl FontSize="24" FontFamily="Lucida Console"  xml:space="preserve" x:Name="CodeControl">
-</roslynCodeControls:RoslynCodeControl>
+            <roslynCodeControls:RoslynCodeControl FontSize="24" FontFamily="Lucida Console" xml:space="preserve"
+                                                  x:Name="CodeControl" />
         </Border>
         <StackPanel Grid.Row="1" Orientation="Horizontal" TextElement.FontSize="24">
-            <TextBlock Text="{Binding ElementName=CodeControl,Path=InsertionPoint}"></TextBlock>
+            <TextBlock Text="{Binding ElementName=CodeControl,Path=InsertionPoint}" />
+            <StackPanel Orientation="Horizontal" DataContext="{Binding ElementName=CodeControl,Path=InsertionCharInfo}">
+                <TextBlock Text="Insertion: " FontWeight="Bold" />
+                <Border BorderThickness="2" HorizontalAlignment="Center"  BorderBrush="Black" Margin="1" MinWidth="25" MinHeight="25">
+                    <TextBlock TextAlignment="Center" Text="{Binding Character,Converter={StaticResource CharConverter}}" />
+                </Border>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

@@ -45,6 +45,15 @@ namespace RoslynCodeControls
         public static readonly RoutedEvent RenderStartEvent = EventManager.RegisterRoutedEvent("RenderStart",
             RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(RoslynCodeControl));
 
+        public static readonly DependencyProperty InsertionCharInfoProperty = DependencyProperty.Register(
+            "InsertionCharInfo", typeof(CharInfo), typeof(RoslynCodeControl), new PropertyMetadata(default(CharInfo)));
+
+        public CharInfo InsertionCharInfo
+        {
+            get { return (CharInfo) GetValue(InsertionCharInfoProperty); }
+            set { SetValue(InsertionCharInfoProperty, value); }
+        }
+
         public static readonly DependencyProperty InsertionPointProperty = DependencyProperty.Register(
             "InsertionPoint", typeof(int), typeof(RoslynCodeControl),
             new PropertyMetadata(default(int), OnInsertionPointChanged, CoerceInsertionPoint));
@@ -1446,12 +1455,24 @@ namespace RoslynCodeControls
                     ci = CharInfos[ciIndex + 1];
                     _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
                     _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin);
+                    _updatingCaret = true;
                     InsertionPoint = ci.Index;
+                    _updatingCaret = false;
+                    InsertionCharInfo = ci;
                 }
                 else
                 {
+                    
                     _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
                     _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth);
+                    if (CharInfos.Count > ciIndex + 1 && CharInfos[ciIndex + 1].Index == ci.Index + 1)
+                    {
+                        InsertionCharInfo = CharInfos[ciIndex + 1];
+                    }
+                    else
+                    {
+                        InsertionCharInfo = null;
+                    }
                 }
             }
             else
@@ -1463,6 +1484,7 @@ namespace RoslynCodeControls
                     _updatingCaret = true;
                     InsertionPoint = ci.Index + 1;
                     _updatingCaret = false;
+                    InsertionCharInfo = null;
                 }
                 else
                 {
@@ -1472,6 +1494,7 @@ namespace RoslynCodeControls
                     var leftValue = ci.XOrigin;
                     Debug.WriteLine($"New caret position is ( {leftValue} , {ciYOrigin} )");
                     _textCaret.SetValue(Canvas.LeftProperty, leftValue);
+                    InsertionCharInfo = ci;
                 }
             }
         }
