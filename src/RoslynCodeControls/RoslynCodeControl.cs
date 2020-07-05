@@ -45,7 +45,19 @@ namespace RoslynCodeControls
 
         public static readonly DependencyProperty InsertionPointProperty = DependencyProperty.Register(
             "InsertionPoint", typeof(int), typeof(RoslynCodeControl),
-            new PropertyMetadata(default(int), OnInsertionPointChanged));
+            new PropertyMetadata(default(int), OnInsertionPointChanged, CoerceInsertionPoint));
+
+        private static object CoerceInsertionPoint(DependencyObject d, object basevalue)
+        {
+            var p = (int) basevalue;
+            var r = (RoslynCodeControl) d;
+            if (r.CustomTextSource.Length - 2 < p)
+            {
+                return r.CustomTextSource.Length - 2;
+            }
+
+            return p;
+        }
 
         public int InsertionPoint
         {
@@ -71,13 +83,15 @@ namespace RoslynCodeControls
 
         protected virtual async void OnInsertionPointChanged(int oldValue, int newValue)
         {
-            UpdateCaretPosition();
+            if(!_updatingCaret)
+                UpdateCaretPosition(oldValue, newValue);
             try
             {
                 var enclosingsymbol = Model?.GetEnclosingSymbol(newValue);
                 EnclosingSymbol = enclosingsymbol;
 
-                Debug.WriteLine(EnclosingSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+                if (EnclosingSymbol != null)
+                    Debug.WriteLine(EnclosingSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
                 if (Model != null && InsertionRegion.SyntaxNode != null)
                 {
                     var ti = Model.GetTypeInfo(InsertionRegion.SyntaxNode);
@@ -424,13 +438,23 @@ namespace RoslynCodeControls
                 CanEnterLineBreak));
             CommandBindings.Add(new CommandBinding(EditingCommands.Backspace, OnBackspace));
             CommandBindings.Add(new CommandBinding(EditingCommands.MoveRightByCharacter, OnMoveRightByCharacter));
+            CommandBindings.Add(new CommandBinding(EditingCommands.MoveLeftByCharacter, OnMoveLeftByCharacter));
 
 
             InputBindings.Add(new KeyBinding(EditingCommands.EnterLineBreak, Key.Enter, ModifierKeys.None));
             InputBindings.Add(new KeyBinding(EditingCommands.Backspace, Key.Back, ModifierKeys.None));
             InputBindings.Add(new KeyBinding(EditingCommands.MoveRightByCharacter, Key.Right, ModifierKeys.None));
+            InputBindings.Add(new KeyBinding(EditingCommands.MoveLeftByCharacter, Key.Left, ModifierKeys.None));
 
 
+        }
+
+        private void OnMoveLeftByCharacter(object sender, ExecutedRoutedEventArgs e)
+        {
+            if(InsertionPoint > 0)
+            {
+                InsertionPoint--;
+            }
         }
 
         private void OnMoveRightByCharacter(object sender, ExecutedRoutedEventArgs e)
@@ -452,6 +476,7 @@ namespace RoslynCodeControls
         private void ContinuationFunction(Task<UpdateInfo> z)
         {
             var ui = z.Result;
+            CharInfos.AddRange(ui.CharInfos);
             DrawingGroup dg = ui.DrawingGroup;
             var dg2 = new DrawingGroup();
             foreach (var dgChild in dg.Children)
@@ -472,15 +497,19 @@ namespace RoslynCodeControls
             // roslynCodeControl._rectangle.Width = rectangleWidth;
 
             var uiRect = dg2.Bounds;
-            MaxY = Math.Max(MaxY, uiRect.Bottom);
-            MaxX = Math.Max(MaxX, uiRect.Right);
-            _rectangle.Height = MaxY;
-            _rectangle.Width = MaxX;
-            _myDrawingBrush.Viewbox = new Rect(0, 0, _rectangle.ActualWidth, uiRect.Bottom);
+            var maxY = Math.Max(MaxY, uiRect.Bottom);
+            MaxY = maxY;
+            var maxX = Math.Max(MaxX, uiRect.Right);
+            MaxX = maxX;
+            _rectangle.Height = maxY;
+            _rectangle.Width = maxX;
+            _myDrawingBrush.Viewbox = new Rect(0, 0, maxX, maxY);
             _myDrawingBrush.ViewboxUnits = BrushMappingMode.Absolute;
             _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
                 TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
         }
+
+        public List<CharInfo> CharInfos { get; set; } = new List<CharInfo>();
 
         // private void CompileExecuted(object sender, ExecutedRoutedEventArgs e)
         // {
@@ -692,71 +721,6 @@ namespace RoslynCodeControls
         /// 
         /// </summary>
         public RegionInfo InsertionRegion { get; set; }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="e"></param>
-        protected override void OnPreviewKeyDown(KeyEventArgs e)
-        {
-            base.OnPreviewKeyDown(e);
-            switch (e.Key)
-            {
-                case Key.Left:
-                {
-                    var ip = --InsertionPoint;
-                    if (ip < 0) ip = 0;
-                    Debug.WriteLine($"{ip}");
-
-                    if (InsertionCharacter != null)
-                    {
-                        var newc = InsertionCharacter.PreviousCell;
-                        if (newc?.Region != InsertionRegion)
-                        {
-                            InsertionRegion = newc.Region;
-                            if (newc.Region.Line != InsertionLine) InsertionLine = newc.Region.Line;
-                        }
-
-                        InsertionCharacter = newc;
-                    }
-
-                    var top = InsertionLine.Origin.Y;
-                    Debug.WriteLine("Setting top to " + top);
-
-                    _textCaret.SetValue(Canvas.TopProperty, top);
-                    if (InsertionCharacter != null)
-                        _textCaret.SetValue(Canvas.LeftProperty, InsertionCharacter.Bounds.Left);
-                }
-                    break;
-                // case Key.Right:
-                // {
-                //     Debug.WriteLine("incrementing insertion point");
-                //     e.Handled = true;
-                //     if (InsertionCharacter != null && InsertionCharacter.NextCell == null)
-                //         break;
-                //     var ip = ++InsertionPoint;
-                //     Debug.WriteLine($"Insertion point: {ip}");
-                //
-                //     var newc = InsertionCharacter.NextCell;
-                //     if (newc.Region != null && newc.Region != InsertionRegion)
-                //     {
-                //         InsertionRegion = newc.Region;
-                //         if (newc.Region.Line != InsertionLine) InsertionLine = newc.Region.Line;
-                //     }
-                //
-                //     InsertionCharacter = newc;
-                //
-                //     var top = InsertionLine.Origin.Y;
-                //     Debug.WriteLine("Setting top to " + top);
-                //
-                //     _textCaret.SetValue(Canvas.TopProperty, top);
-                //     _textCaret.SetValue(Canvas.LeftProperty, InsertionCharacter.Bounds.Left);
-                //
-                //
-                //     break;
-                // }
-            }
-        }
 
         /// <inheritdoc />
         protected override async void OnPreviewTextInput(TextCompositionEventArgs e)
@@ -1040,8 +1004,6 @@ namespace RoslynCodeControls
                 inClassName.RoslynCodeControl._rectangle.Height = lineCtxMaxY;
                 inClassName.RoslynCodeControl._rect2.Width = lineCtxMaxX;
                 inClassName.RoslynCodeControl._rect2.Height = lineCtxMaxY;
-                // inClassName.RoslynCodeControl.UpdateCaretPosition();
-//                inClassName.RoslynCodeControl.InvalidateVisual();
             });
 
             return outLineInfo;
@@ -1214,19 +1176,12 @@ namespace RoslynCodeControls
                 _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
                 CustomTextSource = source;
                 Debug.WriteLine("Return from await inner update");
-                ;
-                // Persist the drawn text content.
-
-                // _rectangle.Width = MaxX;
+                
                 Debug.WriteLine("Setting reactangle width to " + MaxX);
-                // _rectangle.Height = _pos.Y;
 
                 PerformingUpdate = false;
                 InitialUpdate = false;
                 RaiseEvent(new RoutedEventArgs(RenderCompleteEvent, this));
-                // InsertionCharacter = LineInfos[0].Regions[0].Characters[0];
-                // UpdateCaretPosition();
-//                InvalidateVisual();
             }
             catch (Exception ex)
             {
@@ -1315,7 +1270,7 @@ namespace RoslynCodeControls
             var genericTextParagraphProperties =
                 new GenericTextParagraphProperties(CurrentRendering1, pixelsPerDip);
             var runsInfos = new List<Tuple<TextRun, Rect>>();
-
+            List<CharInfo> allCharInfos = new List<CharInfo>(80 * 100);
             while (textStorePosition < customTextSource4.Length)
             {
                 var runCount = customTextSource4.Runs.Count;
@@ -1362,11 +1317,26 @@ namespace RoslynCodeControls
                     var textRuns = customTextSource4.Runs.GetRange(runCount, nRuns);
                     var enum1 = textRuns.GetEnumerator();
                     enum1.MoveNext();
+                    var linec = 0;
+                    var xOrigin = linePosition.X;
+                    List<CharInfo> charInfos = new List<CharInfo>(myTextLine.Length);
                     foreach (var glyphRunC in indexedGlyphRuns)
                     {
                         var gl = glyphRunC.GlyphRun;
-                        var bo = gl.BaselineOrigin;
                         var advanceSum = gl.AdvanceWidths.Sum();
+                        
+                        for (int i = 0; i < gl.Characters.Count; i++)
+                        {
+                            var glAdvanceWidth = gl.AdvanceWidths[i];
+                            var glCharacter = gl.Characters[i];
+                            var glCaretStop = gl.CaretStops?[i];
+                            var ci = new CharInfo(textStorePosition + linec, linec, i, glCharacter, glAdvanceWidth,
+                                glCaretStop, xOrigin, linePosition.Y);
+                            linec++;
+                            xOrigin += glAdvanceWidth;
+                            charInfos.Add(ci);
+                            allCharInfos.Add(ci);
+                        }
                         var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
                         runsInfos.Add(Tuple.Create(enum1.Current, item));
                         positions.Add(item);
@@ -1610,61 +1580,11 @@ namespace RoslynCodeControls
                 if (line > 0 && line % 100 == 0)
                 {
                     myDc.Close();
-
-                    RenderTargetBitmap SaveImage(Drawing d)
-                    {
-                        var b = new DrawingBrush(d);
-                        var v = new DrawingVisual();
-                        var dc = v.RenderOpen();
-                        var rect1 = new Rect(new Point(0, 0), d.Bounds.Size);
-
-                        dc.DrawRectangle(b, null, rect1);
-                        dc.Close();
-                        var width = (int) rect1.Width;
-                        var height = (int) rect1.Height;
-                        var rtb = new RenderTargetBitmap(width, height, 96,
-                            96,
-                            PixelFormats.Pbgra32);
-                        rtb.Render(v);
-                        return rtb;
-                    }
-
                     myGroup.Freeze();
-                    var curUi = new UpdateInfo() { DrawingGroup = myGroup };
+                    var curUi = new UpdateInfo() { DrawingGroup = myGroup, CharInfos = allCharInfos.ToList() };
                     channelWriter.WriteAsync(curUi);
-
-                    // var out1 = SaveImage(myGroup);
-                    // out1.Freeze();
                     myGroup = new DrawingGroup();
                     myDc = myGroup.Open();
-                    // var rect = myGroup.Bounds; //new Rect(0, 0, myGroup.Bounds.Width, myGroup.Bounds.Height);
-                    // var w = myGroup.Bounds.Width;
-                    // Debug.WriteLine("width = " + w);
-                    // var y = myGroup.Bounds.Bottom;
-                    // Debug.WriteLine("bottom = " + (int) y);
-                    
-#if false
-                    roslynCodeControl.Dispatcher.Invoke(() =>
-                    {
-                        var dc = roslynCodeControl._textDest.Append();
-                        dc.DrawImage(out1, rect);
-                        dc.Close();
-
-
-                        if (w >= roslynCodeControl.MaxX) roslynCodeControl.MaxX = w;
-
-                        var rectangleWidth = roslynCodeControl.MaxX + roslynCodeControl._xOffset;
-                        // roslynCodeControl._rectangle.Width = rectangleWidth;
-
-                        roslynCodeControl._rectangle.Height = y;
-                        roslynCodeControl._myDrawingBrush.Viewbox =
-                            new Rect(0, 0, paragraphWidth, y);
-                        roslynCodeControl._myDrawingBrush.ViewboxUnits = BrushMappingMode.Absolute;
-                    });
-#endif
-                    var span = DateTime.Now - startTime;
-                    // Debug.WriteLine("Process line took " + span);
-                    startTime = DateTime.Now;
                 }
             }
 
@@ -1672,41 +1592,9 @@ namespace RoslynCodeControls
             if (line % 100 != 0)
             {
                 myDc.Close();
-
-                RenderTargetBitmap SaveImage(Drawing d)
-                {
-                    var b = new DrawingBrush(d);
-                    var v = new DrawingVisual();
-                    var dc = v.RenderOpen();
-                    var rect1 = new Rect(new Point(0, 0), d.Bounds.Size);
-
-                    dc.DrawRectangle(b, null, rect1);
-                    dc.Close();
-                    var width = (int) rect1.Width;
-                    var height = (int) rect1.Height;
-                    var rtb = new RenderTargetBitmap(width, height, 96,
-                        96,
-                        PixelFormats.Pbgra32);
-                    rtb.Render(v);
-                    return rtb;
-                }
                 myGroup.Freeze();
-                var curUi = new UpdateInfo() { DrawingGroup = myGroup };
+                var curUi = new UpdateInfo() { DrawingGroup = myGroup, CharInfos = allCharInfos.ToList() };
                 channelWriter.WriteAsync(curUi);
-
-                // var out1 = SaveImage(myGroup);
-                // out1.Freeze();
-                // myDc = myGroup.Open();
-                // var rect = myGroup.Bounds; //new Rect(0, 0, myGroup.Bounds.Width, myGroup.Bounds.Height);
-                // var w = myGroup.Bounds.Width;
-                // Debug.WriteLine("width = " + w);
-                // var y = myGroup.Bounds.Bottom;
-                // var curUi = new UpdateInfo() {ImageSource = out1, Rect = rect};
-                // channelWriter.WriteAsync(curUi);
-
-                var span = DateTime.Now - startTime;
-                // Debug.WriteLine("Process line took " + span);
-                startTime = DateTime.Now;
             } else
                 myDc.Close();
 
@@ -1716,35 +1604,101 @@ namespace RoslynCodeControls
 
         public GeometryCollection Geometries { get; set; } = new GeometryCollection(200);
 
-        private void UpdateCaretPosition()
+        private void UpdateCaretPosition(int? oldValue = null, int? newValue = null)
         {
-            var insertionPoint = InsertionPoint;
-            var run = CustomTextSource.Runs.FirstOrDefault(r =>
+            Debug.WriteLine($"{nameof(UpdateCaretPosition)} ( {oldValue} , {newValue} )");
+            int insertionPoint = 0;
+            insertionPoint = !newValue.HasValue ? InsertionPoint : newValue.Value;
+            bool forward = true;
+            if (oldValue.HasValue && newValue.HasValue)
             {
-                if (r is CustomTextCharacters ctc)
-                {
-                    if (ctc.Index.HasValue && ctc.Index.Value + ctc.Length >= insertionPoint)
-                    {
-                        return true;
-                    }
-                } else if (r is CustomTextEndOfLine ceol)
-                {
-                    if (ceol.Index.HasValue && ceol.Index.Value + ceol.Length  >= insertionPoint)
-                    {
-                        return true;
-                    }
-                
-
-            } else if (r is CustomTextEndOfParagraph ceop)
-            {
-                if (ceop.Index.HasValue && ceop.Index.Value + ceop.Length >= insertionPoint)
-                {
-                    return true;
-                }
+                forward = newValue.Value > oldValue.Value;
             }
 
-            return false;
-            });
+            Debug.WriteLine($"forward = {forward}");
+            int ciIndex;
+            if (forward)
+            {
+                ciIndex = CharInfos.FindIndex(ci0 =>
+                    ci0.Index >= insertionPoint);
+            }
+            else
+            {
+                ciIndex = CharInfos.FindLastIndex(ci0 => 
+                    ci0.Index <= insertionPoint);
+            }
+
+            Debug.WriteLine($"Found index {ciIndex}");
+            CharInfo ci = null;
+            if (forward && ciIndex >= 1)
+            {
+                ciIndex--;
+            } else if (forward && ciIndex == -1)
+            {
+                ciIndex = CharInfos.Count - 1;
+            }
+            else if(forward)
+            {
+                ciIndex++;
+            } else
+            {
+                
+            }
+
+            ci = CharInfos[ciIndex];
+            Debug.WriteLine($"Character is {ci.Character}");
+            if (forward)
+            {
+                if (ci.Index != insertionPoint - 1)
+                {
+                    ci = CharInfos[ciIndex + 1];
+                    _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
+                    _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin);
+                    InsertionPoint = ci.Index;
+                }
+                else
+                {
+                    _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
+                    _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth);
+                }
+            }
+            else
+            {
+                if (ci.Index != insertionPoint)
+                {
+                    
+                    _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
+                    _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth);
+                    _updatingCaret = true;
+                    InsertionPoint = ci.Index + 1;
+                    _updatingCaret = false;
+
+                }
+                else
+                {
+                    var ciYOrigin = ci.YOrigin;
+
+                    _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
+                    var leftValue = ci.XOrigin;
+                    Debug.WriteLine($"New caret position is ( {leftValue} , {ciYOrigin} )");
+                    _textCaret.SetValue(Canvas.LeftProperty, leftValue);
+                }
+            }
+            // {
+                // ci = CharInfos.LastOrDefault();
+                // if (ci != null)
+                // {
+                    // _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin);
+                    // _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth);
+                // }
+                // else
+                // {
+                    // _textCaret.SetValue(Canvas.TopProperty, 0);
+                    // _textCaret.SetValue(Canvas.LeftProperty, 0);
+                // }
+            // }
+
+            return;
             var l0 = LineInfos.FirstOrDefault(l => l.Offset + l.Length > insertionPoint);
             if (l0 != null)
             {
@@ -1834,6 +1788,7 @@ namespace RoslynCodeControls
         private ChannelReader<UpdateInfo> _reader;
         private Channel<UpdateInfo> _channel;
         private bool _handlingInput;
+        private bool _updatingCaret;
 
         /// <inheritdoc />
         protected override void OnMouseMove(MouseEventArgs e)
@@ -2305,6 +2260,31 @@ namespace RoslynCodeControls
         }
     }
 
+    public class CharInfo
+    {
+        public int LineIndex { get; }
+        public int RunIndex { get; }
+        public char Character { get; }
+        public double AdvanceWidth { get; }
+        public bool? CaretStop { get; }
+        public double XOrigin { get; }
+        public double YOrigin { get; }
+        public int Index { get; set; }
+
+        public CharInfo(in int index, in int lineIndex, in int runIndex, char character, double advanceWidth, bool? caretStop,
+            double xOrigin, double yOrigin)
+        {
+            Index = index;
+            LineIndex = lineIndex;
+            RunIndex = runIndex;
+            Character = character;
+            AdvanceWidth = advanceWidth;
+            CaretStop = caretStop;
+            XOrigin = xOrigin;
+            YOrigin = yOrigin;
+        }
+    }
+
     internal class In2
     {
         public RoslynCodeControl RoslynCodeControl { get; }
@@ -2339,6 +2319,7 @@ namespace RoslynCodeControls
         public BitmapSource ImageSource { get; set; }
         public Rect Rect { get; set; }
         public DrawingGroup DrawingGroup { get; set; }
+        public List<CharInfo> CharInfos { get; set; }
     }
 
     public class InputRequest
