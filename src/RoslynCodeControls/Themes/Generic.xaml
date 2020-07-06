@@ -29,9 +29,9 @@
                                 <DataTemplate DataType="{x:Type local:CustomTextSource4Proxy}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Length"></TextBlock>
-                                        <TextBlock Text="{Binding Length}"></TextBlock>
-                                        <TextBlock Text="RunCount"></TextBlock>
-                                        <TextBlock Text="{Binding RunCount}"></TextBlock>
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}"></TextBlock>
+                                        <TextBlock Margin="5,0,0,0" Text="RunCount"></TextBlock>
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding RunCount,StringFormat=N0}"></TextBlock>
 
                                     </StackPanel>
                                 </DataTemplate>

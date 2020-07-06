@@ -1485,7 +1485,8 @@ namespace RoslynCodeControls
             var curPos = linePosition;
             var positions = new List<Rect>();
             var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
-            var textRuns = customTextSource4.Runs.GetRange(runCount, nRuns);
+
+            var textRuns = customTextSource4.Runs.Skip(runCount).Take(nRuns);
             using (var enum1 = textRuns.GetEnumerator())
             {
                 enum1.MoveNext();
