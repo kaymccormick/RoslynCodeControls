@@ -68,7 +68,8 @@ namespace WpfTestApp
         {
             InitializeComponent();
             CoerceValue(FontsProperty);
-            CodeControl.SourceText = "public class Test {\r\n    List<Tuple<int,string>> List1 {get; set;}\r\n    int _field = 1;\r\n}\r\n";
+            CodeControl.Filename = @"c:\temp\dockingmanager.cs";
+            CodeControl.SourceText = "";// "public class Test {\r\n    List<Tuple<int,string>> List1 {get; set;}\r\n    int _field = 1;\r\n}\r\n";
             CodeControl.Focus();
             Keyboard.Focus(CodeControl);
             CommandBindings.Add(new CommandBinding(HideToolBar, OnExecutedHideToolBar));

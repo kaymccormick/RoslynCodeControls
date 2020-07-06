@@ -696,7 +696,7 @@
             </ToolBar>
         </ToolBarTray>
         <Border Grid.Row="2">
-            <roslynCodeControls:RoslynCodeControl FontSize="24" xml:space="preserve"
+            <roslynCodeControls:RoslynCodeControl FontWeight="Bold" FontSize="24" xml:space="preserve"
                                                   x:Name="CodeControl" />
         </Border>
         <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="24">

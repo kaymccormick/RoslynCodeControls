@@ -654,6 +654,8 @@ namespace RoslynCodeControls
                 case SyntaxKind.CloseBracketToken:
                 case SyntaxKind.OpenParenToken:
                 case SyntaxKind.CloseParenToken:
+                case SyntaxKind.LessThanToken:
+                case SyntaxKind.GreaterThanToken:
                     pp.SetForegroundBrush(Brushes.Red);
                     break;
             }

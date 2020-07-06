@@ -1,4 +1,5 @@
-﻿using System.Windows.Media;
+﻿using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 
 namespace RoslynCodeControls
@@ -6,9 +7,9 @@ namespace RoslynCodeControls
     public class InClassName
     {
         public InClassName(RoslynCodeControl roslynCodeControl, int lineNo, int offset, double y, double x,
-            LineInfo lineInfo, TextFormatter textFormatter, double paragraphWidth, FontRendering currentRendering,
+            LineInfo2 lineInfo, TextFormatter textFormatter, double paragraphWidth, FontRendering currentRendering,
             double pixelsPerDip, CustomTextSource4 customTextSource4, double maxY, double maxX, DrawingGroup d,
-            DrawingContext dc, double fontSize, string fontFamilyName)
+            DrawingContext dc, double fontSize, string fontFamilyName, FontWeight fontWeight)
         {
             RoslynCodeControl = roslynCodeControl;
             LineNo = lineNo;
@@ -35,7 +36,7 @@ namespace RoslynCodeControls
         public int Offset { get; private set; }
         public double Y { get; private set; }
         public double X { get; private set; }
-        public LineInfo LineInfo { get; private set; }
+        public LineInfo2 LineInfo { get; private set; }
         public TextFormatter TextFormatter { get; private set; }
         public double ParagraphWidth { get; private set; }
         public FontRendering CurrentRendering { get; set; }
@@ -47,5 +48,6 @@ namespace RoslynCodeControls
         public DrawingContext Dc { get; private set; }
         public string FontFamilyName { get; set; }
         public double FontSize { get; set; }
+        public FontWeight FontWeight { get; set; } = FontWeights.Normal;
     }
 }
