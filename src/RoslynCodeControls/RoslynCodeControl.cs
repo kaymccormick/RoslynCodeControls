@@ -471,14 +471,17 @@ namespace RoslynCodeControls
             switch (e.Key)
             {
                 case Key.F1:
+                case Key.D1:
                     if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
                     {
+                        e.Handled = true;
                         if (Debug1Container != null)
                         {
                             if (Debug1Container.Visibility != Visibility.Visible)
                             {
                                 Debug1Container.Visibility = Visibility.Visible;
                                 Debug2Container.Visibility = Visibility.Hidden;
+                                Debug3Container.Visibility = Visibility.Hidden;
                             }
                             else
                             {
@@ -488,18 +491,41 @@ namespace RoslynCodeControls
                     }
                     break;
                 case Key.F2:
+                case Key.D2:
                     if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
                     {
+                        e.Handled = true;
                         if (Debug2Container != null)
                         {
                             if (Debug2Container.Visibility != Visibility.Visible)
                             {
                                 Debug2Container.Visibility = Visibility.Visible;
                                 Debug1Container.Visibility = Visibility.Hidden;
+                                Debug3Container.Visibility = Visibility.Hidden;
                             }
                             else
                             {
                                 Debug2Container.Visibility = Visibility.Hidden;
+                            }
+                        }
+                    }
+                    break;
+                case Key.F3:
+                case Key.D3:
+                    if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
+                    {
+                        e.Handled = true;
+                        if (Debug3Container != null)
+                        {
+                            if (Debug3Container.Visibility != Visibility.Visible)
+                            {
+                                Debug3Container.Visibility = Visibility.Visible;
+                                Debug1Container.Visibility = Visibility.Hidden;
+                                Debug2Container.Visibility = Visibility.Hidden;
+                            }
+                            else
+                            {
+                                Debug3Container.Visibility = Visibility.Hidden;
                             }
                         }
                     }
@@ -722,14 +748,14 @@ namespace RoslynCodeControls
             MaxY = maxY;
             var maxX = Math.Max(MaxX, uiRect.Right);
             MaxX = maxX;
-            Rectangle.Height = maxY;
-            Rectangle.Width = maxX;
+            // bound to viewbox height / width
+            // Rectangle.Height = maxY;
+            // Rectangle.Width = maxX;
             var boundsLeft = Math.Min(_textDest.Bounds.Left, 0);
             boundsLeft -= 3;
             var boundsTop = Math.Min(_textDest.Bounds.Top, 0);
             boundsTop -= 3;
-            _myDrawingBrush.Viewbox = new Rect(boundsLeft, boundsTop, maxX, maxY);
-            _myDrawingBrush.ViewboxUnits = BrushMappingMode.Absolute;
+            DrawingBrushViewbox = new Rect(boundsLeft, boundsTop, maxX, maxY);
             _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
                 TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
         }
@@ -829,6 +855,7 @@ namespace RoslynCodeControls
         {
             Debug1Container = (UIElement) GetTemplateChild("debug1container");
             Debug2Container = (UIElement)GetTemplateChild("debug2container");
+            Debug3Container = (UIElement)GetTemplateChild("debug3container");
             _scrollViewer = (ScrollViewer) GetTemplateChild("ScrollViewer");
             if (_scrollViewer != null)
                 OutputWidth = _scrollViewer.ActualWidth;
@@ -862,13 +889,15 @@ namespace RoslynCodeControls
 
 
             _border = (Border) GetTemplateChild("Border");
-            _myDrawingBrush = (DrawingBrush) GetTemplateChild("DrawingBrush");
+            MyDrawingBrush = (DrawingBrush) GetTemplateChild("DrawingBrush");
 
             _textDest = (DrawingGroup) GetTemplateChild("TextDest");
             _rect2 = (Rectangle) GetTemplateChild("Rect2");
             _dg2 = (DrawingGroup) GetTemplateChild("DG2");
             UiLoaded = true;
         }
+
+        public UIElement Debug3Container { get; set; }
 
         public UIElement Debug1Container { get; set; }
 
@@ -1116,6 +1145,7 @@ namespace RoslynCodeControls
             var lineNo = inClassName.LineNo;
             var lineOriginPoint = new Point(inClassName.X, inClassName.Y);
             LinkedListNode<LineInfo2> llNode = null;
+            var roslynCodeControl = inClassName.RoslynCodeControl;
             using (var myTextLine = inClassName.TextFormatter.FormatLine(inClassName.CustomTextSource4,
                 inClassName.Offset, inClassName.ParagraphWidth,
                 new GenericTextParagraphProperties(inClassName.CurrentRendering, inClassName.PixelsPerDip), null))
@@ -1126,36 +1156,42 @@ namespace RoslynCodeControls
                 _ = HandleTextLine(ref textStorePosition, out _, ref prevLine, ref lineNo, lineOriginPoint,
                     inClassName.ParagraphWidth, inClassName.CustomTextSource4, runCount, myTextLine, allCharInfos,
                     inClassName.CustomTextSource4.RunInfos, inClassName.Dc, out outLineInfo, false,
-                    inClassName.RoslynCodeControl.Dispatcher);
+                    roslynCodeControl.Dispatcher);
                 LinkedListNode<LineInfo2> li0 = null;
 
 
                 var lineInfo2 = new LineInfo2(inClassName.LineNo, allCharInfos.First, outLineInfo.Offset,
                     outLineInfo.Origin, outLineInfo.Height, outLineInfo.Length);
-                li0 = inClassName.RoslynCodeControl.FindLine(inClassName.LineNo);
+                li0 = roslynCodeControl.FindLine(inClassName.LineNo);
                 if (li0 == null)
                 {
-                    li0 = inClassName.RoslynCodeControl.FindLine(inClassName.LineNo - 1);
+                    li0 = roslynCodeControl.FindLine(inClassName.LineNo - 1);
                     if (li0 != null)
                     {
-                        llNode = inClassName.RoslynCodeControl.LineInfos2.AddAfter(li0, lineInfo2);
+                        llNode = roslynCodeControl.LineInfos2.AddAfter(li0, lineInfo2);
                     }
                     else
                     {
-                        if (inClassName.RoslynCodeControl.LineInfos2.Any())
+                        if (roslynCodeControl.LineInfos2.Any())
                         {
                             throw new InvalidOperationException();
                         }
-                        llNode = inClassName.RoslynCodeControl.LineInfos2.AddFirst(lineInfo2);
+                        llNode = roslynCodeControl.LineInfos2.AddFirst(lineInfo2);
+                        roslynCodeControl.OnPropertyChanged(nameof(FirstLine));
                     }
                 }
                 else
                 {
+                    if (Equals(roslynCodeControl.LineInfos2.First, li0))
+                    {
+                        roslynCodeControl.OnPropertyChanged(nameof(FirstLine));
+                    }
                     li0.Value = lineInfo2;
+                    roslynCodeControl.OnPropertyChanged(nameof(InsertionLine));           
                     llNode = li0;
                 }
                 
-                inClassName.RoslynCodeControl.InsertionLineNode = llNode;
+                roslynCodeControl.InsertionLineNode = llNode;
             }
 #if false
                 lineCtx = new LineContext()
@@ -1179,7 +1215,7 @@ namespace RoslynCodeControls
             var lineCtxMaxY = outLineInfo.Origin.Y + outLineInfo.Size.Height;
             // for(int i = 0; i < 10; i++)
                 // CustomTextSource4.DoEvents();
-            inClassName.RoslynCodeControl.Dispatcher.Invoke(() =>
+            roslynCodeControl.Dispatcher.Invoke(() =>
             {
                 // if (inClassName.RoslynCodeControl.LineInfos.Count <= inClassName.LineNo)
                 // inClassName.RoslynCodeControl.LineInfos.Add(outLineInfo);
@@ -1187,7 +1223,7 @@ namespace RoslynCodeControls
                 // inClassName.RoslynCodeControl.LineInfos[inClassName.LineNo] = outLineInfo;
 
                 inClassName.Dc.Close();
-                var textDest = inClassName.RoslynCodeControl._textDest;
+                var textDest = roslynCodeControl._textDest;
                 var i = inClassName.LineNo / 100;
                 var j = inClassName.LineNo % 100;
                 if (textDest.Children.Count <= i)
@@ -1209,12 +1245,21 @@ namespace RoslynCodeControls
                 }
 
 
-                inClassName.RoslynCodeControl.MaxX = Math.Max(inClassName.RoslynCodeControl.MaxX, lineCtxMaxX);
-                inClassName.RoslynCodeControl.MaxY = Math.Max(inClassName.RoslynCodeControl.MaxY, lineCtxMaxY);
-                inClassName.RoslynCodeControl.Rectangle.Width = lineCtxMaxX;
-                inClassName.RoslynCodeControl.Rectangle.Height = lineCtxMaxY;
-                inClassName.RoslynCodeControl._rect2.Width = lineCtxMaxX;
-                inClassName.RoslynCodeControl._rect2.Height = lineCtxMaxY;
+                var maxX = Math.Max(roslynCodeControl.MaxX, lineCtxMaxX);
+                roslynCodeControl.MaxX = maxX;
+                var maxY = Math.Max(roslynCodeControl.MaxY, lineCtxMaxY);
+                roslynCodeControl.MaxY = maxY;
+                // bound to viewbox height / width
+                // roslynCodeControl.Rectangle.Width = lineCtxMaxX;
+                // roslynCodeControl.Rectangle.Height = lineCtxMaxY;
+                roslynCodeControl._rect2.Width = lineCtxMaxX;
+                roslynCodeControl._rect2.Height = lineCtxMaxY;
+
+                var boundsLeft = Math.Min(roslynCodeControl._textDest.Bounds.Left, 0);
+                boundsLeft -= 3;
+                var boundsTop = Math.Min(roslynCodeControl._textDest.Bounds.Top, 0);
+                boundsTop -= 3;
+                roslynCodeControl.DrawingBrushViewbox = new Rect(boundsLeft, boundsTop, maxX - boundsLeft, maxY - boundsTop);
             });
 
             return llNode.Value;
@@ -1339,7 +1384,8 @@ namespace RoslynCodeControls
             var fontFamilyFamilyName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
             Debug.WriteLine(fontFamilyFamilyName);
             Debug.WriteLine("OutputWidth " + OutputWidth);
-            Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
+            // not sure what to do here !!
+            // Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
             var emSize = FontSize;
             var fontWeight = FontWeight;
             var dispatcherOperation = SecondaryDispatcher.InvokeAsync(() =>
@@ -1517,7 +1563,8 @@ namespace RoslynCodeControls
             if (myTextLine.Width > paragraphWidth) Debug.WriteLine("overflowed2");
             lineInfo = new LineInfo
             {
-                Offset = textStorePosition, Length = myTextLine.Length, PrevLine = prevLine, LineNumber = lineNo
+                Offset = textStorePosition, Length = myTextLine.Length, PrevLine = prevLine, LineNumber = lineNo,
+                Height = myTextLine.Height
             };
 
             if (prevLine != null) prevLine.NextLine = lineInfo;
@@ -1804,8 +1851,14 @@ namespace RoslynCodeControls
 
         private void UpdateCaretPosition(int? oldValue = null, int? newValue = null)
         {
-            var charInfoNode = InsertionCharInfoNode ?? FindLine(InsertionLine.LineNumber).Value.FirstCharInfo;
-            var f = charInfoNode.Value.Index < newValue;
+            var charInfoNode = InsertionCharInfoNode;
+            if (charInfoNode == null)
+            {
+                Debug.WriteLine($"{nameof(UpdateCaretPosition)}  {nameof(InsertionCharInfoNode)} is null.");
+                charInfoNode = FindLine(InsertionLine.LineNumber).Value.FirstCharInfo;
+            }
+
+            var f = charInfoNode == null ? true : charInfoNode.Value.Index < newValue;
             LinkedListNode<CharInfo> prevCharInfoNode = null;
             while (charInfoNode != null && (f ? charInfoNode.Value.Index < newValue : charInfoNode.Value.Index > newValue))
             {
@@ -1815,13 +1868,18 @@ namespace RoslynCodeControls
 
             if (charInfoNode == null)
             {
-
+                if (prevCharInfoNode != null)
+                {
+                    var ci = prevCharInfoNode.Value;
+                    _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin - MyDrawingBrush.Viewbox.Top);
+                    _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth - MyDrawingBrush.Viewbox.Left);
+                }
             }
             else
             {
                 var ci = prevCharInfoNode.Value;
-                _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin - _myDrawingBrush.Viewbox.Top);
-                _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth - _myDrawingBrush.Viewbox.Left );
+                _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin - MyDrawingBrush.Viewbox.Top);
+                _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth - MyDrawingBrush.Viewbox.Left );
             }
 #if false
             Debug.WriteLine($"{nameof(UpdateCaretPosition)} ( {oldValue} , {newValue} )");
@@ -1958,6 +2016,7 @@ namespace RoslynCodeControls
         private bool _focusing;
         private LinkedListNode<CharInfo> _insertionCharInfoNode;
         private LinkedListNode<LineInfo2> _insertionLineNode;
+        private Rect _drawingBrushViewbox;
 
         /// <inheritdoc />
         protected override void OnMouseMove(MouseEventArgs e)
@@ -2400,5 +2459,29 @@ namespace RoslynCodeControls
                 Debug.WriteLine("Setting update operation task");
             }
         }
+
+        public DrawingBrush MyDrawingBrush
+        {
+            get { return _myDrawingBrush; }
+            set
+            {
+                if (Equals(value, _myDrawingBrush)) return;
+                _myDrawingBrush = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Rect DrawingBrushViewbox
+        {
+            get { return _drawingBrushViewbox; }
+            set
+            {
+                if (value.Equals(_drawingBrushViewbox)) return;
+                _drawingBrushViewbox = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public LineInfo2 FirstLine => LineInfos2?.First?.Value;
     }
 }

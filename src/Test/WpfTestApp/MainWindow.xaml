@@ -682,6 +682,7 @@
                 <TextBlock Text="Font:" Margin="0,0,5,0" VerticalAlignment="Center"></TextBlock>
                 <ComboBox x:Name="FontComboBox" SelectionChanged="FontComboBox_OnSelectionChanged" VerticalAlignment="Center"
                     ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Fonts}"
+                    SelectedItem="{Binding ElementName=CodeControl,Path=FontFamily,Mode=OneWay}"
                     >
                     <ComboBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type FontFamily}">
@@ -692,6 +693,7 @@
                 <TextBlock Text="Size:" Margin="5,0,0,0" VerticalAlignment="Center"/>
                 <ComboBox x:Name="FontSizeCombo" SelectionChanged="FontSizeCombo_OnSelectionChanged"
                           ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=CommonFontSizes}"
+                          SelectedItem="{Binding ElementName=CodeControl,Path=FontSize,Mode=OneWay}"
                           />
             </ToolBar>
         </ToolBarTray>

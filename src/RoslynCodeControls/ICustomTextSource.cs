@@ -87,10 +87,6 @@ namespace RoslynCodeControls
         /// <summary>
         /// 
         /// </summary>
-        void UpdateCharMap();
-        /// <summary>
-        /// 
-        /// </summary>
         /// <param name="source"></param>
             
     }

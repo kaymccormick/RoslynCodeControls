@@ -3,6 +3,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:RoslynCodeControls"
     xmlns:themes="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Classic">
+    <local:RectConverter x:Key="RectConverter" />
+    <local:PointConverter x:Key="PointConverter" />
     <Style TargetType="{x:Type local:CustomControl1}">
         <Setter Property="Template">
             <Setter.Value>
@@ -34,7 +36,8 @@
                                         <TextBlock Margin="5,0,0,0" Text="{Binding Offset,StringFormat=N0}" />
                                         <TextBlock Margin="5,0,0,0" Text="Length" />
                                         <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" />
-                                        
+                                        <TextBlock Margin="5,0,0,0" Text="Origin" />
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding Origin,Converter={StaticResource PointConverter}}" />
                                     </StackPanel>
                                 </DataTemplate>
 
@@ -72,10 +75,15 @@
                                           VerticalContentAlignment="Top" Grid.RowSpan="3" Grid.ColumnSpan="2">
                                 <Grid x:Name="InnerGrid">
                                     <Rectangle x:Name="Rectangle" VerticalAlignment="Top" HorizontalAlignment="Left"
+                                               Width="{Binding RelativeSource={RelativeSource
+                                        TemplatedParent},Path=DrawingBrushViewbox.Width}"
+                                               Height="{Binding RelativeSource={RelativeSource
+                                        TemplatedParent},Path=DrawingBrushViewbox.Height}"
                                                TextElement.FontSize="12">
                                         <Rectangle.Fill>
                                             <DrawingBrush x:Name="DrawingBrush" AlignmentX="Left" AlignmentY="Top"
-                                                          TileMode="None"
+                                                          TileMode="None" ViewboxUnits="Absolute"
+                                                          Viewbox="{Binding RelativeSource={RelativeSource TemplatedParent},Path=DrawingBrushViewbox}"
                                                           Stretch="None">
                                                 <DrawingBrush.Transform>
                                                     <TransformGroup>
@@ -161,14 +169,32 @@
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
-                                            <ListView ItemsSource="{Binding LineInfos2}">
-                                                <ListView.View>
-                                                    <GridView>
-                                                        <GridViewColumn Header="Line No."
-                                                                        DisplayMemberBinding="{Binding LineNumber}" />
-                                                    </GridView>
-                                                </ListView.View>
-                                            </ListView>
+                                            <ContentPresenter Content="{Binding FirstLine}" />
+                                        </Grid>
+                                    </ScrollViewer>
+                                </GroupBox>
+                            </Border>
+                            <Border Visibility="Hidden" x:Name="debug3container" Grid.Row="1" Opacity="1"
+                                    TextElement.FontSize="16" TextElement.FontWeight="Normal">
+                                <GroupBox Background="AliceBlue"
+                                          DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
+                                    <GroupBox.Header>
+                                        <TextBlock Background="Azure">Debug Info (3)</TextBlock>
+                                    </GroupBox.Header>
+                                    <ScrollViewer>
+                                        <Grid Margin="0">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="DrawingBrush" />
+                                            <TextBlock Grid.Column="1" Text="ViewBox" />
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding DrawingBrushViewbox,Converter={StaticResource RectConverter}}" />
                                         </Grid>
                                     </ScrollViewer>
                                 </GroupBox>
