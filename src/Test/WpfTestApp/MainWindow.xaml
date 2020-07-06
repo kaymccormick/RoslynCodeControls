@@ -696,12 +696,13 @@
             </ToolBar>
         </ToolBarTray>
         <Border Grid.Row="2">
-            <roslynCodeControls:RoslynCodeControl FontWeight="Bold" FontSize="24" xml:space="preserve"
+            <roslynCodeControls:RoslynCodeControl FontSize="20" xml:space="preserve"
                                                   x:Name="CodeControl" />
         </Border>
-        <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="24">
-            <TextBlock Text="{Binding ElementName=CodeControl,Path=InsertionPoint}" />
-            <StackPanel Orientation="Horizontal" DataContext="{Binding ElementName=CodeControl,Path=InsertionCharInfo}">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="18" DataContext="{Binding ElementName=CodeControl}">
+            <TextBlock Text="{Binding Status}" Width="100"/>
+            <TextBlock Margin="5,0,0,0" Text="{Binding ElementName=CodeControl,Path=InsertionPoint}" />
+            <StackPanel Margin="5,0,0,0" Orientation="Horizontal" DataContext="{Binding ElementName=CodeControl,Path=InsertionCharInfo}">
                 <TextBlock Text="Insertion: " FontWeight="Bold" />
                 <Border BorderThickness="2" HorizontalAlignment="Center" BorderBrush="Black" Margin="1" MinWidth="25"
                         MinHeight="25">

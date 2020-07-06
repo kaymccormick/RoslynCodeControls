@@ -1,10 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Media.TextFormatting;
+using System.Windows.Threading;
 using JetBrains.Annotations;
 
 namespace RoslynCodeControls
@@ -80,8 +84,20 @@ namespace RoslynCodeControls
             {
                 if (CustomTextSource != null)
                 {
-                    var len = CustomTextSource.Dispatcher.Invoke(() => CustomTextSource.Length);
-                    return len;
+                    try
+                    {
+                        var len = CustomTextSource.Dispatcher.Invoke(() => CustomTextSource.Length,
+                            DispatcherPriority.Send, CancellationToken.None, new TimeSpan(0, 0, 0, 0, 100));
+                        return len;
+                    }
+                    catch (TimeoutException ex1)
+                    {
+
+                    }
+                    catch (TaskCanceledException ex)
+                    {
+
+                    }
                 }
 
                 return -1;

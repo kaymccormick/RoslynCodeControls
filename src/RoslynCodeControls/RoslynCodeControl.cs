@@ -19,7 +19,6 @@ using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
 using System.Windows.Media.TextFormatting;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -40,6 +39,14 @@ namespace RoslynCodeControls
 //    [TitleMetadata("Formatted Code Control")]
     public class RoslynCodeControl : SyntaxNodeControl, ILineDrawer, INotifyPropertyChanged
     {
+        public static readonly DependencyProperty StatusProperty = DependencyProperty.Register(
+            "Status", typeof(CodeControlStatus), typeof(RoslynCodeControl), new PropertyMetadata(default(CodeControlStatus)));
+
+        public CodeControlStatus Status
+        {
+            get { return (CodeControlStatus) GetValue(StatusProperty); }
+            set { SetValue(StatusProperty, value); }
+        }
         public static readonly RoutedEvent RenderCompleteEvent = EventManager.RegisterRoutedEvent("RenderComplete",
             RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(RoslynCodeControl));
 
@@ -49,7 +56,17 @@ namespace RoslynCodeControls
         public static readonly DependencyProperty InsertionCharInfoProperty = DependencyProperty.Register(
             "InsertionCharInfo", typeof(CharInfo), typeof(RoslynCodeControl), new PropertyMetadata(default(CharInfo)));
 
-        public LinkedListNode<CharInfo> InsertionCharInfoNode { get; set; }
+        public LinkedListNode<CharInfo> InsertionCharInfoNode
+        {
+            get { return _insertionCharInfoNode; }
+            set
+            {
+                if (Equals(value, _insertionCharInfoNode)) return;
+                _insertionCharInfoNode = value;
+                OnPropertyChanged();
+            }
+        }
+
         public CharInfo InsertionCharInfo
         {
             get { return (CharInfo) GetValue(InsertionCharInfoProperty); }
@@ -461,6 +478,7 @@ namespace RoslynCodeControls
                             if (Debug1Container.Visibility != Visibility.Visible)
                             {
                                 Debug1Container.Visibility = Visibility.Visible;
+                                Debug2Container.Visibility = Visibility.Hidden;
                             }
                             else
                             {
@@ -469,6 +487,24 @@ namespace RoslynCodeControls
                         }
                     }
                     break;
+                case Key.F2:
+                    if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
+                    {
+                        if (Debug2Container != null)
+                        {
+                            if (Debug2Container.Visibility != Visibility.Visible)
+                            {
+                                Debug2Container.Visibility = Visibility.Visible;
+                                Debug1Container.Visibility = Visibility.Hidden;
+                            }
+                            else
+                            {
+                                Debug2Container.Visibility = Visibility.Hidden;
+                            }
+                        }
+                    }
+                    break;
+
                 case Key.Left:
                     e.Handled = true;
                     if (CanMoveLeftByCharacter()) MoveLeftByCharacter();
@@ -492,6 +528,8 @@ namespace RoslynCodeControls
                     break;
             }
         }
+
+        public UIElement Debug2Container { get; set; }
 
         public void MoveLeftByCharacter()
         {
@@ -660,10 +698,12 @@ namespace RoslynCodeControls
             if (_handlingInput)
                 return;
             _handlingInput = true;
-            var b = await DoInput(new InputRequest(InputRequestKind.Backspace));
+            Status = CodeControlStatus.InputHandling;
+            var b = await DoInput(new InputRequest(InputRequestKind.Backspace)).ConfigureAwait(true);
             if (!b)
                 Debug.WriteLine("Backspace failed");
             _handlingInput = false;
+            Status = CodeControlStatus.Idle;
         }
 
         private void ContinuationFunction(Task<UpdateInfo> z)
@@ -710,10 +750,12 @@ namespace RoslynCodeControls
             if (_handlingInput)
                 return;
             _handlingInput = true;
-            var b = await DoInput(new InputRequest(InputRequestKind.NewLine));
+            Status = CodeControlStatus.InputHandling;
+            var b = await DoInput(new InputRequest(InputRequestKind.NewLine)).ConfigureAwait(true);
             if (!b)
                 Debug.WriteLine("Newline failed");
             _handlingInput = false;
+            Status = CodeControlStatus.Idle;
         }
 
         private void CanEnterLineBreak(object sender, CanExecuteRoutedEventArgs e)
@@ -786,6 +828,7 @@ namespace RoslynCodeControls
         public override void OnApplyTemplate()
         {
             Debug1Container = (UIElement) GetTemplateChild("debug1container");
+            Debug2Container = (UIElement)GetTemplateChild("debug2container");
             _scrollViewer = (ScrollViewer) GetTemplateChild("ScrollViewer");
             if (_scrollViewer != null)
                 OutputWidth = _scrollViewer.ActualWidth;
@@ -868,7 +911,17 @@ namespace RoslynCodeControls
             get { return InsertionLineNode?.Value; }
         }
 
-        public LinkedListNode<LineInfo2> InsertionLineNode { get; set; }
+        public LinkedListNode<LineInfo2> InsertionLineNode
+        {
+            get { return _insertionLineNode; }
+            set
+            {
+                if (Equals(value, _insertionLineNode)) return;
+                _insertionLineNode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(InsertionLine));
+            }
+        }
 
 
         /// <summary>
@@ -887,7 +940,8 @@ namespace RoslynCodeControls
             try
             {
                 _handlingInput = true;
-                await DoInput(new InputRequest(InputRequestKind.TextInput, eText));
+                Status = CodeControlStatus.InputHandling;
+                await DoInput(new InputRequest(InputRequestKind.TextInput, eText)).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -896,6 +950,7 @@ namespace RoslynCodeControls
             finally
             {
                 _handlingInput = false;
+                Status = CodeControlStatus.Idle;
             }
         }
 
@@ -947,18 +1002,18 @@ namespace RoslynCodeControls
             var lineInfo = await SecondaryDispatcher.InvokeAsync(
                 new Func<LineInfo2>(() => Callback(inn, insertionPoint, inputRequest)),
                 DispatcherPriority.Send, CancellationToken.None);
-            var in2 = new In2(this, insertionPoint, inputRequest, text, inn, lineInfo);
+            var in2 = new CallbackParameters2(this, insertionPoint, inputRequest, text, inn, lineInfo);
             await Dispatcher.Invoke(() => Callback2(in2));
         }
 
-        private static async Task Callback2(In2 in2)
+        private static async Task Callback2(CallbackParameters2 callbackParameters2)
         {
-            var roslynCodeControl = in2.RoslynCodeControl;
-            var inputRequest = in2.InputRequest;
-            var lineInfo = in2.LineInfo;
-            var insertionPoint = in2.InsertionPoint;
-            var text = in2.Text;
-            var inn = in2.In1;
+            var roslynCodeControl = callbackParameters2.RoslynCodeControl;
+            var inputRequest = callbackParameters2.InputRequest;
+            var lineInfo = callbackParameters2.LineInfo;
+            var insertionPoint = callbackParameters2.InsertionPoint;
+            var text = callbackParameters2.Text;
+            var inn = callbackParameters2.In1;
             if (inputRequest.Kind == InputRequestKind.Backspace)
                 roslynCodeControl.InsertionPoint--;
             else
@@ -1122,7 +1177,8 @@ namespace RoslynCodeControls
 #endif
             var lineCtxMaxX = outLineInfo.Origin.X + outLineInfo.Size.Width;
             var lineCtxMaxY = outLineInfo.Origin.Y + outLineInfo.Size.Height;
-
+            // for(int i = 0; i < 10; i++)
+                // CustomTextSource4.DoEvents();
             inClassName.RoslynCodeControl.Dispatcher.Invoke(() =>
             {
                 // if (inClassName.RoslynCodeControl.LineInfos.Count <= inClassName.LineNo)
@@ -1259,6 +1315,7 @@ namespace RoslynCodeControls
             }
 
             PerformingUpdate = true;
+            Status = CodeControlStatus.Rendering;
             RaiseEvent(new RoutedEventArgs(RenderStartEvent, this));
 
             var textStorePosition = 0;
@@ -1317,6 +1374,7 @@ namespace RoslynCodeControls
             PerformingUpdate = false;
             InitialUpdate = false;
             RaiseEvent(new RoutedEventArgs(RenderCompleteEvent, this));
+            Status = CodeControlStatus.Rendered;
             var insertionPoint = InsertionPoint;
             if (insertionPoint == 0) InsertionCharInfo = CharInfos.FirstOrDefault();
             CommandManager.InvalidateRequerySuggested();
@@ -1362,10 +1420,12 @@ namespace RoslynCodeControls
         {
             base.OnFilenameChanged(oldValue, newValue);
             if (newValue != null)
+                Status = CodeControlStatus.Reading;
                 using (var sr = File.OpenText(newValue))
                 {
-                    var code = await sr.ReadToEndAsync();
+                    var code = await sr.ReadToEndAsync().ConfigureAwait(true);
                     SourceText = code;
+                    Status = CodeControlStatus.Idle;
                 }
         }
 
@@ -1548,7 +1608,11 @@ namespace RoslynCodeControls
             if (drawOnSecondaryThread)
                 myTextLine.Draw(myDc, linePosition, InvertAxes.None);
             else
+            {
+                for(int i = 0; i < 3; i++)
+                    CustomTextSource4.DoEvents();
                 dispatcher.Invoke(() => { myTextLine.Draw(myDc, linePosition, InvertAxes.None); });
+            }
 
             linePosition.Y += myTextLine.Height;
             lineNo++;
@@ -1892,6 +1956,8 @@ namespace RoslynCodeControls
         private bool _updatingCaret;
         private Rectangle _rectangle;
         private bool _focusing;
+        private LinkedListNode<CharInfo> _insertionCharInfoNode;
+        private LinkedListNode<LineInfo2> _insertionLineNode;
 
         /// <inheritdoc />
         protected override void OnMouseMove(MouseEventArgs e)
@@ -2333,117 +2399,6 @@ namespace RoslynCodeControls
                 _updateOperation = value;
                 Debug.WriteLine("Setting update operation task");
             }
-        }
-    }
-
-    public class LineInfo2
-    {
-        public LineInfo2(int lineNumber, LinkedListNode<CharInfo> firstCharInfo, int offset, Point origin,
-            double height, int length)
-        {
-            LineNumber = lineNumber;
-            FirstCharInfo = firstCharInfo;
-            Offset = offset;
-            Origin = origin;
-            Height = height;
-            Length = length;
-        }
-
-        public int LineNumber { get; set; }
-        public LinkedListNode<CharInfo> FirstCharInfo { get; }
-        public int Offset { get; set; }
-        public Point Origin { get; set; }
-        public double Height { get; set; }
-        public int Length { get; set; }
-    }
-
-    public class CharInfo
-    {
-        public int LineIndex { get; }
-        public int RunIndex { get; }
-        public char Character { get; }
-        public double AdvanceWidth { get; }
-        public bool? CaretStop { get; }
-        public double XOrigin { get; }
-        public double YOrigin { get; }
-        public int Index { get; set; }
-        public int LineNumber { get; set; }
-
-        public CharInfo(in int lineNo, in int index, in int lineIndex, in int runIndex, char character,
-            double advanceWidth,
-            bool? caretStop,
-            double xOrigin, double yOrigin)
-        {
-            LineNumber = lineNo;
-            Index = index;
-            LineIndex = lineIndex;
-            RunIndex = runIndex;
-            Character = character;
-            AdvanceWidth = advanceWidth;
-            CaretStop = caretStop;
-            XOrigin = xOrigin;
-            YOrigin = yOrigin;
-        }
-    }
-
-    internal class In2
-    {
-        public RoslynCodeControl RoslynCodeControl { get; }
-        public int InsertionPoint { get; }
-        public InputRequest InputRequest { get; }
-        public string Text { get; }
-        public InClassName In1 { get; }
-        public LineInfo2 LineInfo { get; }
-
-        public In2(RoslynCodeControl roslynCodeControl, in int insertionPoint, InputRequest inputRequest,
-            string text, InClassName in1, LineInfo2 lineInfo)
-        {
-            RoslynCodeControl = roslynCodeControl;
-            InsertionPoint = insertionPoint;
-            InputRequest = inputRequest;
-            Text = text;
-            In1 = in1;
-            LineInfo = lineInfo;
-        }
-    }
-
-    public enum InputRequestKind
-    {
-        TextInput,
-        NewLine,
-        Backspace
-    }
-
-    public class UpdateInfo
-    {
-        public BitmapSource ImageSource { get; set; }
-        public Rect Rect { get; set; }
-        public DrawingGroup DrawingGroup { get; set; }
-        public List<CharInfo> CharInfos { get; set; }
-    }
-
-    public class InputRequest
-    {
-        private readonly string _text;
-        public InputRequestKind Kind { get; }
-
-        public string Text
-        {
-            get
-            {
-                return Kind == InputRequestKind.TextInput ? _text : Kind == InputRequestKind.NewLine ? "\r\n" : null;
-            }
-        }
-
-        public InputRequest(InputRequestKind kind, string text)
-        {
-            Kind = kind;
-            _text = text;
-        }
-
-        public InputRequest(InputRequestKind kind)
-        {
-            Kind = kind;
         }
     }
 }

@@ -58,7 +58,16 @@ namespace RoslynCodeControls
         /// <summary>
         /// 
         /// </summary>
-        public override int Length { get; protected set; }
+        public override int Length
+        {
+            get { return _length; }
+            protected set
+            {
+                if (value == _length) return;
+                _length = value;
+                OnPropertyChanged();
+            }
+        }
 
         private IEnumerable<SyntaxInfo> GetSyntaxInfos()
         {
@@ -824,6 +833,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         private IEnumerator<SyntaxInfo> _syntaxInfos;
         private GenericTextRunProperties _baseProps;
         private ObservableCollection<TextRun> _runs = new ObservableCollection<TextRun>();
+        private int _length;
         public int EolLength { get; } = 2;
 
         /// <summary>
@@ -1171,6 +1181,21 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+        public static void DoEvents()
+        {
+            DispatcherFrame frame = new DispatcherFrame();
+            Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,
+                new DispatcherOperationCallback(ExitFrame), frame);
+            Dispatcher.PushFrame(frame);
+        }
+
+        public static object ExitFrame(object f)
+        {
+            ((DispatcherFrame)f).Continue = false;
+
+            return null;
+        }
+
     }
 
     public class TextRunInfo

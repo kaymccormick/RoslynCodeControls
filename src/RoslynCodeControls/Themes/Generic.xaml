@@ -9,8 +9,7 @@
                 <ControlTemplate TargetType="{x:Type local:CustomControl1}">
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
-                    </Border>
+                            BorderThickness="{TemplateBinding BorderThickness}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -26,12 +25,25 @@
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                         <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" x:Name="Grid">
                             <Grid.Resources>
+
+                                <DataTemplate DataType="{x:Type local:LineInfo2}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Line No." />
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding LineNumber,StringFormat=N0}" />
+                                        <TextBlock Margin="5,0,0,0" Text="Offset" />
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding Offset,StringFormat=N0}" />
+                                        <TextBlock Margin="5,0,0,0" Text="Length" />
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" />
+                                        
+                                    </StackPanel>
+                                </DataTemplate>
+
                                 <DataTemplate DataType="{x:Type local:CustomTextSource4Proxy}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Length"></TextBlock>
-                                        <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}"></TextBlock>
-                                        <TextBlock Margin="5,0,0,0" Text="RunCount"></TextBlock>
-                                        <TextBlock Margin="5,0,0,0" Text="{Binding RunCount,StringFormat=N0}"></TextBlock>
+                                        <TextBlock Text="Length" />
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" />
+                                        <TextBlock Margin="5,0,0,0" Text="RunCount" />
+                                        <TextBlock Margin="5,0,0,0" Text="{Binding RunCount,StringFormat=N0}" />
 
                                     </StackPanel>
                                 </DataTemplate>
@@ -67,24 +79,28 @@
                                                           Stretch="None">
                                                 <DrawingBrush.Transform>
                                                     <TransformGroup>
-                                                        <TranslateTransform x:Name="Translate"/>
+                                                        <TranslateTransform x:Name="Translate" />
 
                                                     </TransformGroup>
                                                 </DrawingBrush.Transform>
                                                 <DrawingBrush.Drawing>
-                                                    <DrawingGroup x:Name="TextDest">
-
-                                                    </DrawingGroup>
+                                                    <DrawingGroup x:Name="TextDest" />
                                                 </DrawingBrush.Drawing>
                                             </DrawingBrush>
                                         </Rectangle.Fill>
                                     </Rectangle>
-                                    <Rectangle x:Name="Rect2" Panel.ZIndex="100" VerticalAlignment="Top" Width="{Binding ElementName=Rectangle,Path=ActualWidth}" Height="{Binding ElementName=Rectangle,Path=ActualHeight}"
+                                    <Rectangle x:Name="Rect2" Panel.ZIndex="100" VerticalAlignment="Top"
+                                               Width="{Binding ElementName=Rectangle,Path=ActualWidth}"
+                                               Height="{Binding ElementName=Rectangle,Path=ActualHeight}"
                                                HorizontalAlignment="Left" IsHitTestVisible="False">
                                         <Rectangle.Fill>
-                                            <DrawingBrush x:Name="DrawingBrush2" AlignmentX="Left" AlignmentY="Top"  Viewbox="{Binding ElementName=TextDest,Path=Bounds}" ViewboxUnits="Absolute"
-                                                          TileMode="None"  Viewport="{Binding ElementName=TextDest,Path=Bounds}" ViewportUnits="Absolute"
-                                            Stretch="None">
+                                            <DrawingBrush x:Name="DrawingBrush2" AlignmentX="Left" AlignmentY="Top"
+                                                          Viewbox="{Binding ElementName=TextDest,Path=Bounds}"
+                                                          ViewboxUnits="Absolute"
+                                                          TileMode="None"
+                                                          Viewport="{Binding ElementName=TextDest,Path=Bounds}"
+                                                          ViewportUnits="Absolute"
+                                                          Stretch="None">
                                                 <DrawingBrush.Transform>
                                                     <TranslateTransform x:Name="DG2Transform" />
                                                 </DrawingBrush.Transform>
@@ -92,10 +108,11 @@
                                                     <DrawingGroup x:Name="DG2">
                                                         <GeometryDrawing>
                                                             <GeometryDrawing.Pen>
-                                                                <Pen Brush="Red" Thickness="0"/>
+                                                                <Pen Brush="Red" Thickness="0" />
                                                             </GeometryDrawing.Pen>
                                                             <GeometryDrawing.Geometry>
-                                                                <RectangleGeometry Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=HoverRegionInfo.BoundingRect}"/>
+                                                                <RectangleGeometry
+                                                                    Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=HoverRegionInfo.BoundingRect}" />
                                                             </GeometryDrawing.Geometry>
                                                         </GeometryDrawing>
 
@@ -111,33 +128,67 @@
                                 </Grid>
 
                             </ScrollViewer>
-                            <Border Visibility="Hidden" x:Name="debug1container"  Grid.Row="1" Opacity="1" TextElement.FontSize="16" TextElement.FontWeight="Normal">
-                                <GroupBox Background="AliceBlue" DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
+                            <Border Visibility="Hidden" x:Name="debug1container" Grid.Row="1" Opacity="1"
+                                    TextElement.FontSize="16" TextElement.FontWeight="Normal">
+                                <GroupBox Background="AliceBlue"
+                                          DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
                                     <GroupBox.Header>
-                                        <TextBlock Background="Azure">Debug Info</TextBlock></GroupBox.Header>
+                                        <TextBlock Background="Azure">Debug Info</TextBlock>
+                                    </GroupBox.Header>
                                     <Grid Margin="0">
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <StackPanel Orientation="Horizontal">
-                                    <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}"/>
-                                    <TextBlock Margin="10,0,0,0" Text="{Binding Path=Document}"/>
-                                    <TextBlock Margin="10,0,0,0" Text="{Binding Path=InsertionCharInfoNode}"/>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Orientation="Vertical">
+                                            <ContentPresenter Content="{Binding InsertionLine}" />
+                                            <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}" />
+                                            <TextBlock Margin="10,0,0,0" Text="{Binding Path=Document}" />
+                                            <TextBlock Margin="10,0,0,0" Text="{Binding Path=InsertionCharInfoNode}" />
                                         </StackPanel>
-                                </Grid>
+                                    </Grid>
                                 </GroupBox>
 
                             </Border>
-                            <Rectangle Visibility="Hidden" x:Name="Rect3" Panel.ZIndex="120" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" IsHitTestVisible="False" Grid.RowSpan="2">
+                            <Border Visibility="Hidden" x:Name="debug2container" Grid.Row="1" Opacity="1"
+                                    TextElement.FontSize="16" TextElement.FontWeight="Normal">
+                                <GroupBox Background="AliceBlue"
+                                          DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
+                                    <GroupBox.Header>
+                                        <TextBlock Background="Azure">Debug Info (2)</TextBlock>
+                                    </GroupBox.Header>
+                                    <ScrollViewer>
+                                        <Grid Margin="0">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <ListView ItemsSource="{Binding LineInfos2}">
+                                                <ListView.View>
+                                                    <GridView>
+                                                        <GridViewColumn Header="Line No."
+                                                                        DisplayMemberBinding="{Binding LineNumber}" />
+                                                    </GridView>
+                                                </ListView.View>
+                                            </ListView>
+                                        </Grid>
+                                    </ScrollViewer>
+                                </GroupBox>
+                            </Border>
+
+                            <Rectangle Visibility="Hidden" x:Name="Rect3" Panel.ZIndex="120"
+                                       VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                       IsHitTestVisible="False" Grid.RowSpan="2">
                                 <Rectangle.Fill>
-                                    <DrawingBrush AlignmentX="Left" AlignmentY="Top" TileMode="None" Stretch="None" >
+                                    <DrawingBrush AlignmentX="Left" AlignmentY="Top" TileMode="None" Stretch="None">
                                         <DrawingBrush.Drawing>
                                             <DrawingGroup x:Name="DG3">
                                                 <DrawingGroup>
                                                     <GeometryDrawing>
                                                         <GeometryDrawing.Pen>
-                                                            <Pen Brush="Green" Thickness="3"/>
+                                                            <Pen Brush="Green" Thickness="3" />
                                                         </GeometryDrawing.Pen>
                                                         <GeometryDrawing.Geometry>
-                                                            <RectangleGeometry Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=HoverRegionInfo.BoundingRect}"></RectangleGeometry>
+                                                            <RectangleGeometry
+                                                                Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=HoverRegionInfo.BoundingRect}" />
                                                         </GeometryDrawing.Geometry>
                                                     </GeometryDrawing>
                                                 </DrawingGroup>
