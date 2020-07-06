@@ -42,13 +42,47 @@ namespace RoslynCodeControls
             set
             {
                 if (Equals(value, _customTextSource)) return;
+                if (_customTextSource != null) _customTextSource.PropertyChanged -= CustomTextSourceOnPropertyChanged;
                 _customTextSource = value;
+                if (_customTextSource != null) _customTextSource.PropertyChanged += CustomTextSourceOnPropertyChanged;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(Length));
             }
         }
 
-        public int Length => CustomTextSource.Dispatcher.Invoke(() => CustomTextSource.Length);
+        private void CustomTextSourceOnPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            OnPropertyChanged(e.PropertyName);
+            if (e.PropertyName == "Runs")
+            {
+                OnPropertyChanged("RunCount");
+            }
+        }
+
+        public int Length
+        {
+            get
+            {
+                if (CustomTextSource != null)
+                {
+                    var len = CustomTextSource.Dispatcher.Invoke(() => CustomTextSource.Length);
+                    return len;
+                }
+
+                return -1;
+            }
+        }
+
+        public int RunCount
+        {
+            get
+            {
+                if (CustomTextSource != null)
+                    return CustomTextSource.Dispatcher.Invoke(() => CustomTextSource.Runs.Count);
+                return -1;
+            }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]

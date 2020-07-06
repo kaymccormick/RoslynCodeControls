@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Media;
@@ -165,13 +165,13 @@ namespace RoslynCodeControls
 
             if (textSourceCharacterIndex == 0)
             {
-                _runs.Clear();
+                Runs1.Clear();
                 SyntaxInfos = GetSyntaxInfos().GetEnumerator();
                 if (!SyntaxInfos.MoveNext())
                 {
                     
                     var endOfParagraph = new CustomTextEndOfParagraph(2){Index=textSourceCharacterIndex};
-                    _runs.Add(endOfParagraph);
+                    Runs1.Add(endOfParagraph);
                     return endOfParagraph;
                 }
             }
@@ -180,7 +180,7 @@ namespace RoslynCodeControls
             if (si == null)
             {
                 var endOfParagraph = new CustomTextEndOfParagraph(2){Index=textSourceCharacterIndex};
-                _runs.Add(endOfParagraph);
+                Runs1.Add(endOfParagraph);
                 return endOfParagraph;
             }
 
@@ -196,12 +196,12 @@ namespace RoslynCodeControls
                         if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
                         var t = string.Join("", buf);
                         var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t)){Index=textSourceCharacterIndex};
-                        _runs.Add(customTextCharacters);
+                        Runs1.Add(customTextCharacters);
                         return customTextCharacters;
                     }
 
                     var endOfParagraph = new CustomTextEndOfParagraph(2){Index=textSourceCharacterIndex};
-                    _runs.Add(endOfParagraph);
+                    Runs1.Add(endOfParagraph);
                     return endOfParagraph;
                 }
 
@@ -218,7 +218,7 @@ namespace RoslynCodeControls
                 var t = string.Join("", buf);
                 var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
                     {Index = textSourceCharacterIndex};
-                _runs.Add(customTextCharacters);
+                Runs1.Add(customTextCharacters);
                 return customTextCharacters;
             }
 
@@ -230,14 +230,14 @@ namespace RoslynCodeControls
                 if (syntaxKind == SyntaxKind.EndOfLineTrivia || syntaxKind == SyntaxKind.XmlTextLiteralNewLineToken)
                 {
                     var customTextEndOfLine = new CustomTextEndOfLine(2){Index=textSourceCharacterIndex};
-                    _runs.Add(customTextEndOfLine);
+                    Runs1.Add(customTextEndOfLine);
                     return customTextEndOfLine;
                 }
 
                 var p = PropsFor(si.SyntaxTrivia.Value, si.Text);
                 var syntaxTriviaTextCharacters = new SyntaxTriviaTextCharacters(si.Text, p, si.Span1,
                     si.SyntaxTrivia.Value, si.Node, si.Token, si.TriviaPosition, si.StructuredTrivia){Index = si.Span1.Start};
-                _runs.Add(syntaxTriviaTextCharacters);
+                Runs1.Add(syntaxTriviaTextCharacters);
                 return syntaxTriviaTextCharacters;
             }
             else if (si.SyntaxToken.HasValue)
@@ -245,18 +245,18 @@ namespace RoslynCodeControls
                 if (CSharpExtensions.Kind(si.SyntaxToken.Value) == SyntaxKind.XmlTextLiteralNewLineToken)
                 {
                     var customTextEndOfLine = new CustomTextEndOfLine(2){Index=textSourceCharacterIndex};
-                    _runs.Add(customTextEndOfLine);
+                    Runs1.Add(customTextEndOfLine);
                     return customTextEndOfLine;
                 }
                 var syntaxTokenTextCharacters = new SyntaxTokenTextCharacters(si.Text, si.Text.Length,
                     PropsFor(si.SyntaxToken.Value, si.Text),
                     si.SyntaxToken.Value, si.SyntaxToken.Value.Parent) { Index=si.Span1.Start};
-                _runs.Add(syntaxTokenTextCharacters);
+                Runs1.Add(syntaxTokenTextCharacters);
                 return syntaxTokenTextCharacters;
             }
 
             var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index=textSourceCharacterIndex};
-            _runs.Add(textEndOfParagraph);
+            Runs1.Add(textEndOfParagraph);
             return textEndOfParagraph;
             Debug.WriteLine($"index: {textSourceCharacterIndex}");
 
@@ -592,32 +592,6 @@ namespace RoslynCodeControls
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="obj"></param>
-        /// <exception cref="InvalidOperationException"></exception>
-        public void TakeTextRun(TextRun obj)
-        {
-            if (obj is CustomTextCharacters c)
-            {
-                if (c.Index.HasValue == false) throw new InvalidOperationException("no index");
-                _lineBuilder.Append(c.Text);
-                var cIndex = c.Index.Value;
-                if (currentLineIndex + cIndex > _lineBuilder.Length)
-                {
-                    var x = currentLineIndex + cIndex - _lineBuilder.Length;
-                    _lineBuilder.Append(new string(' ', x));
-                }
-            }
-            else if (obj is TextEndOfLine)
-            {
-                _lines.Add(_lineBuilder.ToString());
-            }
-
-            col.Add(obj);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
         public SyntaxTree Tree
         {
             get { return _tree; }
@@ -839,23 +813,6 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
             set { _baseProps = value; }
         }
 
-        public List<CompilationError> Errors
-        {
-            get { return _errors1; }
-            set
-            {
-                _errors1 = value;
-                if (_errors1 != null && _errors1.Any())
-                    foreach (var compilationError in _errors1)
-                        ErrorRuns.Add(new CustomTextCharacters(compilationError.Message, BaseProps, new TextSpan()));
-            }
-        }
-
-        private readonly StringBuilder _lineBuilder = new StringBuilder();
-        private readonly int currentLineIndex = 0;
-        private readonly List<string> _lines = new List<string>();
-        public List<TextRun> ErrorRuns { get; } = new List<TextRun>();
-        private List<CompilationError> _errors1;
         private SyntaxTree _tree;
         private SourceText _text;
         private List<StartInfo> _starts = new List<StartInfo>();
@@ -866,7 +823,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         private SyntaxInfo _prev;
         private IEnumerator<SyntaxInfo> _syntaxInfos;
         private GenericTextRunProperties _baseProps;
-        private List<TextRun> _runs = new List<TextRun>();
+        private ObservableCollection<TextRun> _runs = new ObservableCollection<TextRun>();
         public int EolLength { get; } = 2;
 
         /// <summary>
@@ -1172,11 +1129,17 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 
         public List<TextRun> Runs
         {
-            get { return _runs; }
-            set { _runs = value; }
+            get { return Runs1; }
+            set { Runs1 = value; }
         }
 
         public List<TextRunInfo> RunInfos { get; set; }
+
+        public ObservableCollection<TextRun> Runs1
+        {
+            get { return _runs; }
+            set { _runs = value; }
+        }
 
         /// <summary>
         /// 

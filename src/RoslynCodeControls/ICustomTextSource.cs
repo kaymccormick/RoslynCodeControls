@@ -82,11 +82,6 @@ namespace RoslynCodeControls
         /// <param name="text"></param>
         /// <returns></returns>
         TextRunProperties MakeProperties(object arg, string text);
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="obj"></param>
-        void TakeTextRun(TextRun obj);
 
         void Init();
         /// <summary>

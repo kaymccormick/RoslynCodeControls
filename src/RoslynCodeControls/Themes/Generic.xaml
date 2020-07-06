@@ -30,6 +30,9 @@
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Length"></TextBlock>
                                         <TextBlock Text="{Binding Length}"></TextBlock>
+                                        <TextBlock Text="RunCount"></TextBlock>
+                                        <TextBlock Text="{Binding RunCount}"></TextBlock>
+
                                     </StackPanel>
                                 </DataTemplate>
                                 <DataTemplate DataType="{x:Type local:CodeToolTipContent}">
