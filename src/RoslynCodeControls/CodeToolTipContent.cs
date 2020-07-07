@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace RoslynCodeControls
 {

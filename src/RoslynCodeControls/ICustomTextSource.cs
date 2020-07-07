@@ -84,10 +84,6 @@ namespace RoslynCodeControls
         TextRunProperties MakeProperties(object arg, string text);
 
         void Init();
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="source"></param>
             
     }
 }

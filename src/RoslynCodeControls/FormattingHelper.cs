@@ -24,7 +24,6 @@ namespace RoslynCodeControls
         /// </summary>
         /// <param name="width"></param>
         /// <param name="currentRendering"></param>
-        /// <param name="_emSize"></param>
         /// <param name="emSize"></param>
         /// <param name="typeface"></param>
         /// <param name="textDest"></param>

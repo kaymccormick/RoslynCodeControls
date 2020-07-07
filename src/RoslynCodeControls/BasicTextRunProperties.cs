@@ -17,7 +17,7 @@ namespace RoslynCodeControls
         private Typeface _typeface;
         private FontFamily _fontFamily;
         private double? _fontRenderingEmSize;
-        private double? _fontHintingEmSize;
+        private double? _fontHintingEmSize=null;
 
         /// <summary>
         /// 

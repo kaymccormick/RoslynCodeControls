@@ -90,11 +90,11 @@ namespace RoslynCodeControls
                             DispatcherPriority.Send, CancellationToken.None, new TimeSpan(0, 0, 0, 0, 100));
                         return len;
                     }
-                    catch (TimeoutException ex1)
+                    catch (TimeoutException)
                     {
 
                     }
-                    catch (TaskCanceledException ex)
+                    catch (TaskCanceledException)
                     {
 
                     }

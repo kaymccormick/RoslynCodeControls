@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -28,6 +27,9 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using TextLine = System.Windows.Media.TextFormatting.TextLine;
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+#pragma warning disable 162
 
 // ReSharper disable ConvertToUsingDeclaration
 
@@ -36,7 +38,6 @@ namespace RoslynCodeControls
     /// <summary>
     /// 
     /// </summary>
-//    [TitleMetadata("Formatted Code Control")]
     public class RoslynCodeControl : SyntaxNodeControl, ILineDrawer, INotifyPropertyChanged
     {
         public static readonly DependencyProperty StatusProperty = DependencyProperty.Register(
@@ -121,7 +122,7 @@ namespace RoslynCodeControls
             }
         }
 
-        protected virtual async void OnInsertionPointChanged(int oldValue, int newValue)
+        protected virtual void OnInsertionPointChanged(int oldValue, int newValue)
         {
             if (newValue == -1)
             {
@@ -131,8 +132,8 @@ namespace RoslynCodeControls
                 UpdateCaretPosition(oldValue, newValue);
             try
             {
-                var enclosingsymbol = Model?.GetEnclosingSymbol(newValue);
-                EnclosingSymbol = enclosingsymbol;
+                var enclosingSymbol = Model?.GetEnclosingSymbol(newValue);
+                EnclosingSymbol = enclosingSymbol;
 
                 if (EnclosingSymbol != null)
                     Debug.WriteLine(EnclosingSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -141,11 +142,12 @@ namespace RoslynCodeControls
                     var ti = Model.GetTypeInfo(InsertionRegion.SyntaxNode);
                     if (ti.Type != null)
                         Debug.WriteLine(ti.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-                    ;
+                    
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
+                // ignored
             }
 
             // var completionService = CompletionService.GetService(Document);
@@ -870,6 +872,7 @@ namespace RoslynCodeControls
             // throw new InvalidOperationException();
             // }
 
+            // ReSharper disable once SpecifyACultureInStringConversionExplicitly
             Debug.WriteLine(OutputWidth.ToString());
 
             Rectangle = (Rectangle) GetTemplateChild("Rectangle");
@@ -993,7 +996,6 @@ namespace RoslynCodeControls
                 Debug.WriteLine(text);
 
                 var insertionPoint = InsertionPoint;
-                string code;
                 if (inputRequest.Kind != InputRequestKind.Backspace)
                 {
                 }
@@ -1023,7 +1025,7 @@ namespace RoslynCodeControls
             var d = new DrawingGroup();
             var drawingContext = d.Open();
             var typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
-            ;
+            
             var inn = new InClassName(this, insertionLineLineNumber, insertionLineOffset, originY, originX,
                 insertionLine, Formatter, OutputWidth, null, PixelsPerDip, CustomTextSource, MaxY, MaxX,
                 d, drawingContext, FontSize, typefaceName, FontWeight);
@@ -1467,12 +1469,12 @@ namespace RoslynCodeControls
             base.OnFilenameChanged(oldValue, newValue);
             if (newValue != null)
                 Status = CodeControlStatus.Reading;
-                using (var sr = File.OpenText(newValue))
-                {
-                    var code = await sr.ReadToEndAsync().ConfigureAwait(true);
-                    SourceText = code;
-                    Status = CodeControlStatus.Idle;
-                }
+            using (var sr = File.OpenText(newValue))
+            {
+                var code = await sr.ReadToEndAsync().ConfigureAwait(true);
+                SourceText = code;
+                Status = CodeControlStatus.Idle;
+            }
         }
 
         private static CustomTextSource4 InnerUpdate(RoslynCodeControl roslynCodeControl, int textStorePosition,
@@ -1698,151 +1700,153 @@ namespace RoslynCodeControls
             var xoffsets = new List<double>();
 
             var curOffset = linePosition;
-            foreach (var rect in myTextLine.GetIndexedGlyphRuns())
-            {
-                var rectGlyphRun = rect.GlyphRun;
-
-                var @group = 0;
-                if (rectGlyphRun != null)
+            var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
+            if (indexedGlyphRuns != null)
+                foreach (var rect in indexedGlyphRuns)
                 {
-                    var size = new Size(0, 0);
-                    var cellBounds =
-                        new List<CharacterCell>();
-                    var emSize = rectGlyphRun.FontRenderingEmSize;
+                    var rectGlyphRun = rect.GlyphRun;
 
-
-                    if (rectGlyphRun.Characters.Count > rectGlyphRun.GlyphIndices.Count)
-                        Debug.WriteLine($"Character mismatch");
-
-                    var xx = new RectangleGeometry(new Rect(curOffset,
-                        new Size(rectGlyphRun.AdvanceWidths.Sum(),
-                            rectGlyphRun.GlyphTypeface.Height * rectGlyphRun.FontRenderingEmSize)));
-                    curOffset.Y += myTextLine.Height;
-                    var x = new CombinedGeometry();
-
-                    List<char> chars = null;
-                    for (var i = 0; i < rectGlyphRun.GlyphIndices.Count; i++)
+                    var @group = 0;
+                    if (rectGlyphRun != null)
                     {
-                        var advanceWidth = rectGlyphRun.AdvanceWidths[i];
+                        var size = new Size(0, 0);
+                        var cellBounds =
+                            new List<CharacterCell>();
+                        var emSize = rectGlyphRun.FontRenderingEmSize;
 
-                        xoffsets.Add(xoffset);
-                        xoffset += advanceWidth;
-                        size.Width += advanceWidth;
-                        var gi = rectGlyphRun.GlyphIndices[i];
-                        var c = rectGlyphRun.Characters[i];
-                        lineChars.Add(c);
-                        lineString += c;
-                        var advWidth = rectGlyphRun.GlyphTypeface.AdvanceWidths[gi];
-                        var advHeight = rectGlyphRun.GlyphTypeface.AdvanceHeights[gi];
 
-                        var s = new Size(advWidth * emSize,
-                            (advHeight
-                             + rectGlyphRun.GlyphTypeface.BottomSideBearings[gi])
-                            * emSize);
+                        if (rectGlyphRun.Characters.Count > rectGlyphRun.GlyphIndices.Count)
+                            Debug.WriteLine($"Character mismatch");
 
-                        var topSide = rectGlyphRun.GlyphTypeface.TopSideBearings[gi];
-                        var bounds = new Rect(new Point(cell.X, cell.Y + topSide), s);
-                        if (!bounds.IsEmpty)
+                        var xx = new RectangleGeometry(new Rect(curOffset,
+                            new Size(rectGlyphRun.AdvanceWidths.Sum(),
+                                rectGlyphRun.GlyphTypeface.Height * rectGlyphRun.FontRenderingEmSize)));
+                        curOffset.Y += myTextLine.Height;
+                        var x = new CombinedGeometry();
+
+                        List<char> chars = null;
+                        for (var i = 0; i < rectGlyphRun.GlyphIndices.Count; i++)
                         {
-                            // ReSharper disable once UnusedVariable
-                            var glyphTypefaceBaseline = rectGlyphRun.GlyphTypeface.Baseline;
-                            //Debug.WriteLine(glyphTypefaceBaseline.ToString());
-                            //bounds.Offset(cell.X, cell.Y + glyphTypefaceBaseline);
-                            // dc.DrawRectangle(Brushes.White, null,  bounds);
-                            // dc.DrawText(
-                            // new FormattedText(cellColumn.ToString(), CultureInfo.CurrentCulture,
-                            // FlowDirection.LeftToRight, new Typeface("Arial"), _emSize * .66, Brushes.Aqua,
-                            // new NumberSubstitution(), _pixelsPerDip), new Point(bounds.Left, bounds.Top));
-                        }
+                            var advanceWidth = rectGlyphRun.AdvanceWidths[i];
 
+                            xoffsets.Add(xoffset);
+                            xoffset += advanceWidth;
+                            size.Width += advanceWidth;
+                            var gi = rectGlyphRun.GlyphIndices[i];
+                            var c = rectGlyphRun.Characters[i];
+                            lineChars.Add(c);
+                            lineString += c;
+                            var advWidth = rectGlyphRun.GlyphTypeface.AdvanceWidths[gi];
+                            var advHeight = rectGlyphRun.GlyphTypeface.AdvanceHeights[gi];
 
-                        var char0 = new CharacterCell(bounds, new Point(cellColumn, chars.Count - 1), c)
-                        {
-                            PreviousCell = prevCell
-                        };
+                            var s = new Size(advWidth * emSize,
+                                (advHeight
+                                 + rectGlyphRun.GlyphTypeface.BottomSideBearings[gi])
+                                * emSize);
 
-                        if (prevCell != null)
-                            prevCell.NextCell = char0;
-                        prevCell = char0;
-
-                        cellBounds.Add(char0);
-                        cell.Offset(rectGlyphRun.AdvanceWidths[i], 0);
-
-                        cellColumn++;
-                        characterOffset++;
-                        //                                _textDest.Children.Add(new GeometryDrawing(null, new Pen(Brushes.DarkOrange, 2), new RectangleGeometry(bounds)));
-                    }
-
-                    //var bb = rect.GlyphRun.BuildGeometry().Bounds;
-
-                    size.Height += myTextLine.Height;
-                    var r = new Rect(location, size);
-                    location.Offset(size.Width, 0);
-//                            dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r);
-                    //rects.Add(r);
-                    RegionInfo prevRegion = null;
-                    if (@group < spans.Count)
-                    {
-                        var textSpan = spans[@group];
-                        var textSpanValue = textSpan.Value;
-                        SyntaxNode node = null;
-                        SyntaxToken? token = null;
-                        SyntaxTrivia? trivia = null;
-                        SyntaxToken? AttachedToken = null;
-                        SyntaxNode attachedNode = null;
-
-                        SyntaxNode structuredTrivia = null;
-                        TriviaPosition? triviaPosition = null;
-                        if (textSpanValue is SyntaxTokenTextCharacters stc)
-                        {
-                            node = stc.Node;
-                            token = stc.Token;
-                        }
-                        else
-                        {
-                            if (textSpanValue is SyntaxTriviaTextCharacters stc2)
+                            var topSide = rectGlyphRun.GlyphTypeface.TopSideBearings[gi];
+                            var bounds = new Rect(new Point(cell.X, cell.Y + topSide), s);
+                            if (!bounds.IsEmpty)
                             {
-                                trivia = stc2.Trivia;
-                                AttachedToken = stc2.Token;
-                                attachedNode = stc2.Node;
-                                structuredTrivia = stc2.StructuredTrivia;
-                                triviaPosition = stc2.TriviaPosition;
+                                // ReSharper disable once UnusedVariable
+                                var glyphTypefaceBaseline = rectGlyphRun.GlyphTypeface.Baseline;
+                                //Debug.WriteLine(glyphTypefaceBaseline.ToString());
+                                //bounds.Offset(cell.X, cell.Y + glyphTypefaceBaseline);
+                                // dc.DrawRectangle(Brushes.White, null,  bounds);
+                                // dc.DrawText(
+                                // new FormattedText(cellColumn.ToString(), CultureInfo.CurrentCulture,
+                                // FlowDirection.LeftToRight, new Typeface("Arial"), _emSize * .66, Brushes.Aqua,
+                                // new NumberSubstitution(), _pixelsPerDip), new Point(bounds.Left, bounds.Top));
                             }
+
+
+                            var char0 = new CharacterCell(bounds, new Point(cellColumn, chars.Count - 1), c)
+                            {
+                                PreviousCell = prevCell
+                            };
+
+                            if (prevCell != null)
+                                prevCell.NextCell = char0;
+                            prevCell = char0;
+
+                            cellBounds.Add(char0);
+                            cell.Offset(rectGlyphRun.AdvanceWidths[i], 0);
+
+                            cellColumn++;
+                            characterOffset++;
+                            //                                _textDest.Children.Add(new GeometryDrawing(null, new Pen(Brushes.DarkOrange, 2), new RectangleGeometry(bounds)));
                         }
 
-                        var tuple = new RegionInfo(textSpanValue, r, cellBounds)
+                        //var bb = rect.GlyphRun.BuildGeometry().Bounds;
+
+                        size.Height += myTextLine.Height;
+                        var r = new Rect(location, size);
+                        location.Offset(size.Width, 0);
+//                            dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r);
+                        //rects.Add(r);
+                        RegionInfo prevRegion = null;
+                        if (@group < spans.Count)
                         {
-                            Line = lineInfo,
-                            Offset = regionOffset,
-                            Length = textSpan.Length,
-                            SyntaxNode = node,
-                            AttachedToken = AttachedToken,
-                            AttachedNode = attachedNode,
-                            SyntaxToken = token,
-                            Trivia = trivia,
-                            TriviaPosition = triviaPosition,
-                            PrevRegion = prevRegion,
-                            StructuredTrivia = structuredTrivia
-                        };
-                        foreach (var ch in tuple.Characters) ch.Region = tuple;
-                        lineRegions.Add(tuple);
+                            var textSpan = spans[@group];
+                            var textSpanValue = textSpan.Value;
+                            SyntaxNode node = null;
+                            SyntaxToken? token = null;
+                            SyntaxTrivia? trivia = null;
+                            SyntaxToken? AttachedToken = null;
+                            SyntaxNode attachedNode = null;
 
-                        //roslynCodeControl.GeoTuples.Add(Tuple.Create(xx, tuple));
+                            SyntaxNode structuredTrivia = null;
+                            TriviaPosition? triviaPosition = null;
+                            if (textSpanValue is SyntaxTokenTextCharacters stc)
+                            {
+                                node = stc.Node;
+                                token = stc.Token;
+                            }
+                            else
+                            {
+                                if (textSpanValue is SyntaxTriviaTextCharacters stc2)
+                                {
+                                    trivia = stc2.Trivia;
+                                    AttachedToken = stc2.Token;
+                                    attachedNode = stc2.Node;
+                                    structuredTrivia = stc2.StructuredTrivia;
+                                    triviaPosition = stc2.TriviaPosition;
+                                }
+                            }
 
-                        if (prevRegion != null) prevRegion.NextRegion = tuple;
-                        prevRegion = tuple;
-                        // Infos.Add(tuple);
+                            var tuple = new RegionInfo(textSpanValue, r, cellBounds)
+                            {
+                                Line = lineInfo,
+                                Offset = regionOffset,
+                                Length = textSpan.Length,
+                                SyntaxNode = node,
+                                AttachedToken = AttachedToken,
+                                AttachedNode = attachedNode,
+                                SyntaxToken = token,
+                                Trivia = trivia,
+                                TriviaPosition = triviaPosition,
+                                PrevRegion = prevRegion,
+                                StructuredTrivia = structuredTrivia
+                            };
+                            foreach (var ch in tuple.Characters) ch.Region = tuple;
+                            lineRegions.Add(tuple);
+
+                            //roslynCodeControl.GeoTuples.Add(Tuple.Create(xx, tuple));
+
+                            if (prevRegion != null) prevRegion.NextRegion = tuple;
+                            prevRegion = tuple;
+                            // Infos.Add(tuple);
+                        }
+
+                        @group++;
+                        regionOffset = characterOffset;
                     }
 
-                    @group++;
-                    regionOffset = characterOffset;
+                    lineInfo.Text = lineString;
+                    lineInfo.Regions = lineRegions;
+                    //                        Debug.WriteLine(rect.ToString());
+                    //dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r1);
                 }
-
-                lineInfo.Text = lineString;
-                lineInfo.Regions = lineRegions;
-                //                        Debug.WriteLine(rect.ToString());
-                //dc.DrawRectangle(null, new Pen(Brushes.Green, 1), r1);
-            }
 
 
             //Debug.WriteLine(line.ToString() + ddBounds.ToString());
@@ -1877,9 +1881,12 @@ namespace RoslynCodeControls
             }
             else
             {
-                var ci = prevCharInfoNode.Value;
-                _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin - MyDrawingBrush.Viewbox.Top);
-                _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth - MyDrawingBrush.Viewbox.Left );
+                if (prevCharInfoNode != null)
+                {
+                    var ci = prevCharInfoNode.Value;
+                    _textCaret.SetValue(Canvas.TopProperty, ci.YOrigin - MyDrawingBrush.Viewbox.Top);
+                    _textCaret.SetValue(Canvas.LeftProperty, ci.XOrigin + ci.AdvanceWidth - MyDrawingBrush.Viewbox.Left );
+                }
             }
 #if false
             Debug.WriteLine($"{nameof(UpdateCaretPosition)} ( {oldValue} , {newValue} )");
@@ -1993,7 +2000,6 @@ namespace RoslynCodeControls
         private Grid _innerGrid;
         private TextCaret _textCaret;
         private Canvas _canvas;
-        private CustomTextSource4 _store;
 
         private int _selectionEnd;
         private SyntaxNode _startNode;
@@ -2013,7 +2019,6 @@ namespace RoslynCodeControls
         private bool _handlingInput;
         private bool _updatingCaret;
         private Rectangle _rectangle;
-        private bool _focusing;
         private LinkedListNode<CharInfo> _insertionCharInfoNode;
         private LinkedListNode<LineInfo2> _insertionLineNode;
         private Rect _drawingBrushViewbox;

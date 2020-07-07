@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Media.TextFormatting;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace RoslynCodeControls
 {

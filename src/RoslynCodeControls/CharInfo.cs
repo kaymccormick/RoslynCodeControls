@@ -1,4 +1,5 @@
-﻿namespace RoslynCodeControls
+﻿// ReSharper disable UnusedAutoPropertyAccessor.Global
+namespace RoslynCodeControls
 {
     public class CharInfo
     {

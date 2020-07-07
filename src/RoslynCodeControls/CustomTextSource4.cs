@@ -18,6 +18,9 @@ using CSharpExtensions = Microsoft.CodeAnalysis.CSharp.CSharpExtensions;
 using SyntaxFacts = Microsoft.CodeAnalysis.CSharp.SyntaxFacts;
 using SyntaxKind = Microsoft.CodeAnalysis.CSharp.SyntaxKind;
 using TextChange = Microsoft.CodeAnalysis.Text.TextChange;
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+// ReSharper disable UnusedAutoPropertyAccessor.Local
+#pragma warning disable 162
 
 namespace RoslynCodeControls
 {
@@ -626,21 +629,21 @@ namespace RoslynCodeControls
                     break;
             }
 
-            if (token.ContainsDiagnostics)
-            {
-                var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
-                var s = token.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
-                pp.SetBackgroundBrush(sevB[(int) s]);
-            }
+            // if (token.ContainsDiagnostics)
+            // {
+                // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
+                // var s = token.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
+                // pp.SetBackgroundBrush(sevB[(int) s]);
+            // }
 
             if (token.Parent != null)
             {
-                if (token.Parent.ContainsDiagnostics)
-                {
-                    var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
-                    var s = token.Parent.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
-                    pp.SetBackgroundBrush(sevB[(int) s]);
-                }
+                // if (token.Parent.ContainsDiagnostics)
+                // {
+                    // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
+                    // var s = token.Parent.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
+                    // pp.SetBackgroundBrush(sevB[(int) s]);
+                // }
 
                 var syntaxKind = CSharpExtensions.Kind(token.Parent);
                 var tkind = "";

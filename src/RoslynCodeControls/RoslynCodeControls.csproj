@@ -9,6 +9,10 @@
   <ItemGroup>
     <PackageReference Include="DynamicData" Version="6.16.1" />
     <PackageReference Include="JetBrains.Annotations" Version="2020.2.0-eap" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.0-beta1.final">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.7.0-3.final" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.7.0-3.final" />
     <PackageReference Include="System.Threading.Channels" Version="5.0.0-preview.6.20305.6" />
