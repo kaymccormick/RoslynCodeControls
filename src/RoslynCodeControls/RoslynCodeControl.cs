@@ -840,7 +840,6 @@ namespace RoslynCodeControls
         /// </summary>
         private double PixelsPerDip { get; }
 
-        private GeometryDrawing _geometryDrawing;
         private Rect _rect;
 
         /// <inheritdoc />
@@ -1406,6 +1405,7 @@ namespace RoslynCodeControls
                         {
                             var xx1 = task.Exception?.Flatten().ToString() ?? "";
                             Debug.WriteLine(xx1);
+                            // ReSharper disable once PossibleNullReferenceException
                             Debug.WriteLine(task.Exception.ToString());
                         }
 
@@ -1759,6 +1759,7 @@ namespace RoslynCodeControls
                             }
 
 
+                            // ReSharper disable once PossibleNullReferenceException
                             var char0 = new CharacterCell(bounds, new Point(cellColumn, chars.Count - 1), c)
                             {
                                 PreviousCell = prevCell

@@ -200,7 +200,7 @@
                                 </GroupBox>
                             </Border>
 
-                            <Rectangle Visibility="Hidden" x:Name="Rect3" Panel.ZIndex="120"
+                            <Rectangle Grid.Row="0" Visibility="Hidden" x:Name="Rect3" Panel.ZIndex="120"
                                        VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                                        IsHitTestVisible="False" Grid.RowSpan="2">
                                 <Rectangle.Fill>

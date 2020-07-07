@@ -60,7 +60,6 @@ namespace RoslynCodeControls
         /// </summary>
         /// <param name="newRender"></param>
         /// <param name="pixelsPerDip"></param>
-        /// <param name="synchContext"></param>
         public GenericTextRunProperties(FontRendering newRender,
             double pixelsPerDip)
         {
