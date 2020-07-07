@@ -129,6 +129,7 @@ namespace RoslynCodeControls
         /// <param name="formatter"></param>
         /// <param name="lineContext"></param>
         /// <param name="paragraphProperties"></param>
+        /// <param name="lineDrawer"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
         public static LineContext PartialUpdateFormattedText(double width, ref FontRendering currentRendering,
@@ -191,6 +192,7 @@ namespace RoslynCodeControls
         /// <param name="infos"></param>
         /// <param name="lineContext"></param>
         /// <param name="lineInfo"></param>
+        /// <param name="drawer"></param>
         public static void HandleTextLine(List<RegionInfo> infos, ref LineContext lineContext,
             out LineInfo lineInfo, ILineDrawer drawer)
         {

@@ -354,7 +354,6 @@ namespace RoslynCodeControls
 
         private DrawingBrush _myDrawingBrush = new DrawingBrush();
         private DrawingGroup _textDest = new DrawingGroup();
-        private Point _pos;
 
         /// <summary>
         /// 
@@ -2315,9 +2314,7 @@ namespace RoslynCodeControls
                         var solidColorBrush = new SolidColorBrush(Colors.CadetBlue) {Opacity = .6};
 
 
-                        _geometryDrawing =
-                            new GeometryDrawing(solidColorBrush, null, new RectangleGeometry(tuple.BoundingRect));
-
+                        
                         // _dg2.Children.Add(_geometryDrawing);
                         // InvalidateVisual();
                     }
@@ -2405,7 +2402,6 @@ namespace RoslynCodeControls
                 LineInfos.Clear();
                 MaxX = 0;
                 MaxY = 0;
-                _pos = new Point(_xOffset, 0);
                 _scrollViewer?.ScrollToTop();
                 if (SecondaryDispatcher != null)
                     await UpdateTextSource();

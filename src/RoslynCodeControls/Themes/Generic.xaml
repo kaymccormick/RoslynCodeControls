@@ -136,7 +136,7 @@
                                 </Grid>
 
                             </ScrollViewer>
-                            <Border Visibility="Hidden" x:Name="debug1container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug1container" Grid.Row="1" Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -157,7 +157,7 @@
                                 </GroupBox>
 
                             </Border>
-                            <Border Visibility="Hidden" x:Name="debug2container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug2container" Grid.Row="1" Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -174,7 +174,7 @@
                                     </ScrollViewer>
                                 </GroupBox>
                             </Border>
-                            <Border Visibility="Hidden" x:Name="debug3container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug3container" Grid.Row="1" Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">

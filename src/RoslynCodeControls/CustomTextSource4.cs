@@ -842,7 +842,6 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
             var newText = Text.WithChanges(change);
             if (text != null && newText.Length != Text.Length + text.Length) Debug.WriteLine($"Unexpected length");
             var newTree = Tree.WithChangedText(newText);
-            _newTree = newTree;
 
             var syntaxNode = newTree.GetRoot();
 #if false
