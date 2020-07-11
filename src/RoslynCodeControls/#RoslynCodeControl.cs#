@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
@@ -2520,9 +2520,7 @@ namespace RoslynCodeControls
 
         public override DocumentPage GetPage(int pageNumber)
         {
-            
-
-	var dp = new DocumentPage(_control.Rectangle);
+	var dp = new DocumentPage(_control);
 	return dp;
 
         }

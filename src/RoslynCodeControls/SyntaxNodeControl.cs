@@ -95,12 +95,12 @@ namespace RoslynCodeControls
         /// </summary>
         public static readonly DependencyProperty SourceTextProperty = RoslynProperties.SourceTextProperty;
 
-        public static readonly DependencyProperty ModelProperty = RoslynProperties.SemanticModelProperty;
+        public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
 
-        public SemanticModel Model
+        public SemanticModel SemanticModel
         {
-            get { return (SemanticModel) GetValue(ModelProperty); }
-            set { SetValue(ModelProperty, value); }
+            get { return (SemanticModel) GetValue(SemanticModelProperty); }
+            set { SetValue(SemanticModelProperty, value); }
         }
 
         /// <summary>
@@ -162,7 +162,7 @@ namespace RoslynCodeControls
                     CSharpCompilationOptions);
                 SyntaxTree = Compilation.SyntaxTrees.First();
                 SyntaxNode = SyntaxTree.GetRoot();
-                Model = Compilation?.GetSemanticModel(SyntaxTree);
+                SemanticModel = Compilation?.GetSemanticModel(SyntaxTree);
                 UpdatingSourceText = false;
             }
         }
