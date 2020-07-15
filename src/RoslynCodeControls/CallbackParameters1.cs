@@ -5,9 +5,9 @@ using System.Windows.Media.TextFormatting;
 
 namespace RoslynCodeControls
 {
-    public class InClassName
+    public class CallbackParameters1
     {
-        public InClassName(RoslynCodeControl roslynCodeControl, int lineNo, int offset, double y, double x,
+        public CallbackParameters1(RoslynCodeControl roslynCodeControl, int lineNo, int offset, double y, double x,
             LineInfo2 lineInfo, TextFormatter textFormatter, double paragraphWidth, FontRendering currentRendering,
             double pixelsPerDip, CustomTextSource4 customTextSource4, double maxY, double maxX, DrawingGroup d,
             DrawingContext dc, double fontSize, string fontFamilyName, FontWeight fontWeight)

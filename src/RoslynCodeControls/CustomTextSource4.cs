@@ -37,13 +37,12 @@ namespace RoslynCodeControls
         /// <param name="genericTextRunProperties"></param>
         /// <param name="synchContext"></param>
         public CustomTextSource4(double pixelsPerDip, FontRendering fontRendering,
-            GenericTextRunProperties genericTextRunProperties, [NotNull] SynchronizationContext synchContext)
+            GenericTextRunProperties genericTextRunProperties)
         {
             Dispatcher = Dispatcher.CurrentDispatcher;
             PixelsPerDip = pixelsPerDip;
 
             Rendering = fontRendering;
-            SynchContext = synchContext ?? throw new ArgumentNullException(nameof(synchContext));
             _baseProps = genericTextRunProperties;
             _prev = null;
         }

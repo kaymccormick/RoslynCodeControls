@@ -145,14 +145,14 @@ namespace RoslynCodeControls
             f.OnSourceTextChanged1((string) e.NewValue, (string) e.OldValue);
         }
 
-        protected virtual void OnSourceTextChanged1(string newValue, string eOldValue)
+        protected virtual async void OnSourceTextChanged1(string newValue, string eOldValue)
         {
             if (ChangingText || UpdatingSourceText)
                 return;
             if (newValue != null)
             {
                 UpdatingSourceText = true;
-                Compilation = CSharpCompilation.Create(
+                var compilation = CSharpCompilation.Create(
                     "test",
                     new[]
                     {
@@ -160,9 +160,11 @@ namespace RoslynCodeControls
                             newValue)
                     }, new[] {MetadataReference.CreateFromFile(typeof(object).Assembly.Location)},
                     CSharpCompilationOptions);
-                SyntaxTree = Compilation.SyntaxTrees.First();
-                SyntaxNode = SyntaxTree.GetRoot();
-                SemanticModel = Compilation?.GetSemanticModel(SyntaxTree);
+                Compilation = compilation;
+                SyntaxTree = compilation.SyntaxTrees.First();
+                
+                SyntaxNode = await SyntaxTree.GetRootAsync().ConfigureAwait(true);
+                SemanticModel = compilation.GetSemanticModel(SyntaxTree);
                 UpdatingSourceText = false;
             }
         }

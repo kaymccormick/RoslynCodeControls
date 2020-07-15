@@ -18,6 +18,9 @@ namespace RoslynCodeControls
         {
             RoslynProperties.CompilationProperty.AddOwner(typeof(CompilationControl),
                 new FrameworkPropertyMetadata(default(Compilation)));
+            
+            
+
         }
         public static readonly DependencyProperty CSharpCompilationOptionsProperty = DependencyProperty.Register(
             "CSharpCompilationOptions", typeof(CSharpCompilationOptions), typeof(CompilationControl), new PropertyMetadata(default(CSharpCompilationOptions)));

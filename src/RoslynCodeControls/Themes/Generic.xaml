@@ -28,7 +28,7 @@
                                         <TextBlock Margin="5,0,0,0" Text="Origin" />
                                         <TextBlock Margin="5,0,0,0" Text="{Binding Origin,Converter={StaticResource PointConverter}}" />
                                     </StackPanel>
-                                </DataTemplate>
+                                </DataTemplate> 
 
                                 <DataTemplate DataType="{x:Type local:CustomTextSource4Proxy}">
                                     <StackPanel Orientation="Horizontal">
@@ -53,7 +53,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="*" />
-                                <RowDefinition Height="0" />
+                                <RowDefinition Height="1" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -69,22 +69,7 @@
                                                Height="{Binding RelativeSource={RelativeSource
                                         TemplatedParent},Path=DrawingBrushViewbox.Height}"
                                                TextElement.FontSize="12">
-                                        <Rectangle.Fill>
-                                            <DrawingBrush x:Name="DrawingBrush" AlignmentX="Left" AlignmentY="Top"
-                                                          TileMode="None" ViewboxUnits="Absolute"
-                                                          Viewbox="{Binding RelativeSource={RelativeSource TemplatedParent},Path=DrawingBrushViewbox}"
-                                                          Stretch="None">
-                                                <DrawingBrush.Transform>
-                                                    <TransformGroup>
-                                                        <TranslateTransform x:Name="Translate" />
-
-                                                    </TransformGroup>
-                                                </DrawingBrush.Transform>
-                                                <DrawingBrush.Drawing>
-                                                    <DrawingGroup x:Name="TextDest" />
-                                                </DrawingBrush.Drawing>
-                                            </DrawingBrush>
-                                        </Rectangle.Fill>
+                                       
                                     </Rectangle>
                                     <Rectangle x:Name="Rect2" Panel.ZIndex="100" VerticalAlignment="Top"
                                                Width="{Binding ElementName=Rectangle,Path=ActualWidth}"
@@ -137,6 +122,10 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <StackPanel Orientation="Vertical">
+                                            <WrapPanel>
+                                            <TextBlock Text="Insertion Point "/>
+                                            <TextBlock Text="{Binding InsertionPoint}"/>
+                                        </WrapPanel>
                                             <ContentPresenter Content="{Binding InsertionLine}" />
                                             <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}" />
                                             <TextBlock Margin="10,0,0,0" Text="{Binding Path=Document}" />
@@ -343,13 +332,19 @@
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
                                     <GroupBox.Header>
-                                        <TextBlock Background="Azure">Debug Info</TextBlock>
+                                        <TextBlock Background="Azure">Debug Info [1]</TextBlock>
                                     </GroupBox.Header>
                                     <Grid Margin="0">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
-                                        <StackPanel Orientation="Vertical">
+                                        <WrapPanel>
+                                            <TextBlock Text="Insertion Point "/>
+                                            <TextBlock Text="{Binding InsertionPoint}"/>
+                                        </WrapPanel>
+                                        <StackPanel Orientation="Vertical" Grid.Row="1">
+                                        
                                             <ContentPresenter Content="{Binding InsertionLine}" />
                                             <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}" />
                                             <TextBlock Margin="10,0,0,0" Text="{Binding Path=Document}" />
@@ -425,6 +420,176 @@
                                     </DrawingBrush>
                                 </Rectangle.Fill>
                             </Rectangle>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+<local:VisibilityToBooleanConverter x:Key="B"/>
+    <Style TargetType="{x:Type local:EnhancedCodeControl}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type local:EnhancedCodeControl}">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" x:Name="Grid"
+                              DataContext="{Binding ElementName=CodeControl}">
+                            <Grid.Resources>
+                                <local:SyntaxNodeConverter x:Key="SyntaxNodeConverter" />
+                                <local:SyntaxTokenConverter x:Key="SyntaxTokenConverter" />
+                                <local:SyntaxTriviaConverter x:Key="SyntaxTriviaConverter" />
+                                <local:SymbolInfoConverter x:Key="SymbolInfoConverter" />
+                            </Grid.Resources>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="5*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Menu Grid.Row="0">
+                                <MenuItem Header="_Toolbars">
+                                    <MenuItem IsCheckable="True" Header="Character _Movement"
+                                              IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
+                                    <MenuItem IsCheckable="True" Header="_Font Style"
+                                              IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
+                                </MenuItem>
+                            </Menu>
+                            <ToolBarTray Grid.Row="1">
+                                <ToolBar Band="1" BandIndex="1" x:Name="CharacterMovementToolbar">
+                                    <Button FontSize="24" Command="MoveLeftByCharacter"
+                                            CommandTarget="{x:Reference CodeControl}">
+                                        <TextBlock Text="&#x1f81c;">
+                                            <TextBlock.Effect>
+                                                <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+
+                                    </Button>
+                                    <Button FontSize="24" Command="MoveUpByLine"
+                                            CommandTarget="{x:Reference CodeControl}">
+                                        <TextBlock Text="&#x1f81d;">
+                                            <TextBlock.Effect>
+                                                <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+                                    </Button>
+                                    <Button FontSize="24" Command="MoveDownByLine"
+                                            CommandTarget="{x:Reference CodeControl}">
+                                        <TextBlock Text="&#x1f81f;">
+                                            <TextBlock.Effect>
+                                                <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+                                    </Button>
+                                    <Button FontSize="24" Command="MoveRightByCharacter"
+                                            CommandTarget="{x:Reference CodeControl}">
+                                        <TextBlock Text="&#x1f81e;">
+                                            <TextBlock.Effect>
+                                                <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
+                                            </TextBlock.Effect>
+                                        </TextBlock>
+                                    </Button>
+
+                                </ToolBar>
+                                <ToolBar Band="1" BandIndex="2" x:Name="FontsToolbar">
+                                    <TextBlock Text="Font:" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                    <ComboBox x:Name="FontComboBox" VerticalAlignment="Center"
+                                              ItemsSource="{TemplateBinding Fonts}" SelectedItem="{Binding ElementName=CodeControl,Path=FontFamily,Mode=OneWay}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type FontFamily}">
+                                                <TextBlock FontFamily="{Binding}"
+                                                           Text="{Binding Path=FamilyNames[en-US]}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <TextBlock Text="Size:" Margin="5,0,0,0" VerticalAlignment="Center" />
+                                    <ComboBox x:Name="FontSizeCombo"
+                                              ItemsSource="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CommonFontSizes}" SelectedItem="{Binding ElementName=CodeControl,Path=FontSize,Mode=OneWay}"/>
+                                </ToolBar>
+                            </ToolBarTray>
+                            <local:RoslynCodeControl Grid.Row="2" Grid.Column="0"
+                                                                  Filename="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Filename,Mode=TwoWay}"
+                                                                  Document="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Document,Mode=TwoWay}"
+                                                                  SourceText="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SourceText,Mode=TwoWay}"
+                                                                  SyntaxTree="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SyntaxTree,Mode=TwoWay}"
+                                                                  Compilation="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Compilation,Mode=TwoWay}"
+                                                                  SyntaxNode="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SyntaxNode,Mode=TwoWay}"
+                                                                  SemanticModel="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SemanticModel,Mode=TwoWay}"
+                                                                  x:Name="CodeControl" />
+                            <StackPanel Grid.Row="3" Grid.Column="2">
+                                <TextBlock Text="{Binding ElementName=CodeControl,Path=EnclosingSymbol}" />
+                            </StackPanel>
+                            <StackPanel Background="DarkSeaGreen" Grid.Row="4" Grid.Column="0" Orientation="Horizontal"
+                                        TextElement.FontSize="16">
+                                <TextBlock Margin="15,0,0,0" Text="HoverOffset" />
+                                <TextBlock Margin="5,0,0,0" Text="{Binding HoverOffset}" />
+                                <TextBlock Text=" ( " />
+                                <TextBlock Text="{Binding HoverColumn}" />
+                                <TextBlock Text=", " />
+                                <TextBlock Text="{Binding HoverRow}" />
+                                <TextBlock Text=" ) " />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Margin="15,0,0,0"
+                                               Text="{Binding HoverSyntaxNode,Converter={StaticResource SyntaxNodeConverter},ConverterParameter={x:Static local:SyntaxNodeInfo.Kind}}" />
+                                    <TextBlock Margin="15,0,0,0"
+                                               Text="{Binding HoverToken,Converter={StaticResource SyntaxTokenConverter},ConverterParameter=kind}" />
+                                    <TextBlock Margin="15,0,0,0"
+                                               Text="{Binding HoverToken,Converter={StaticResource SyntaxTokenConverter},ConverterParameter=text}" />
+                                </StackPanel>
+                                <StackPanel Background="DarkSeaGreen" Orientation="Horizontal" Margin="10,0,10,0">
+                                    <TextBlock
+                                        Text="{Binding HoverSymbol,Converter={StaticResource SymbolInfoConverter},ConverterParameter=kind}" />
+                                    <TextBlock Text="{Binding HoverSymbol}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Background="DarkSeaGreen" Orientation="Horizontal" Grid.Row="5" Grid.Column="0"
+                                        TextElement.FontSize="16">
+                                <TextBlock
+                                    Text="{Binding HoverRegionInfo.Trivia,Converter={StaticResource SyntaxTriviaConverter}}" />
+                                <TextBlock Text="{Binding HoverRegionInfo.TriviaValue.HasStructure}" />
+                            </StackPanel>
+                            <StackPanel Background="DarkSeaGreen" Orientation="Horizontal" Grid.Row="6" Grid.Column="0"
+                                        TextElement.FontSize="16">
+                                <StackPanel.Resources>
+                                    <DataTemplate DataType="{x:Type local:SyntaxTokenTextCharacters}">
+                                        <StackPanel Orientation="Horizontal" Background="Khaki">
+                                            <TextBlock Margin="10" Text="Text:" />
+                                            <TextBlock Margin="10" Text="{Binding Text}" />
+                                            <TextBlock Margin="10" Text="Index:" />
+                                            <TextBlock Margin="10" Text="{Binding Index}" />
+                                            <TextBlock Margin="10" Text="Length:" />
+                                            <TextBlock Margin="10" Text="{Binding Length}" />
+                                            <TextBlock Margin="10" Text="Span:" />
+                                            <TextBlock Margin="10" Text="{Binding Span}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                    <DataTemplate DataType="{x:Type local:SyntaxTriviaTextCharacters}">
+                                        <StackPanel Orientation="Horizontal" Background="Aquamarine">
+                                            <TextBlock Margin="10" Text="{Binding Text}" />
+                                            <TextBlock Margin="10" Text="{Binding Index}" />
+                                            <TextBlock Margin="10" Text="{Binding Length}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                    <DataTemplate DataType="{x:Type TextRun}">
+                                        <TextBlock Text="{Binding Length}" Background="Gold" />
+                                    </DataTemplate>
+                                </StackPanel.Resources>
+                                <TextBlock Margin="10" Text="Bounding Rect:" />
+                                <TextBlock VerticalAlignment="Center" Text="{Binding HoverRegionInfo.BoundingRect}" />
+                                <TextBlock Margin="20,10,10,10" Text="Offset:" />
+                                <TextBlock Margin="10"  VerticalAlignment="Center" Text="{Binding HoverRegionInfo.Offset}" />
+                                <ContentControl Content="{Binding HoverRegionInfo.TextRun}" />
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </ControlTemplate>
