@@ -12,14 +12,21 @@ namespace XUnitTestProject1
         [WpfFact]
         public void Test2()
         {
+            var newMethod = NewMethod();
+            newMethod.Wait();
+        }
+
+        private static async Task NewMethod()
+        {
             RoslynCodeControl.StartSecondaryThread();
-            RoslynCodeBase b= new RoslynCodeBase();
+            RoslynCodeBase b = new RoslynCodeBase();
             CodeIface c = b;
             c.SourceText = "class T {}";
             var updateFormattedTextAsync = c.UpdateFormattedTextAsync();
-            updateFormattedTextAsync.Wait(3000);
-            Debug.WriteLine(b.DrawingBrushViewbox);
+            await updateFormattedTextAsync;
+            
         }
+
         [WpfFact]
         public void Test1()
         {

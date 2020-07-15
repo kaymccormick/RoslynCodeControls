@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
+using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 
 namespace RoslynCodeControls
@@ -35,6 +36,7 @@ namespace RoslynCodeControls
         void RaiseEvent(RoutedEventArgs p0);
         TextSourceInitializationParameters CreateDefaultTextSourceArguments();
         LinkedList<CharInfo> CharInfos { get; set; }
+        [ItemCanBeNull] Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters);
     }
 
     public interface CodeIface
@@ -42,7 +44,7 @@ namespace RoslynCodeControls
         Document Document { get; }
         double OutputWidth { get; set; }
         string SourceText { get; set; }
-        Task<DispatcherOperation> UpdateFormattedTextAsync();
+        Task UpdateFormattedTextAsync();
     }
 
 }

@@ -788,6 +788,16 @@ namespace RoslynCodeControls
 
         public LinkedList<CharInfo> CharInfos { get; set; } = new LinkedList<CharInfo>();
 
+        /// <inheritdoc />
+        public Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters)
+        {
+            return CommonText.InnerUpdate(mainUpdateParameters, () =>
+            {
+                
+                return CreateCustomTextSource4(textSourceInitializationParameters);
+            });
+        }
+
         // private void CompileExecuted(object sender, ExecutedRoutedEventArgs e)
         // {
         //     if (Document != null)
@@ -1200,7 +1210,7 @@ namespace RoslynCodeControls
                 var runCount = callbackParameters1.CustomTextSource4.RunInfos.Count(ri => true);
                 var textStorePosition = callbackParameters1.Offset;
                 var allCharInfos = new LinkedList<CharInfo>();
-                _ = HandleTextLine(ref textStorePosition, out _, ref prevLine, ref lineNo, lineOriginPoint,
+                _ = CommonText.HandleTextLine(ref textStorePosition, out _, ref prevLine, ref lineNo, lineOriginPoint,
                     callbackParameters1.ParagraphWidth, callbackParameters1.CustomTextSource4, runCount, myTextLine, allCharInfos,
                     callbackParameters1.CustomTextSource4.RunInfos, callbackParameters1.Dc, out outLineInfo, false,
                     roslynCodeControl.Dispatcher);
@@ -1446,84 +1456,6 @@ namespace RoslynCodeControls
             }
         }
 
-        public static CustomTextSource4 InnerUpdate(MainUpdateParameters mainUpdateParameters)
-        {
-            var tf = CreateTypeface(new FontFamily(mainUpdateParameters.FaceName), FontStyles.Normal,
-                FontStretches.Normal,   
-                mainUpdateParameters.FontWeight);
-
-            var currentRendering = FontRendering.CreateInstance(mainUpdateParameters.FontSize,
-                TextAlignment.Left,
-                null,
-                Brushes.Black,
-                tf);
-            var customTextSource4 = CreateCustomTextSource4(mainUpdateParameters.TextSourceInitializationParameters);
-
-            
-            var myGroup = new DrawingGroup();
-            var myDc = myGroup.Open();
-            
-            var genericTextParagraphProperties =
-                new GenericTextParagraphProperties(currentRendering, mainUpdateParameters.PixelsPerDip);
-            var runsInfos = new List<TextRunInfo>();
-            var allCharInfos = new LinkedList<CharInfo>();
-            var textStorePosition = mainUpdateParameters.TextStorePosition;
-            var lineNo = mainUpdateParameters.LineNo;
-            while (textStorePosition < customTextSource4.Length)
-            {
-                var runCount = customTextSource4.Runs.Count;
-#if DEBUGTEXTSOURCE
-                Debug.WriteLine("Runcount = " + runCount);
-#endif
-                var numPages = 0;
-                var pageBegin = new Point(0, 0);
-                var pageEnd = new Point(0, 0);
-                if (mainUpdateParameters.Paginate) pageEnd.Offset(mainUpdateParameters.PageSize.Value.Width, mainUpdateParameters.PageSize.Value.Height);
-
-                using (var myTextLine = mainUpdateParameters.TextFormatter.FormatLine(customTextSource4,
-                    textStorePosition, mainUpdateParameters.ParagraphWidth,
-                    genericTextParagraphProperties,
-                    null))
-                {
-                    LineInfo pr = null;
-                    mainUpdateParameters.LinePosition = HandleTextLine(ref textStorePosition,
-                        out _, ref pr, ref lineNo, mainUpdateParameters.LinePosition, mainUpdateParameters.ParagraphWidth, customTextSource4, runCount,
-                        myTextLine, allCharInfos, runsInfos, myDc, out var lineInfo);
-                    if (mainUpdateParameters.Paginate && mainUpdateParameters.LinePosition.Y >= pageEnd.Y)
-                    {
-                        Debug.WriteLine($"numPages: {numPages}");
-                        numPages++;
-                    }
-                }
-
-                if (lineNo > 0 && lineNo % 100 == 0)
-                {
-                    myDc.Close();
-                    myGroup.Freeze();
-                    var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
-                    mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
-                    myGroup = new DrawingGroup();
-                    myDc = myGroup.Open();
-                }
-            }
-
-
-            if (lineNo % 100 != 0)
-            {
-                myDc.Close();
-                myGroup.Freeze();
-                var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
-                mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
-            }
-            else
-            {
-                myDc.Close();
-            }
-
-            customTextSource4.RunInfos = runsInfos;
-            return customTextSource4;
-        }
-
         public TextSourceInitializationParameters CreateDefaultTextSourceArguments()
         {
             var emSize0 = FontSize;
@@ -1550,124 +1482,7 @@ namespace RoslynCodeControls
             return customTextSource4;
         }
 
-        private static Point HandleTextLine(ref int textStorePosition, out TextLineBreak prev, ref LineInfo prevLine,
-            ref int lineNo, Point linePosition, double paragraphWidth, CustomTextSource4 customTextSource4,
-            int runCount,
-            TextLine myTextLine, LinkedList<CharInfo> allCharInfos, List<TextRunInfo> runsInfos, DrawingContext myDc,
-            out LineInfo lineInfo, bool drawOnSecondaryThread = true, Dispatcher dispatcher = null)
-        {
-            var nRuns = customTextSource4.Runs.Count - runCount;
-#if DEBUGTEXTSOURCE
-                    Debug.WriteLine("num runs for line is "  + nRuns);
-#endif
-            if (myTextLine.HasOverflowed) Debug.WriteLine("overflowed");
 
-            if (myTextLine.Width > paragraphWidth) Debug.WriteLine("overflowed2");
-            lineInfo = new LineInfo
-            {
-                Offset = textStorePosition, Length = myTextLine.Length, PrevLine = prevLine, LineNumber = lineNo,
-                Height = myTextLine.Height
-            };
-
-            if (prevLine != null) prevLine.NextLine = lineInfo;
-
-            prevLine = lineInfo;
-            lineInfo.Size = new Size(myTextLine.WidthIncludingTrailingWhitespace, myTextLine.Height);
-            lineInfo.Origin = new Point(linePosition.X, linePosition.Y);
-            myTextLine.GetTextRunSpans();
-
-            var llNode = allCharInfos.Last;
-            var fakeHead = false;
-            if (llNode == null)
-            {
-                fakeHead = true;
-                llNode = allCharInfos.AddLast((CharInfo) null);
-            }
-
-            var curPos = linePosition;
-            var positions = new List<Rect>();
-            var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
-
-            var textRuns = customTextSource4.Runs.Skip(runCount).Take(nRuns);
-            using (var enum1 = textRuns.GetEnumerator())
-            {
-                enum1.MoveNext();
-                var lineCharIndex = 0;
-                var xOrigin = linePosition.X;
-                //var charInfos = new List<CharInfo>(myTextLine.Length);
-                if (indexedGlyphRuns != null)
-                    foreach (var glyphRunC in indexedGlyphRuns)
-                    {
-                        var gl = glyphRunC.GlyphRun;
-                        var advanceSum = gl.AdvanceWidths.Sum();
-
-                        for (var i = 0; i < gl.Characters.Count; i++)
-                        {
-                            var i0 = gl.ClusterMap?[i] ?? i;
-                            var glAdvanceWidth = gl.AdvanceWidths[i0];
-                            var glCharacter = gl.Characters[i];
-                            var glCaretStop = gl.CaretStops?[i0];
-                            var ci = new CharInfo(lineNo, textStorePosition + lineCharIndex, lineCharIndex, i,
-                                glCharacter, glAdvanceWidth,
-                                glCaretStop, xOrigin, linePosition.Y);
-                            lineCharIndex++;
-                            xOrigin += glAdvanceWidth;
-                            //charInfos.Add(ci);
-                            allCharInfos.AddAfter(llNode, ci);
-                        }
-
-                        var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
-                        runsInfos.Add(new TextRunInfo(enum1.Current, item));
-                        positions.Add(item);
-                        curPos.X += advanceSum;
-                        enum1.MoveNext();
-                    }
-            }
-#if DEBUGTEXTSOURCE
-                    if (positions.Count != nRuns - 1)
-                    {
-                        Debug.WriteLine("number of line positions does not match number of runs");
-                        var z = string.Join("",
-                            indexedGlyphRuns.SelectMany(iz => iz.GlyphRun.Characters));
-                        
-                        foreach (var textRun in textRuns)
-                        {
-                            if (textRun is CustomTextCharacters c1)
-                            {
-                                var tt = c1.Text;
-                            } else
-                            {
-
-                            }
-                        }
-                        Debug.WriteLine(z);
-                    }
-#endif
-
-            //OldHandleTextLine(linePosition, myTextLine, lineInfo, lineChars, cell, cellColumn, prevCell, characterOffset, location, spans, regionOffset);
-
-            if (fakeHead) allCharInfos.RemoveFirst();
-            if (drawOnSecondaryThread)
-            {
-                myTextLine.Draw(myDc, linePosition, InvertAxes.None);
-            }
-            else
-            {
-                for (var i = 0; i < 3; i++)
-                    CustomTextSource4.DoEvents();
-                // ReSharper disable once PossibleNullReferenceException
-                dispatcher.Invoke(() => { myTextLine.Draw(myDc, linePosition, InvertAxes.None); });
-            }
-
-            linePosition.Y += myTextLine.Height;
-            lineNo++;
-
-            prev = null;
-
-            // Update the index position in the text store.
-            textStorePosition += myTextLine.Length;
-            return linePosition;
-        }
 
         private static void OldHandleTextLine(Point linePosition, TextLine myTextLine, LineInfo lineInfo,
             List<char> lineChars,
@@ -1973,7 +1788,13 @@ namespace RoslynCodeControls
         public double OutputWidth { get; set; }
 
         /// <inheritdoc />
-        public Task<DispatcherOperation> UpdateFormattedTextAsync()
+        Task CodeIface.UpdateFormattedTextAsync()
+        {
+            return UpdateFormattedTextAsync();
+        }
+
+        /// <inheritdoc />
+        public Task<CustomTextSource4> UpdateFormattedTextAsync()
         {
             return CommonText.UpdateFormattedText(this);
         }

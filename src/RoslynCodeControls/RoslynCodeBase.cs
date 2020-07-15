@@ -202,6 +202,30 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         public LinkedList<CharInfo> CharInfos { get; set; }
 
+        /// <inheritdoc />
+        public Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters)
+        {
+            return CommonText.InnerUpdate(mainUpdateParameters, () =>
+
+            {
+
+                return CreateCustomTextSource4(textSourceInitializationParameters);
+            });
+
+        }
+
+        private static CustomTextSource4 CreateCustomTextSource4(
+            TextSourceInitializationParameters p)
+        {
+            var customTextSource4 =
+                CommonText.CreateAndInitTextSource(p.PixelsPerDip, p.Tf,
+                    p.Tree, p.Node0,
+                    p.Compilation, p.EmSize0);
+            return customTextSource4;
+        }
+
+
+
         /// <summary>
         /// 
         /// </summary>
@@ -251,9 +275,12 @@ namespace RoslynCodeControls
         }
 
         /// <inheritdoc />
-        public Task<DispatcherOperation> UpdateFormattedTextAsync()
+        public async Task UpdateFormattedTextAsync()
         {
-            return CommonText.UpdateFormattedText(this);
+            var r = await CommonText.UpdateFormattedText(this);
+
+            var mainUpdateContinuation = CommonText.MainUpdateContinuation(this, r);
+            await mainUpdateContinuation.Task;
         }
 
         public DrawingGroup TextDestination { get; set; } = new DrawingGroup();
