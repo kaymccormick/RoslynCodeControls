@@ -1,10 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
@@ -170,7 +172,62 @@ namespace RoslynCodeControls
         private async void FontSizeComboOnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CodeControl.FontSize = (double) FontSizeCombo.SelectedItem;
-            await CommonText.UpdateFormattedText(CodeControl);
+            CustomTextSource4 ret;
+            Debug.WriteLine("Enteirng updateformattedtext " + ((IFace1) CodeControl).PerformingUpdate);
+            if (((IFace1) CodeControl).PerformingUpdate)
+            {
+                Debug.WriteLine("Already performing update");
+                ret = null;
+            }
+            else
+            {
+                ((IFace1) CodeControl).PerformingUpdate = true;
+                ((IFace1) CodeControl).Status = CodeControlStatus.Rendering;
+                ((IFace1) CodeControl).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, CodeControl));
+
+                var textStorePosition = 0;
+                var linePosition = new Point(((IFace1) CodeControl).XOffset, 0);
+
+                ((IFace1) CodeControl).TextDestination.Children.Clear();
+
+                var line = 0;
+
+                Debug.WriteLine("Calling inner update");
+                // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                var fontFamilyFamilyName = ((IFace1) CodeControl).FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
+                Debug.WriteLine(fontFamilyFamilyName);
+                Debug.WriteLine("OutputWidth " + ((IFace1) CodeControl).OutputWidth);
+                // not sure what to do here !!
+                // Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
+                var emSize = ((IFace1) CodeControl).FontSize;
+                var fontWeight = ((IFace1) CodeControl).FontWeight;
+                var customTextSource4Parameters = ((IFace1) CodeControl).CreateDefaultTextSourceArguments();
+                var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition, RoslynCodeControl.Formatter, ((IFace1) CodeControl).OutputWidth, ((IFace1) CodeControl).PixelsPerDip, emSize, fontFamilyFamilyName, ((IFace1) CodeControl).UpdateChannel.Writer, fontWeight, ((IFace1) CodeControl).DocumentPaginator, customTextSource4Parameters);
+                var dispatcherOperation = ((IFace1) CodeControl).SecondaryDispatcher.InvokeAsync(async () =>
+                {
+                
+                    var rr = ((IFace1) CodeControl).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
+                    var src = await rr;
+                    return src;
+                });
+                //iface1.InnerUpdateDispatcherOperation = dispatcherOperation;
+                var source = await dispatcherOperation.Task
+                    .ContinueWith(
+                        task =>
+                        {
+                            if (task.IsFaulted)
+                            {
+                                var xx1 = task.Exception?.Flatten().ToString() ?? "";
+                                Debug.WriteLine(xx1);
+                                // ReSharper disable once PossibleNullReferenceException
+                                Debug.WriteLine(task.Exception.ToString());
+                            }
+
+                            return task.Result;
+                        }).ConfigureAwait(false);
+                var ss = await source;
+                ret = ss;
+            }
         }
 
         public static readonly DependencyProperty CodeControlProperty = DependencyProperty.Register(

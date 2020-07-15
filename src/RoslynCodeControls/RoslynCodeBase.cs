@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
@@ -12,6 +13,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.VisualStudio.Threading;
 
 namespace RoslynCodeControls
 {
@@ -20,12 +22,13 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         public RoslynCodeBase()
         {
+            TextDestination = new DrawingGroup();
+            DrawingBrush = new DrawingBrush();
             UpdateChannel = Channel.CreateUnbounded<UpdateInfo>(new UnboundedChannelOptions()
-                { SingleReader = true, SingleWriter = true });
+                {SingleReader = true, SingleWriter = true});
             _reader = UpdateChannel.Reader;
             _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
                 TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
-
         }
 
         static RoslynCodeBase()
@@ -44,9 +47,9 @@ namespace RoslynCodeControls
 
         private static void OnSourceTextUpdated(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            var f = (RoslynCodeBase)d;
+            var f = (RoslynCodeBase) d;
 
-            f.OnSourceTextChanged1((string)e.NewValue, (string)e.OldValue);
+            f.OnSourceTextChanged1((string) e.NewValue, (string) e.OldValue);
         }
 
         /// </summary>
@@ -54,9 +57,10 @@ namespace RoslynCodeControls
 
         public Compilation Compilation
         {
-            get { return (Compilation)GetValue(CompilationProperty); }
+            get { return (Compilation) GetValue(CompilationProperty); }
             set { SetValue(CompilationProperty, value); }
         }
+
         protected virtual async void OnSourceTextChanged1(string newValue, string eOldValue)
         {
             if (ChangingText || UpdatingSourceText)
@@ -70,7 +74,7 @@ namespace RoslynCodeControls
                     {
                         SyntaxFactory.ParseSyntaxTree(
                             newValue)
-                    }, new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) });
+                    }, new[] {MetadataReference.CreateFromFile(typeof(object).Assembly.Location)});
                 Compilation = compilation;
                 SyntaxTree = compilation.SyntaxTrees.First();
 
@@ -118,6 +122,10 @@ namespace RoslynCodeControls
 
         public double MaxY { get; set; }
 
+        /// <inheritdoc />
+        public DrawingBrush DrawingBrush { get; }
+
+
 
         public static readonly DependencyProperty DocumentProperty = RoslynProperties.DocumentProperty;
 
@@ -141,17 +149,16 @@ namespace RoslynCodeControls
         public double OutputWidth { get; set; }
 
         /// <inheritdoc />
-    
-
         /// <inheritdoc />
         public double PixelsPerDip { get; set; }
 
 
-
         /// <inheritdoc />
-        public Dispatcher SecondaryDispatcher => RoslynCodeControl.StaticSecondaryDispatcher;
+        public Dispatcher SecondaryDispatcher
+        {
+            get { return RoslynCodeControl.StaticSecondaryDispatcher; }
+        }
 
-    
 
         /// <inheritdoc />
         public DispatcherOperation<CustomTextSource4> InnerUpdateDispatcherOperation { get; set; }
@@ -160,7 +167,7 @@ namespace RoslynCodeControls
         public Channel<UpdateInfo> UpdateChannel { get; set; }
 
         /// <inheritdoc />
-        public DocumentPaginator DocumentPaginator { get; set; }
+        public DocumentPaginator DocumentPaginator => new RoslynPaginator(this);
 
 
         /// <inheritdoc />
@@ -197,21 +204,17 @@ namespace RoslynCodeControls
 
             return new TextSourceInitializationParameters(PixelsPerDip, emSize0, tree, node0, compilation, tf);
         }
-      
+
 
         /// <inheritdoc />
         public LinkedList<CharInfo> CharInfos { get; set; }
 
         /// <inheritdoc />
-        public Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters)
+        public Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters,
+            TextSourceInitializationParameters textSourceInitializationParameters)
         {
-            return CommonText.InnerUpdate(mainUpdateParameters, () =>
-
-            {
-
-                return CreateCustomTextSource4(textSourceInitializationParameters);
-            });
-
+            return CommonText.InnerUpdate(mainUpdateParameters,
+                () => { return CreateCustomTextSource4(textSourceInitializationParameters); });
         }
 
         private static CustomTextSource4 CreateCustomTextSource4(
@@ -223,7 +226,6 @@ namespace RoslynCodeControls
                     p.Compilation, p.EmSize0);
             return customTextSource4;
         }
-
 
 
         /// <summary>
@@ -258,6 +260,9 @@ namespace RoslynCodeControls
 
         public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
         private ChannelReader<UpdateInfo> _reader;
+        public JoinableTaskFactory JTF;
+        public JoinableTaskFactory JTF2;
+        private RoslynPaginator _roslynPaginator;
 
         public SemanticModel SemanticModel
         {
@@ -277,13 +282,94 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         public async Task UpdateFormattedTextAsync()
         {
-            var r = await CommonText.UpdateFormattedText(this);
+            CustomTextSource4 ret;
+            Debug.WriteLine("Enteirng updateformattedtext " + ((IFace1) this).PerformingUpdate);
+            if (((IFace1) this).PerformingUpdate)
+            {
+                Debug.WriteLine("Already performing update");
+                ret = null;
+            }
+            else
+            {
+                ((IFace1) this).PerformingUpdate = true;
+                ((IFace1) this).Status = CodeControlStatus.Rendering;
+                ((IFace1) this).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, this));
 
-            var mainUpdateContinuation = CommonText.MainUpdateContinuation(this, r);
-            await mainUpdateContinuation.Task;
+                var textStorePosition = 0;
+                var linePosition = new Point(((IFace1) this).XOffset, 0);
+
+                ((IFace1) this).TextDestination.Children.Clear();
+
+                var line = 0;
+
+                Debug.WriteLine("Calling inner update");
+                // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                var fontFamilyFamilyName = ((IFace1) this).FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
+                Debug.WriteLine(fontFamilyFamilyName);
+                Debug.WriteLine("OutputWidth " + ((IFace1) this).OutputWidth);
+                // not sure what to do here !!
+                // Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
+                var emSize = ((IFace1) this).FontSize;
+                var fontWeight = ((IFace1) this).FontWeight;
+                var customTextSource4Parameters = ((IFace1) this).CreateDefaultTextSourceArguments();
+                var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition,
+                    CommonText.Formatter, ((IFace1) this).OutputWidth, ((IFace1) this).PixelsPerDip, emSize,
+                    fontFamilyFamilyName, ((IFace1) this).UpdateChannel.Writer, fontWeight,
+                    null, customTextSource4Parameters);
+
+
+
+                await JTF2.SwitchToMainThreadAsync();
+                // var dispatcherOperation = ((IFace1) this).SecondaryDispatcher.InvokeAsync(async () =>
+                // {
+                var rr = ((IFace1) this).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
+                var src = await rr;
+                // return src;
+                // }
+                // );
+
+                await JTF.SwitchToMainThreadAsync();
+
+                ((IFace1) this).InnerUpdateDispatcherOperation = null;
+                ((IFace1) this).CustomTextSource = src;
+                Debug.WriteLine("Return from await inner update");
+
+                // ;(int.TryParse("Setting reactangle width to " +new NTComputer ({ff, line) || Device<int>()))};
+
+                ((IFace1) this).PerformingUpdate = false;
+                ((IFace1) this).InitialUpdate = false;
+                ((IFace1) this).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderCompleteEvent, this));
+                ((IFace1) this).Status = CodeControlStatus.Rendered;
+                var insertionPoint = ((IFace1) this).InsertionPoint;
+                // if (insertionPoint == 0) ((IFace1) this).InsertionCharInfo = ((IFace1) this).CharInfos.FirstOrDefault();
+
+
+                //iface1.InnerUpdateDispatcherOperation = dispatcherOperation;
+                // var source = await dispatcherOperation.Task
+                // .ContinueWith(
+                // task =>
+                // {
+                // if (task.IsFaulted)
+                // {
+                // var xx1 = task.Exception?.Flatten().ToString() ?? "";
+                // Debug.WriteLine(xx1);
+                // ReSharper disable once PossibleNullReferenceException
+                // Debug.WriteLine(task.Exception.ToString());
+                // }
+
+                // return task.Result;
+                // }).ConfigureAwait(false);
+                // var ss = await source;
+                // ret = ss;
+                // }
+
+                // var r = ret;
+
+                // var mainUpdateContinuation = CommonText.MainUpdateContinuation(this, r);
+                // await mainUpdateContinuation.Task;
+            }
         }
 
-        public DrawingGroup TextDestination { get; set; } = new DrawingGroup();
-
+        public DrawingGroup TextDestination { get; set; }
     }
 }

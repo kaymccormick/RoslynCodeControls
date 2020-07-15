@@ -8,6 +8,6 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-<roslynCodeControls:EnhancedCodeControl FontSize="32" FontFamily="Roboto Mono"/>
+<roslynCodeControls:RoslynCodeBase FontSize="32" FontFamily="Roboto Mono"/>
     </Grid>
 </Window>

@@ -44,6 +44,10 @@ namespace RoslynCodeControls
         Document Document { get; }
         double OutputWidth { get; set; }
         string SourceText { get; set; }
+        double MaxX { get; }
+        double MaxY { get; }
+        DrawingBrush DrawingBrush { get; }
+        DrawingGroup TextDestination { get; }
         Task UpdateFormattedTextAsync();
     }
 

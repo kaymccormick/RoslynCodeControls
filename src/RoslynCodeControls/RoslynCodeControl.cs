@@ -315,6 +315,9 @@ namespace RoslynCodeControls
         }
 
         private DrawingBrush _myDrawingBrush;
+
+        /// <inheritdoc />
+        public DrawingBrush DrawingBrush => _myDrawingBrush;
         public DrawingGroup TextDestination{ get; set; } = new DrawingGroup();
 
         /// <summary>
@@ -941,27 +944,31 @@ namespace RoslynCodeControls
 
         public UIElement Debug1Container { get; set; }
 
-        public static void StartSecondaryThread()
+        public static Thread StartSecondaryThread(ManualResetEvent mevent, Action<object> cb)
         {
-            var t = new ThreadStart(SecondaryThreadStart);
+            var t = new ParameterizedThreadStart(SecondaryThreadStart);
             var newWindowThread = SecondaryThread = new Thread(t);
             newWindowThread.SetApartmentState(ApartmentState.STA);
             newWindowThread.Name = "SecondaryThread";
             newWindowThread.IsBackground = true;
-            newWindowThread.Start();
+            newWindowThread.Start(mevent);
+            return newWindowThread;
         }
 
         public static Thread SecondaryThread { get; set; }
 
         public TranslateTransform Translate { get; set; }
 
-        private static void SecondaryThreadStart()
+        private static void SecondaryThreadStart(object o)
         {
+            ManualResetEvent mr = (ManualResetEvent) o;
+            
             var d = Dispatcher.CurrentDispatcher;
             // Dispatcher.Invoke(() =>
             // {
             StaticSecondaryDispatcher = d;
             // });
+            mr.Set();
             Dispatcher.Run();
         }
 

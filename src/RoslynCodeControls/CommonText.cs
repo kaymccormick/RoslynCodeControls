@@ -353,5 +353,7 @@ namespace RoslynCodeControls
         {
             return new Typeface(fontFamily, fontStyle, fontWeight, fontStretch);
         }
+
+        public static TextFormatter Formatter { get;  }= TextFormatter.Create();
     }
 }
