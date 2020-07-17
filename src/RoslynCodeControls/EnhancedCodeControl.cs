@@ -173,40 +173,40 @@ namespace RoslynCodeControls
         {
             CodeControl.FontSize = (double) FontSizeCombo.SelectedItem;
             CustomTextSource4 ret;
-            Debug.WriteLine("Enteirng updateformattedtext " + ((IFace1) CodeControl).PerformingUpdate);
-            if (((IFace1) CodeControl).PerformingUpdate)
+            Debug.WriteLine("Enteirng updateformattedtext " + ((ICodeView) CodeControl).PerformingUpdate);
+            if (((ICodeView) CodeControl).PerformingUpdate)
             {
                 Debug.WriteLine("Already performing update");
                 ret = null;
             }
             else
             {
-                ((IFace1) CodeControl).PerformingUpdate = true;
-                ((IFace1) CodeControl).Status = CodeControlStatus.Rendering;
-                ((IFace1) CodeControl).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, CodeControl));
+                ((ICodeView) CodeControl).PerformingUpdate = true;
+                ((ICodeView) CodeControl).Status = CodeControlStatus.Rendering;
+                ((ICodeView) CodeControl).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, CodeControl));
 
                 var textStorePosition = 0;
-                var linePosition = new Point(((IFace1) CodeControl).XOffset, 0);
+                var linePosition = new Point(((ICodeView) CodeControl).XOffset, 0);
 
-                ((IFace1) CodeControl).TextDestination.Children.Clear();
+                ((ICodeView) CodeControl).TextDestination.Children.Clear();
 
                 var line = 0;
 
                 Debug.WriteLine("Calling inner update");
                 // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
-                var fontFamilyFamilyName = ((IFace1) CodeControl).FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
+                var fontFamilyFamilyName = ((ICodeView) CodeControl).FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
                 Debug.WriteLine(fontFamilyFamilyName);
-                Debug.WriteLine("OutputWidth " + ((IFace1) CodeControl).OutputWidth);
+                Debug.WriteLine("OutputWidth " + ((ICodeView) CodeControl).OutputWidth);
                 // not sure what to do here !!
                 // Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
-                var emSize = ((IFace1) CodeControl).FontSize;
-                var fontWeight = ((IFace1) CodeControl).FontWeight;
-                var customTextSource4Parameters = ((IFace1) CodeControl).CreateDefaultTextSourceArguments();
-                var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition, RoslynCodeControl.Formatter, ((IFace1) CodeControl).OutputWidth, ((IFace1) CodeControl).PixelsPerDip, emSize, fontFamilyFamilyName, ((IFace1) CodeControl).UpdateChannel.Writer, fontWeight, ((IFace1) CodeControl).DocumentPaginator, customTextSource4Parameters);
-                var dispatcherOperation = ((IFace1) CodeControl).SecondaryDispatcher.InvokeAsync(async () =>
+                var emSize = ((ICodeView) CodeControl).FontSize;
+                var fontWeight = ((ICodeView) CodeControl).FontWeight;
+                var customTextSource4Parameters = ((ICodeView) CodeControl).CreateDefaultTextSourceArguments();
+                var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition, RoslynCodeControl.Formatter, ((ICodeView) CodeControl).OutputWidth, ((ICodeView) CodeControl).PixelsPerDip, emSize, fontFamilyFamilyName, ((ICodeView) CodeControl).UpdateChannel.Writer, fontWeight, ((ICodeView) CodeControl).DocumentPaginator, customTextSource4Parameters);
+                var dispatcherOperation = ((ICodeView) CodeControl).SecondaryDispatcher.InvokeAsync(async () =>
                 {
                 
-                    var rr = ((IFace1) CodeControl).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
+                    var rr = ((ICodeView) CodeControl).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
                     var src = await rr;
                     return src;
                 });

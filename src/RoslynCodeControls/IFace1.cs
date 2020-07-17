@@ -11,11 +11,21 @@ using Microsoft.CodeAnalysis;
 
 namespace RoslynCodeControls
 {
-    public interface IFace1
+    public interface IFace1 : ICodeView
     {
+        /* Drawing /rendering */
+    }
+
+    public interface ICodeView
+    {
+        Document Document { get; }
+        string SourceText { get; set; }
+        double MaxX { get; }
+        double MaxY { get; }
+        DrawingBrush DrawingBrush { get; }
+        string DocumentTitle { get; set; }
         bool PerformingUpdate { get; set; }
         CodeControlStatus Status { get; set; }
-        /* Drawing /rendering */
         double XOffset { get; set; }
         DrawingGroup TextDestination { get; set; }
         FontFamily FontFamily { get; set; }
@@ -25,30 +35,19 @@ namespace RoslynCodeControls
         Dispatcher SecondaryDispatcher { get; }
         double PixelsPerDip { get; set; }
         DispatcherOperation<CustomTextSource4> InnerUpdateDispatcherOperation { get; set; }
-        Channel<UpdateInfo>  UpdateChannel { get; set; }
-        DocumentPaginator DocumentPaginator { get;  }
-        Dispatcher Dispatcher { get;  }
+        Channel<UpdateInfo> UpdateChannel { get; set; }
+        DocumentPaginator DocumentPaginator { get; }
+        Dispatcher Dispatcher { get; }
         ScrollViewer _scrollViewer { get; set; }
         CustomTextSource4 CustomTextSource { get; set; }
         bool InitialUpdate { get; set; }
         int InsertionPoint { get; set; }
         CharInfo InsertionCharInfo { get; set; }
+        LinkedList<CharInfo> CharInfos { get; set; }
+        Task UpdateFormattedTextAsync();
         void RaiseEvent(RoutedEventArgs p0);
         TextSourceInitializationParameters CreateDefaultTextSourceArguments();
-        LinkedList<CharInfo> CharInfos { get; set; }
-        [ItemCanBeNull] Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters);
-    }
-
-    public interface CodeIface
-    {
-        Document Document { get; }
-        double OutputWidth { get; set; }
-        string SourceText { get; set; }
-        double MaxX { get; }
-        double MaxY { get; }
-        DrawingBrush DrawingBrush { get; }
-        DrawingGroup TextDestination { get; }
-        Task UpdateFormattedTextAsync();
+        Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters);
     }
 
 }

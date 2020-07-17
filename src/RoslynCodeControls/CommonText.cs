@@ -24,7 +24,7 @@ namespace RoslynCodeControls
         /// </summary>
         /// <param name="iface1"></param>
         [ItemCanBeNull]
-        public static async Task<CustomTextSource4> UpdateFormattedText(IFace1 iface1)
+        public static async Task<CustomTextSource4> UpdateFormattedText(ICodeView iface1)
         {
             Debug.WriteLine("Enteirng updateformattedtext " + iface1.PerformingUpdate);
             if (iface1.PerformingUpdate)
@@ -81,7 +81,7 @@ namespace RoslynCodeControls
             return ss;
         }
 
-        public static DispatcherOperation MainUpdateContinuation(IFace1 iface1, CustomTextSource4 source)
+        public static DispatcherOperation MainUpdateContinuation(ICodeView iface1, CustomTextSource4 source)
         {
             return iface1.Dispatcher.InvokeAsync(() =>
             {
@@ -142,7 +142,7 @@ namespace RoslynCodeControls
             return source;
         }
 
-        public static Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, Func<CustomTextSource4> makeSource)
+        public static async Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, Func<CustomTextSource4> makeSource)
         {
             
             var tf = CreateTypeface(new FontFamily(mainUpdateParameters.FaceName), FontStyles.Normal,
@@ -157,7 +157,6 @@ namespace RoslynCodeControls
 
             var customTextSource4 = makeSource();
 
-            
             var myGroup = new DrawingGroup();
             var myDc = myGroup.Open();
             
@@ -167,7 +166,7 @@ namespace RoslynCodeControls
             var allCharInfos = new LinkedList<CharInfo>();
             var textStorePosition = mainUpdateParameters.TextStorePosition;
             var lineNo = mainUpdateParameters.LineNo;
-            List<ValueTask> tasks= new List<ValueTask>();
+            List<Task> tasks= new List<Task>();
             while (textStorePosition < customTextSource4.Length)
             {
                 var runCount = customTextSource4.Runs.Count;
@@ -199,9 +198,9 @@ namespace RoslynCodeControls
                 {
                     myDc.Close();
                     myGroup.Freeze();
-                    var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = Enumerable.ToList<CharInfo>(allCharInfos)};
-                    var writeAsync = mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
-                    tasks.Add(writeAsync);
+                    var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = allCharInfos.ToList<CharInfo>()};
+                    await mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
+                    // tasks.Add(writeAsync.AsTask());
                     myGroup = new DrawingGroup();
                     myDc = myGroup.Open();
                 }
@@ -212,19 +211,18 @@ namespace RoslynCodeControls
             {
                 myDc.Close();
                 myGroup.Freeze();
-                var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = Enumerable.ToList<CharInfo>(allCharInfos)};
-                var writeAsync = mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
-                tasks.Add(writeAsync);
-              
-                return Task.WhenAll(tasks.Select(v=>v.AsTask())).ContinueWith((task => customTextSource4));
+                var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = Enumerable.ToList<CharInfo>(allCharInfos), FinalBlock = true};
+                await  mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
+                // tasks.Add(writeAsync.AsTask());
             }
             else
             {
                 myDc.Close();
             }
 
-
-            return Task.FromResult(customTextSource4);
+            // await Task.WhenAll(tasks);
+            
+            return customTextSource4;
         }
 
         public static Point HandleTextLine(ref int textStorePosition, out TextLineBreak prev, ref LineInfo prevLine,

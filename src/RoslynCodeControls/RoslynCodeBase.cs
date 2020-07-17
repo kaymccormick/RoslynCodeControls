@@ -17,7 +17,7 @@ using Microsoft.VisualStudio.Threading;
 
 namespace RoslynCodeControls
 {
-    public class RoslynCodeBase : Control, IFace1, CodeIface
+    public class RoslynCodeBase : Control, ICodeView, IDocumentPaginatorSource
     {
         /// <inheritdoc />
         public RoslynCodeBase()
@@ -27,8 +27,7 @@ namespace RoslynCodeControls
             UpdateChannel = Channel.CreateUnbounded<UpdateInfo>(new UnboundedChannelOptions()
                 {SingleReader = true, SingleWriter = true});
             _reader = UpdateChannel.Reader;
-            _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
-                TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
+            
         }
 
         static RoslynCodeBase()
@@ -96,10 +95,10 @@ namespace RoslynCodeControls
             var dg = ui.DrawingGroup;
             var dg2 = new DrawingGroup();
             foreach (var dgChild in dg.Children)
-                //dg.Children.Remove(dgChild);
                 dg2.Children.Add(dgChild);
             TextDestination.Children.Add(dg2);
             var uiRect = dg2.Bounds;
+            Debug.WriteLine($"UIRect is {uiRect}");
             var maxY = Math.Max(MaxY, uiRect.Bottom);
             MaxY = maxY;
             var maxX = Math.Max(MaxX, uiRect.Right);
@@ -112,8 +111,7 @@ namespace RoslynCodeControls
             var boundsTop = Math.Min(TextDestination.Bounds.Top, 0);
             boundsTop -= 3;
             DrawingBrushViewbox = new Rect(boundsLeft, boundsTop, maxX, maxY);
-            _reader.ReadAsync().AsTask().ContinueWith(ContinuationFunction, CancellationToken.None,
-                TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
+          
         }
 
         public Rect DrawingBrushViewbox { get; set; }
@@ -185,11 +183,6 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         public CharInfo InsertionCharInfo { get; set; }
 
-        /// <inheritdoc />
-        public void RaiseEvent(RoutedEventArgs p0)
-        {
-        }
-
         public TextSourceInitializationParameters CreateDefaultTextSourceArguments()
         {
             var emSize0 = FontSize;
@@ -201,6 +194,7 @@ namespace RoslynCodeControls
             var n1 = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
             var tf = new Typeface(new FontFamily(n1), FontStyles.Normal, FontWeights.Normal,
                 FontStretches.Normal);
+            Debug.WriteLine($"{n1} {emSize0}");
 
             return new TextSourceInitializationParameters(PixelsPerDip, emSize0, tree, node0, compilation, tf);
         }
@@ -214,7 +208,7 @@ namespace RoslynCodeControls
             TextSourceInitializationParameters textSourceInitializationParameters)
         {
             return CommonText.InnerUpdate(mainUpdateParameters,
-                () => { return CreateCustomTextSource4(textSourceInitializationParameters); });
+                () => CreateCustomTextSource4(textSourceInitializationParameters));
         }
 
         private static CustomTextSource4 CreateCustomTextSource4(
@@ -259,10 +253,9 @@ namespace RoslynCodeControls
         public static readonly DependencyProperty SourceTextProperty = RoslynProperties.SourceTextProperty;
 
         public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
-        private ChannelReader<UpdateInfo> _reader;
+        private readonly ChannelReader<UpdateInfo> _reader;
         public JoinableTaskFactory JTF;
         public JoinableTaskFactory JTF2;
-        private RoslynPaginator _roslynPaginator;
 
         public SemanticModel SemanticModel
         {
@@ -283,46 +276,46 @@ namespace RoslynCodeControls
         public async Task UpdateFormattedTextAsync()
         {
             CustomTextSource4 ret;
-            Debug.WriteLine("Enteirng updateformattedtext " + ((IFace1) this).PerformingUpdate);
-            if (((IFace1) this).PerformingUpdate)
+            Debug.WriteLine("Enteirng updateformattedtext " + ((ICodeView) this).PerformingUpdate);
+            if (((ICodeView) this).PerformingUpdate)
             {
                 Debug.WriteLine("Already performing update");
                 ret = null;
             }
             else
             {
-                ((IFace1) this).PerformingUpdate = true;
-                ((IFace1) this).Status = CodeControlStatus.Rendering;
-                ((IFace1) this).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, this));
+                var runTask = JTF.RunAsync(ReaderListenerAsync);
+
+                ((ICodeView) this).PerformingUpdate = true;
+                ((ICodeView) this).Status = CodeControlStatus.Rendering;
+                ((ICodeView) this).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, this));
 
                 var textStorePosition = 0;
-                var linePosition = new Point(((IFace1) this).XOffset, 0);
+                var linePosition = new Point(((ICodeView) this).XOffset, 0);
 
-                ((IFace1) this).TextDestination.Children.Clear();
+                ((ICodeView) this).TextDestination.Children.Clear();
 
                 var line = 0;
 
                 Debug.WriteLine("Calling inner update");
                 // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
-                var fontFamilyFamilyName = ((IFace1) this).FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
+                var fontFamilyFamilyName = ((ICodeView) this).FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
                 Debug.WriteLine(fontFamilyFamilyName);
-                Debug.WriteLine("OutputWidth " + ((IFace1) this).OutputWidth);
+                Debug.WriteLine("OutputWidth " + ((ICodeView) this).OutputWidth);
                 // not sure what to do here !!
                 // Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
-                var emSize = ((IFace1) this).FontSize;
-                var fontWeight = ((IFace1) this).FontWeight;
-                var customTextSource4Parameters = ((IFace1) this).CreateDefaultTextSourceArguments();
+                var emSize = ((ICodeView) this).FontSize;
+                var fontWeight = ((ICodeView) this).FontWeight;
+                var customTextSource4Parameters = ((ICodeView) this).CreateDefaultTextSourceArguments();
                 var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition,
-                    CommonText.Formatter, ((IFace1) this).OutputWidth, ((IFace1) this).PixelsPerDip, emSize,
-                    fontFamilyFamilyName, ((IFace1) this).UpdateChannel.Writer, fontWeight,
+                    CommonText.Formatter, ((ICodeView) this).OutputWidth, ((ICodeView) this).PixelsPerDip, emSize,
+                    fontFamilyFamilyName, ((ICodeView) this).UpdateChannel.Writer, fontWeight,
                     null, customTextSource4Parameters);
-
-
 
                 await JTF2.SwitchToMainThreadAsync();
                 // var dispatcherOperation = ((IFace1) this).SecondaryDispatcher.InvokeAsync(async () =>
                 // {
-                var rr = ((IFace1) this).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
+                var rr = ((ICodeView) this).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
                 var src = await rr;
                 // return src;
                 // }
@@ -330,46 +323,48 @@ namespace RoslynCodeControls
 
                 await JTF.SwitchToMainThreadAsync();
 
-                ((IFace1) this).InnerUpdateDispatcherOperation = null;
-                ((IFace1) this).CustomTextSource = src;
+                ((ICodeView) this).InnerUpdateDispatcherOperation = null;
+                ((ICodeView) this).CustomTextSource = src;
                 Debug.WriteLine("Return from await inner update");
 
-                // ;(int.TryParse("Setting reactangle width to " +new NTComputer ({ff, line) || Device<int>()))};
-
-                ((IFace1) this).PerformingUpdate = false;
-                ((IFace1) this).InitialUpdate = false;
-                ((IFace1) this).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderCompleteEvent, this));
-                ((IFace1) this).Status = CodeControlStatus.Rendered;
-                var insertionPoint = ((IFace1) this).InsertionPoint;
-                // if (insertionPoint == 0) ((IFace1) this).InsertionCharInfo = ((IFace1) this).CharInfos.FirstOrDefault();
-
-
-                //iface1.InnerUpdateDispatcherOperation = dispatcherOperation;
-                // var source = await dispatcherOperation.Task
-                // .ContinueWith(
-                // task =>
-                // {
-                // if (task.IsFaulted)
-                // {
-                // var xx1 = task.Exception?.Flatten().ToString() ?? "";
-                // Debug.WriteLine(xx1);
-                // ReSharper disable once PossibleNullReferenceException
-                // Debug.WriteLine(task.Exception.ToString());
-                // }
-
-                // return task.Result;
-                // }).ConfigureAwait(false);
-                // var ss = await source;
-                // ret = ss;
-                // }
-
-                // var r = ret;
-
-                // var mainUpdateContinuation = CommonText.MainUpdateContinuation(this, r);
-                // await mainUpdateContinuation.Task;
+                ((ICodeView) this).PerformingUpdate = false;
+                ((ICodeView) this).InitialUpdate = false;
+                ((ICodeView) this).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderCompleteEvent, this));
+                ((ICodeView) this).Status = CodeControlStatus.Rendered;
+              
             }
         }
 
+        private async Task ReaderListenerAsync()
+        {
+
+            var ui = await _reader.ReadAsync();
+            
+            // fixme
+            //CharInfos.AddRange(ui.CharInfos);
+            var dg = ui.DrawingGroup;
+            var dg2 = new DrawingGroup();
+            foreach (var dgChild in dg.Children)
+                dg2.Children.Add(dgChild);
+            TextDestination.Children.Add(dg2);
+            var uiRect = dg2.Bounds;
+            Debug.WriteLine($"UIRect is {uiRect}");
+            var maxY = Math.Max(MaxY, uiRect.Bottom);
+            MaxY = maxY;
+            var maxX = Math.Max(MaxX, uiRect.Right);
+            MaxX = maxX;
+            // bound to viewbox height / width
+            // Rectangle.Height = maxY;
+            // Rectangle.Width = maxX;
+            var boundsLeft = Math.Min(TextDestination.Bounds.Left, 0);
+            boundsLeft -= 3;
+            var boundsTop = Math.Min(TextDestination.Bounds.Top, 0);
+            boundsTop -= 3;
+            DrawingBrushViewbox = new Rect(boundsLeft, boundsTop, maxX, maxY);
+            await ReaderListenerAsync();
+        }
+
         public DrawingGroup TextDestination { get; set; }
+        public string DocumentTitle { get; set; }
     }
 }

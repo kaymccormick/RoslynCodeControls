@@ -12,5 +12,6 @@ namespace RoslynCodeControls
         public Rect Rect { get; set; }
         public DrawingGroup DrawingGroup { get; set; }
         public List<CharInfo> CharInfos { get; set; }
+        public bool FinalBlock { get; set; }
     }
 }

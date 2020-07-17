@@ -47,7 +47,7 @@ namespace RoslynCodeControls
     /// <summary>
     /// 
     /// </summary>
-    public class RoslynCodeControl : SyntaxNodeControl, ILineDrawer, INotifyPropertyChanged, IFace1, CodeIface
+    public class RoslynCodeControl : SyntaxNodeControl, ILineDrawer, INotifyPropertyChanged, IFace1, ICodeView
     {
         public Size PaginatePageSize { get; set; } = Size.Empty;
         public bool IsPaginateEnabled { get; set; } = false;
@@ -319,6 +319,9 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         public DrawingBrush DrawingBrush => _myDrawingBrush;
         public DrawingGroup TextDestination{ get; set; } = new DrawingGroup();
+
+        /// <inheritdoc />
+        public string DocumentTitle { get; set; }
 
         /// <summary>
         /// 
@@ -1795,7 +1798,7 @@ namespace RoslynCodeControls
         public double OutputWidth { get; set; }
 
         /// <inheritdoc />
-        Task CodeIface.UpdateFormattedTextAsync()
+        Task ICodeView.UpdateFormattedTextAsync()
         {
             return UpdateFormattedTextAsync();
         }

@@ -26,9 +26,10 @@
                                         <TextBlock Margin="5,0,0,0" Text="Length" />
                                         <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" />
                                         <TextBlock Margin="5,0,0,0" Text="Origin" />
-                                        <TextBlock Margin="5,0,0,0" Text="{Binding Origin,Converter={StaticResource PointConverter}}" />
+                                        <TextBlock Margin="5,0,0,0"
+                                                   Text="{Binding Origin,Converter={StaticResource PointConverter}}" />
                                     </StackPanel>
-                                </DataTemplate> 
+                                </DataTemplate>
 
                                 <DataTemplate DataType="{x:Type local:CustomTextSource4Proxy}">
                                     <StackPanel Orientation="Horizontal">
@@ -68,9 +69,7 @@
                                         TemplatedParent},Path=DrawingBrushViewbox.Width}"
                                                Height="{Binding RelativeSource={RelativeSource
                                         TemplatedParent},Path=DrawingBrushViewbox.Height}"
-                                               TextElement.FontSize="12">
-                                       
-                                    </Rectangle>
+                                               TextElement.FontSize="12" />
                                     <Rectangle x:Name="Rect2" Panel.ZIndex="100" VerticalAlignment="Top"
                                                Width="{Binding ElementName=Rectangle,Path=ActualWidth}"
                                                Height="{Binding ElementName=Rectangle,Path=ActualHeight}"
@@ -110,7 +109,8 @@
                                 </Grid>
 
                             </ScrollViewer>
-                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug1container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug1container" Grid.Row="1"
+                                    Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -123,9 +123,9 @@
                                         </Grid.RowDefinitions>
                                         <StackPanel Orientation="Vertical">
                                             <WrapPanel>
-                                            <TextBlock Text="Insertion Point "/>
-                                            <TextBlock Text="{Binding InsertionPoint}"/>
-                                        </WrapPanel>
+                                                <TextBlock Text="Insertion Point " />
+                                                <TextBlock Text="{Binding InsertionPoint}" />
+                                            </WrapPanel>
                                             <ContentPresenter Content="{Binding InsertionLine}" />
                                             <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}" />
                                             <TextBlock Margin="10,0,0,0" Text="{Binding Path=Document}" />
@@ -135,7 +135,8 @@
                                 </GroupBox>
 
                             </Border>
-                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug2container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug2container" Grid.Row="1"
+                                    Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -152,7 +153,8 @@
                                     </ScrollViewer>
                                 </GroupBox>
                             </Border>
-                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug3container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug3container" Grid.Row="1"
+                                    Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -228,7 +230,8 @@
                                         <TextBlock Margin="5,0,0,0" Text="Length" />
                                         <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" />
                                         <TextBlock Margin="5,0,0,0" Text="Origin" />
-                                        <TextBlock Margin="5,0,0,0" Text="{Binding Origin,Converter={StaticResource PointConverter}}" />
+                                        <TextBlock Margin="5,0,0,0"
+                                                   Text="{Binding Origin,Converter={StaticResource PointConverter}}" />
                                     </StackPanel>
                                 </DataTemplate>
 
@@ -327,7 +330,8 @@
                                 </Grid>
 
                             </ScrollViewer>
-                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug1container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug1container" Grid.Row="1"
+                                    Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -340,11 +344,11 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <WrapPanel>
-                                            <TextBlock Text="Insertion Point "/>
-                                            <TextBlock Text="{Binding InsertionPoint}"/>
+                                            <TextBlock Text="Insertion Point " />
+                                            <TextBlock Text="{Binding InsertionPoint}" />
                                         </WrapPanel>
                                         <StackPanel Orientation="Vertical" Grid.Row="1">
-                                        
+
                                             <ContentPresenter Content="{Binding InsertionLine}" />
                                             <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}" />
                                             <TextBlock Margin="10,0,0,0" Text="{Binding Path=Document}" />
@@ -354,7 +358,8 @@
                                 </GroupBox>
 
                             </Border>
-                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug2container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug2container" Grid.Row="1"
+                                    Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -371,7 +376,8 @@
                                     </ScrollViewer>
                                 </GroupBox>
                             </Border>
-                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug3container" Grid.Row="1" Opacity="1"
+                            <Border Grid.Column="0" Visibility="Hidden" x:Name="debug3container" Grid.Row="1"
+                                    Opacity="1"
                                     TextElement.FontSize="16" TextElement.FontWeight="Normal">
                                 <GroupBox Background="AliceBlue"
                                           DataContext="{Binding RelativeSource={RelativeSource TemplatedParent}}">
@@ -426,7 +432,7 @@
             </Setter.Value>
         </Setter>
     </Style>
-<local:VisibilityToBooleanConverter x:Key="B"/>
+    <local:VisibilityToBooleanConverter x:Key="B" />
     <Style TargetType="{x:Type local:EnhancedCodeControl}">
         <Setter Property="Template">
             <Setter.Value>
@@ -504,7 +510,8 @@
                                 <ToolBar Band="1" BandIndex="2" x:Name="FontsToolbar">
                                     <TextBlock Text="Font:" Margin="0,0,5,0" VerticalAlignment="Center" />
                                     <ComboBox x:Name="FontComboBox" VerticalAlignment="Center"
-                                              ItemsSource="{TemplateBinding Fonts}" SelectedItem="{Binding ElementName=CodeControl,Path=FontFamily,Mode=OneWay}">
+                                              ItemsSource="{TemplateBinding Fonts}"
+                                              SelectedItem="{Binding ElementName=CodeControl,Path=FontFamily,Mode=OneWay}">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate DataType="{x:Type FontFamily}">
                                                 <TextBlock FontFamily="{Binding}"
@@ -514,18 +521,19 @@
                                     </ComboBox>
                                     <TextBlock Text="Size:" Margin="5,0,0,0" VerticalAlignment="Center" />
                                     <ComboBox x:Name="FontSizeCombo"
-                                              ItemsSource="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CommonFontSizes}" SelectedItem="{Binding ElementName=CodeControl,Path=FontSize,Mode=OneWay}"/>
+                                              ItemsSource="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CommonFontSizes}"
+                                              SelectedItem="{Binding ElementName=CodeControl,Path=FontSize,Mode=OneWay}" />
                                 </ToolBar>
                             </ToolBarTray>
                             <local:RoslynCodeControl Grid.Row="2" Grid.Column="0"
-                                                                  Filename="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Filename,Mode=TwoWay}"
-                                                                  Document="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Document,Mode=TwoWay}"
-                                                                  SourceText="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SourceText,Mode=TwoWay}"
-                                                                  SyntaxTree="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SyntaxTree,Mode=TwoWay}"
-                                                                  Compilation="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Compilation,Mode=TwoWay}"
-                                                                  SyntaxNode="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SyntaxNode,Mode=TwoWay}"
-                                                                  SemanticModel="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SemanticModel,Mode=TwoWay}"
-                                                                  x:Name="CodeControl" />
+                                                     Filename="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Filename,Mode=TwoWay}"
+                                                     Document="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Document,Mode=TwoWay}"
+                                                     SourceText="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SourceText,Mode=TwoWay}"
+                                                     SyntaxTree="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SyntaxTree,Mode=TwoWay}"
+                                                     Compilation="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Compilation,Mode=TwoWay}"
+                                                     SyntaxNode="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SyntaxNode,Mode=TwoWay}"
+                                                     SemanticModel="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SemanticModel,Mode=TwoWay}"
+                                                     x:Name="CodeControl" />
                             <StackPanel Grid.Row="3" Grid.Column="2">
                                 <TextBlock Text="{Binding ElementName=CodeControl,Path=EnclosingSymbol}" />
                             </StackPanel>
@@ -587,9 +595,36 @@
                                 <TextBlock Margin="10" Text="Bounding Rect:" />
                                 <TextBlock VerticalAlignment="Center" Text="{Binding HoverRegionInfo.BoundingRect}" />
                                 <TextBlock Margin="20,10,10,10" Text="Offset:" />
-                                <TextBlock Margin="10"  VerticalAlignment="Center" Text="{Binding HoverRegionInfo.Offset}" />
+                                <TextBlock Margin="10" VerticalAlignment="Center"
+                                           Text="{Binding HoverRegionInfo.Offset}" />
                                 <ContentControl Content="{Binding HoverRegionInfo.TextRun}" />
                             </StackPanel>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="{x:Type local:CoverPage}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type local:CoverPage}">
+                    <Border />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <FixedPage x:Key="CoverPageDoc" />
+    <Style TargetType="{x:Type local:CoverPageDocument}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type local:CoverPageDocument}">
+                    <Border >
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{TemplateBinding DocumentTitle}"/>
                         </Grid>
                     </Border>
                 </ControlTemplate>

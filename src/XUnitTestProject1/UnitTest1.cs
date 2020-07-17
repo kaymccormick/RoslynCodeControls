@@ -89,7 +89,7 @@ namespace XUnitTestProject1
 
             b.JTF = j;
             b.JTF2 = jtf2;
-            CodeIface c = b;
+            ICodeView c = b;
             var code = File.ReadAllText(@"C:\temp\program.cs");
             c.SourceText = code;
             var updateFormattedTextAsync = c.UpdateFormattedTextAsync();
