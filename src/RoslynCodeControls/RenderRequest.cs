@@ -1,16 +1,16 @@
 ﻿    namespace RoslynCodeControls
 {
-    public class RenderRequest
+    public readonly struct RenderRequest
     {
         public InputRequest InputRequest { get; }
         public int InsertionPoint { get;  }
-        public CallbackParameters1 Inn { get; }
+        public RenderRequestInput Input { get; }
 
-        public RenderRequest(InputRequest inputRequest, int insertionPoint, CallbackParameters1 inn)
+        public RenderRequest(InputRequest inputRequest, int insertionPoint, RenderRequestInput input)
         {
             InputRequest = inputRequest;
             InsertionPoint = insertionPoint;
-            Inn = inn;
+            Input = input;
         }
     }
 }

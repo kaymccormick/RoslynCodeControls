@@ -111,9 +111,11 @@ namespace RoslynCodeControls
         {
             while (true)
             {
-                var (@in) = await PostUpdateChannel.Reader.ReadAsync();
-                Callback2(@in);
-                PostUpdate(this, @in.DrawingGroup, @in.MaxX, @in.MaxY, @in.RedrawLineResult);
+                
+                var r = await PostUpdateChannel.Reader.ReadAsync();
+                var @in = r.Input;
+                var newIp = Callback2(@in);
+                PostUpdate(@in, newIp);
                 DebugFn("Writing update complete " + @in.InputRequest);
                 var updateComplete = new UpdateComplete(@in.InputRequest);
                 await UpdateCompleteChannel.Writer.WriteAsync(updateComplete);
@@ -464,26 +466,27 @@ namespace RoslynCodeControls
             }
         }
 
-        private async Task HandleRenderRequestAsync(RenderRequest inp)
+        private async Task HandleRenderRequestAsync(RenderRequest renderRequest)
         {
-            DebugFn($"{nameof(HandleRenderRequestAsync)}: {inp}");
-            var inn = inp.Inn;
-            inn.CurrentRendering = FontRendering.CreateInstance(inn.FontSize, TextAlignment.Left,
+            DebugFn($"{nameof(HandleRenderRequestAsync)}: {renderRequest}");
+            var inn = renderRequest.Input;
+            var currentRendering = FontRendering.CreateInstance(inn.FontSize, TextAlignment.Left,
                 new TextDecorationCollection(), Brushes.Black,
                 new Typeface(new FontFamily(inn.FontFamilyName), FontStyles.Normal, inn.FontWeight,
                     FontStretches.Normal));
 
-            if (inp.InputRequest != null)
+            if (renderRequest.InputRequest != null)
             {
-                inn.CustomTextSource4.TextInput(inp.InsertionPoint, inp.InputRequest);
+                inn.CustomTextSource4.TextInput(renderRequest.InsertionPoint, renderRequest.InputRequest);
             }
 
-            var redrawLine = RedrawLine(inn);
+            var redrawLine = RedrawLine(inn, currentRendering);
             redrawLine.DrawingGroup.Freeze();
-            var in2 = new PostUpdateInput(this,
-                inp.InsertionPoint, inp.InputRequest, inp.InputRequest?.Text, inn,
+            var postUpdateInput = new PostUpdateInput(this,
+                renderRequest.InsertionPoint, renderRequest.InputRequest,
                 redrawLine);
-            await PostUpdateChannel.Writer.WriteAsync(new PostUpdateRequest(in2));
+            var postUpdateRequest = new PostUpdateRequest(postUpdateInput);
+            await PostUpdateChannel.Writer.WriteAsync(postUpdateRequest);
         }
 
 
@@ -1189,45 +1192,44 @@ namespace RoslynCodeControls
             var insertionLineLineNumber = InsertionLine?.LineNumber ?? 0;
             var insertionLine = InsertionLine;
             inputRequest.SequenceId = SequenceId++;
-            var inn = new CallbackParameters1(this,
+            var renderRequestInput = new RenderRequestInput(this,
                 insertionLineLineNumber,
                 insertionLineOffset,
                 originY, originX,
                 insertionLine,
                 Formatter,
-                OutputWidth, null,
+                OutputWidth,
                 PixelsPerDip,
                 CustomTextSource,
                 MaxY, MaxX, FontSize, _typefaceName, FontWeight);
-            await RenderChannel.Writer.WriteAsync(new RenderRequest(inputRequest, insertionPoint, inn));
+            var renderRequest = new RenderRequest(inputRequest, insertionPoint, renderRequestInput);
+            await RenderChannel.Writer.WriteAsync(renderRequest);
             var updateComplete = await UpdateCompleteChannel.Reader.ReadAsync();
             DebugFn($"{nameof(DoUpdateTextAsync)} Update complete: {updateComplete.InputRequest}");
         }
 
         public int SequenceId { get; set; } = 1;
 
-        private static void Callback2(PostUpdateInput postUpdateInput)
+        private static int Callback2(PostUpdateInput postUpdateInput)
         {
             var roslynCodeControl = postUpdateInput.RoslynCodeControl;
             var inputRequest = postUpdateInput.InputRequest;
             var lineInfo = postUpdateInput.LineInfo;
             var insertionPoint = postUpdateInput.InsertionPoint;
-            var text = postUpdateInput.Text;
-            var inn = postUpdateInput.In1;
+            var text = inputRequest.Text;
+            int ip;
             if (inputRequest.Kind == InputRequestKind.Backspace)
             {
-                roslynCodeControl.InsertionPoint--;
+                ip = insertionPoint - 1;
             }
             else
             {
-                var ip = insertionPoint + (text?.Length ?? 0);
-                roslynCodeControl.InsertionPoint = ip;
+                ip = insertionPoint + (text?.Length ?? 0);
+                
 #if DEBUG
                 roslynCodeControl._debugFn?.Invoke("Setting insertin point to " + ip);
 #endif
             }
-
-            if (lineInfo == null) throw new InvalidOperationException();
 
 #if false
             if (roslynCodeControl.InsertionPoint == lineInfo.Offset + lineInfo.Length)
@@ -1241,15 +1243,16 @@ namespace RoslynCodeControls
 
                 var drawingGroup = new DrawingGroup();
                 var dc = drawingGroup.Open();
-                var inn2 = new CallbackParameters1(roslynCodeControl, newLineInfo.LineNumber, newLineInfo.Offset,
-                    newLineInfo.Origin.Y, newLineInfo.Origin.X, newLineInfo, Formatter, inn.ParagraphWidth,
-                    inn.CurrentRendering, inn.PixelsPerDip, inn.CustomTextSource4, inn.MaxY, inn.MaxX, drawingGroup, dc,
-                    inn.FontSize, inn.FontFamilyName, inn.FontWeight);
+                var inn2 = new RenderRequestInput(roslynCodeControl, newLineInfo.LineNumber, newLineInfo.Offset,
+                    newLineInfo.Origin.Y, newLineInfo.Origin.X, newLineInfo, Formatter, input.ParagraphWidth,
+                    input.CurrentRendering, input.PixelsPerDip, input.CustomTextSource4, input.MaxY, input.MaxX, drawingGroup, dc,
+                    input.FontSize, input.FontFamilyName, input.FontWeight);
                 await roslynCodeControl.RenderChannel.Writer.WriteAsync(new RenderRequest(null,
                     roslynCodeControl.InsertionPoint, inn2));
                 await roslynCodeControl.UpdateCompleteChannel.Reader.ReadAsync();
             }
 #endif
+            return ip;
         }
 
 
@@ -1271,10 +1274,11 @@ namespace RoslynCodeControls
 
         #endregion
 
-        private static RedrawLineResult RedrawLine(CallbackParameters1 callbackParameters1)
+        private static RedrawLineResult RedrawLine(RenderRequestInput renderRequestInput,
+            FontRendering currentRendering)
         {
-            var lineNo = callbackParameters1.LineNo;
-            var lineOriginPoint = new Point(callbackParameters1.X, callbackParameters1.Y);
+            var lineNo = renderRequestInput.LineNo;
+            var lineOriginPoint = new Point(renderRequestInput.X, renderRequestInput.Y);
            
             var origin = new Point(lineOriginPoint.X, lineOriginPoint.Y);
             double width, height;
@@ -1282,17 +1286,18 @@ namespace RoslynCodeControls
             var dc = dg.Open();
             LineInfo2 lineInfo2;
             var runsInfos = new List<TextRunInfo>();
-            var runCount = callbackParameters1.CustomTextSource4.RunInfos?.Count(ri => true) ?? 0;
+            var runCount = renderRequestInput.CustomTextSource4.RunInfos?.Count(ri => true) ?? 0;
             var allCharInfos = new LinkedList<CharInfo>();
-            using (var myTextLine = callbackParameters1.TextFormatter.FormatLine(callbackParameters1.CustomTextSource4,
-                callbackParameters1.Offset, callbackParameters1.ParagraphWidth,
-                new GenericTextParagraphProperties(callbackParameters1.CurrentRendering,
-                    callbackParameters1.PixelsPerDip), null))
+            var fontRendering = currentRendering;
+            using (var myTextLine = renderRequestInput.TextFormatter.FormatLine(renderRequestInput.CustomTextSource4,
+                renderRequestInput.Offset, renderRequestInput.ParagraphWidth,
+                new GenericTextParagraphProperties(fontRendering,
+                    renderRequestInput.PixelsPerDip), null))
             {
-                var textStorePosition = callbackParameters1.Offset;
-                var nRuns = callbackParameters1.CustomTextSource4.Runs.Count - runCount;
+                var textStorePosition = renderRequestInput.Offset;
+                var nRuns = renderRequestInput.CustomTextSource4.Runs.Count - runCount;
 
-                CommonText.HandleLine(allCharInfos, origin, myTextLine, callbackParameters1.CustomTextSource4, runCount,
+                CommonText.HandleLine(allCharInfos, origin, myTextLine, renderRequestInput.CustomTextSource4, runCount,
                     nRuns, lineNo, textStorePosition, runsInfos);
 
                 myTextLine.Draw(dc, origin, InvertAxes.None);
@@ -1300,7 +1305,7 @@ namespace RoslynCodeControls
                 width = myTextLine.Width;
                 height = myTextLine.Height;
 
-                lineInfo2 = new LineInfo2(callbackParameters1.LineNo, allCharInfos.First, textStorePosition,
+                lineInfo2 = new LineInfo2(renderRequestInput.LineNo, allCharInfos.First, textStorePosition,
                     origin, myTextLine.Height, myTextLine.Length);
             }
 
@@ -1312,9 +1317,13 @@ namespace RoslynCodeControls
             return new RedrawLineResult(lineInfo2, dg, lineCtxMaxX, lineCtxMaxY, allCharInfos, runsInfos);
         }
 
-        private static void PostUpdate(RoslynCodeControl roslynCodeControl1, DrawingGroup inDg,
-            double inmaxX, double inmaxY, RedrawLineResult res)
+        private static void PostUpdate(PostUpdateInput @in, int newIp)
         {
+            RoslynCodeControl roslynCodeControl1 = @in.RoslynCodeControl;
+            RedrawLineResult res = @in.RedrawLineResult;
+            DrawingGroup inDg = res.DrawingGroup;
+            double inmaxX = res.LineMaxX;
+            double inmaxY = res.LineMaxY;
             roslynCodeControl1.DebugFn($"PostUpdate");
 
             var textDest = roslynCodeControl1.TextDestination;
@@ -1382,12 +1391,18 @@ namespace RoslynCodeControls
                 llNode = li0;
             }
 
+
+            var nextLineOffset = res.LineInfo.Offset + res.LineInfo.Length;
+            if (newIp == nextLineOffset)
+            {
+                // ReSharper disable once PossibleNullReferenceException
+                llNode = llNode.List.AddAfter(llNode,
+                    new LineInfo2(res.LineInfo.LineNumber + 1, null, nextLineOffset,
+                        new Point(res.LineInfo.Origin.X, res.LineInfo.Origin.Y + res.LineInfo.Height), 0, 0));
+            }
+
             roslynCodeControl1.InsertionLineNode = llNode;
         }
-
-   
-   
-
         public LinkedListNode<LineInfo2> FindLine(int lineNo)
         {
             LinkedListNode<LineInfo2> li0;
@@ -1407,7 +1422,6 @@ namespace RoslynCodeControls
         // ReSharper disable once MemberCanBePrivate.Global
         public static TextFormatter Formatter { get; } = TextFormatter.Create();
 
-        /// <inheritdoc />
 #if false
         protected override Size ArrangeOverride(Size arrangeBounds)
         {

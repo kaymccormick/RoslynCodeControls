@@ -1,6 +1,6 @@
 ﻿namespace RoslynCodeControls
 {
-    public class PostUpdateRequest
+    public readonly struct PostUpdateRequest
     {
         public PostUpdateInput Input { get; }
 

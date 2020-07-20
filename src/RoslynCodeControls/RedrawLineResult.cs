@@ -3,7 +3,7 @@ using System.Windows.Media;
 
 namespace RoslynCodeControls
 {
-    public class RedrawLineResult 
+    public readonly struct RedrawLineResult 
     {
         public LineInfo2 LineInfo { get; }
         public DrawingGroup DrawingGroup { get; }

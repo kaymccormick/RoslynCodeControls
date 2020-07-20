@@ -143,7 +143,7 @@ namespace XUnitTestProject1
 
                 }
 
-                break;
+                
                 await c2.DoInputAsync(new InputRequest(InputRequestKind.NewLine));
             }
             // var bmptmp = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgr24, null, new byte[3] { 0, 0, 0 }, 3);
