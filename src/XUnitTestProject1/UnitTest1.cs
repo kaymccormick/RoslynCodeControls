@@ -48,12 +48,24 @@ namespace XUnitTestProject1
 
         private async void OnWOnLoaded(object sender, RoutedEventArgs args)
         {
+            var code = File.ReadAllLines(@"C:\temp\program.cs");
             var c2 = _control;
             Debug.WriteLine("loaded");
             await c2.UpdateFormattedTextAsync();
-            var success = await c2.DoInputAsync(new InputRequest(InputRequestKind.TextInput, "p"));
+
+            foreach (var s in code)
+            {
+                foreach (var ch in s)
+                {
+
+            var success = await c2.DoInputAsync(new InputRequest(InputRequestKind.TextInput, ch.ToString()));
             Debug.WriteLine("Success is " + success);
+
             Debug.WriteLine("viewbox " + c2.DrawingBrushViewbox);
+
+                }
+                var success2 = await c2.DoInputAsync(new InputRequest(InputRequestKind.NewLine));
+            }
             // var bmptmp = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgr24, null, new byte[3] { 0, 0, 0 }, 3);
 
             // double width = 100;
@@ -66,7 +78,7 @@ namespace XUnitTestProject1
 
             // RenderTargetBitmap b = new RenderTargetBitmap(1024, 1024, 96, 96, PixelFormats.Pbgra32);
             // b.Render(r);
-            
+
             // b.Render(c2);
             // PngBitmapEncoder pngImage = new PngBitmapEncoder();
             // pngImage.Frames.Add(BitmapFrame.Create(b));
@@ -75,7 +87,7 @@ namespace XUnitTestProject1
             // pngImage.Save(fileStream);
             // }
             // _window.Close();
-            
+
         }
 
 

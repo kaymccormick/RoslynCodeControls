@@ -443,6 +443,8 @@ namespace RoslynCodeControls
         {
             FontSizeProperty.OverrideMetadata(typeof(RoslynCodeControl),
                 new FrameworkPropertyMetadata(OnFontSizeChanged));
+            FontFamilyProperty.OverrideMetadata(typeof(RoslynCodeControl),
+                new FrameworkPropertyMetadata(OnFontFamilyChanged));
             FocusableProperty.OverrideMetadata(typeof(RoslynCodeControl), new FrameworkPropertyMetadata(true));
             DefaultStyleKeyProperty.OverrideMetadata(typeof(RoslynCodeControl),
                 new FrameworkPropertyMetadata(typeof(RoslynCodeControl)));
@@ -451,6 +453,13 @@ namespace RoslynCodeControls
                     OnSyntaxTreeChanged_));
             SyntaxNodeProperty.OverrideMetadata(typeof(RoslynCodeControl),
                 new PropertyMetadata(default(SyntaxNode), OnNodeUpdated));
+        }
+
+        private static void OnFontFamilyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            RoslynCodeControl c = (RoslynCodeControl) d;
+            var f = (FontFamily) e.NewValue;
+            c._typefaceName = f.FamilyNames[XmlLanguage.GetLanguage("en-US")];
         }
 
         private static void OnFontSizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -1020,7 +1029,7 @@ namespace RoslynCodeControls
             var text = inputRequest.Text;
             try
             {
-                if (CustomTextSource == null)
+                if (false && CustomTextSource == null)
                 {
                     //await UpdateTextSource().ConfigureAwait(true);
 
@@ -1032,16 +1041,7 @@ namespace RoslynCodeControls
                     await JTF.SwitchToMainThreadAsync();
                 }
 
-                Debug.WriteLine(text);
-
                 var insertionPoint = InsertionPoint;
-                if (inputRequest.Kind != InputRequestKind.Backspace)
-                {
-                }
-                else
-                {
-                }
-
                 await DoUpdateTextAsync(insertionPoint, inputRequest).ConfigureAwait(true);
 
                 ChangingText = true;
@@ -1071,15 +1071,22 @@ namespace RoslynCodeControls
 
                 var d = new DrawingGroup();
                 var drawingContext = d.Open();
-                var typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
 
-
-                var inn = new CallbackParameters1(this, insertionLineLineNumber, insertionLineOffset, originY, originX,
-                    insertionLine, Formatter, OutputWidth, null, PixelsPerDip, CustomTextSource, MaxY, MaxX,
-                    d, drawingContext, FontSize, typefaceName, FontWeight);
+                var inn = new CallbackParameters1(this, 
+                    insertionLineLineNumber, 
+                    insertionLineOffset, 
+                    originY, originX,
+                    insertionLine, 
+                    Formatter,
+                    OutputWidth, null, 
+                    PixelsPerDip, 
+                    CustomTextSource, 
+                    MaxY, MaxX,
+                    d,
+                    drawingContext, FontSize, _typefaceName, FontWeight);
 
                 await JTF2.SwitchToMainThreadAsync();
-                var lineInfo = await Callback(inn, insertionPoint, inputRequest);
+                var lineInfo = await InputCallback1(inn, insertionPoint, inputRequest);
                 var in2 = new CallbackParameters2(this, insertionPoint, inputRequest, text, inn, lineInfo);
                 await JTF.SwitchToMainThreadAsync();
                 await Callback2(in2);
@@ -1131,7 +1138,7 @@ namespace RoslynCodeControls
          
         }
 
-        private static async Task<LineInfo2> Callback(CallbackParameters1 inn, int insertionPoint, InputRequest inputRequest)
+        private static async Task<LineInfo2> InputCallback1(CallbackParameters1 inn, int insertionPoint, InputRequest inputRequest)
         {
             var text = inputRequest.Text;
             try
@@ -1723,6 +1730,7 @@ namespace RoslynCodeControls
 
         // ReSharper disable once NotAccessedField.Local
         private Grid _grid;
+        private string _typefaceName;
 
         /// <summary>
         /// 
