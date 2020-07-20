@@ -19,6 +19,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Xps.Packaging;
 using JetBrains.Annotations;
+using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.VisualStudio.Threading;
 using RoslynCodeControls;
 using Path = System.IO.Path;
@@ -37,6 +38,8 @@ namespace NewTestapp
         public MainWindow()
         {
             InitializeComponent();
+            _host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
+
             var fileName = @"C:\temp\program.cs";
             cb.SourceText = File.ReadAllText(fileName);
             cb.DocumentTitle = fileName;
@@ -58,6 +61,7 @@ namespace NewTestapp
             "CurPage", typeof(int), typeof(MainWindow), new PropertyMetadata(-1, OnCurPageChanged));
 
         private XpsDocument _xps2;
+        private MefHostServices _host;
 
         public int CurPage
         {

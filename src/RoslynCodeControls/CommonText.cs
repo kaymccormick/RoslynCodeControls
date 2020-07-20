@@ -15,7 +15,7 @@ using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace RoslynCodeControls    
+namespace RoslynCodeControls
 {
     public static class CommonText
     {
@@ -54,31 +54,14 @@ namespace RoslynCodeControls
             var emSize = iface1.FontSize;
             var fontWeight = iface1.FontWeight;
             var customTextSource4Parameters = iface1.CreateDefaultTextSourceArguments();
-            var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition, RoslynCodeControl.Formatter, iface1.OutputWidth, iface1.PixelsPerDip, emSize, fontFamilyFamilyName, iface1.UpdateChannel.Writer, fontWeight, iface1.DocumentPaginator, customTextSource4Parameters);
-            var dispatcherOperation = iface1.SecondaryDispatcher.InvokeAsync(async () =>
-            {
-                
-                var rr = iface1.InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
-                var src = await rr;
-                return src;
-            });
-            //iface1.InnerUpdateDispatcherOperation = dispatcherOperation;
-            var source = await dispatcherOperation.Task
-                .ContinueWith(
-                    task =>
-                    {
-                        if (task.IsFaulted)
-                        {
-                            var xx1 = task.Exception?.Flatten().ToString() ?? "";
-                            Debug.WriteLine(xx1);
-                            // ReSharper disable once PossibleNullReferenceException
-                            Debug.WriteLine(task.Exception.ToString());
-                        }
+            var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition,
+                RoslynCodeControl.Formatter, iface1.OutputWidth, iface1.PixelsPerDip, emSize, fontFamilyFamilyName,
+                iface1.UpdateChannel.Writer, fontWeight, iface1.DocumentPaginator, customTextSource4Parameters);
+            await iface1.JTF2.SwitchToMainThreadAsync();
+            
+                var source = await iface1.InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
 
-                        return task.Result;
-                    }).ConfigureAwait(false);
-            var ss = await source;
-            return ss;
+            return source;
         }
 
         public static DispatcherOperation MainUpdateContinuation(ICodeView iface1, CustomTextSource4 source)
@@ -137,16 +120,16 @@ namespace RoslynCodeControls
                 Tree = st,
                 Node = node
             };
-                //source.PropertyChanged += x;
+            //source.PropertyChanged += x;
             source.Init();
             return source;
         }
 
-        public static async Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, Func<CustomTextSource4> makeSource)
+        public static async Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters,
+            Func<CustomTextSource4> makeSource)
         {
-            
             var tf = CreateTypeface(new FontFamily(mainUpdateParameters.FaceName), FontStyles.Normal,
-                FontStretches.Normal,   
+                FontStretches.Normal,
                 mainUpdateParameters.FontWeight);
 
             var currentRendering = FontRendering.CreateInstance(mainUpdateParameters.FontSize,
@@ -159,14 +142,14 @@ namespace RoslynCodeControls
 
             var myGroup = new DrawingGroup();
             var myDc = myGroup.Open();
-            
+
             var genericTextParagraphProperties =
                 new GenericTextParagraphProperties(currentRendering, mainUpdateParameters.PixelsPerDip);
             var runsInfos = new List<TextRunInfo>();
             var allCharInfos = new LinkedList<CharInfo>();
             var textStorePosition = mainUpdateParameters.TextStorePosition;
             var lineNo = mainUpdateParameters.LineNo;
-            List<Task> tasks= new List<Task>();
+            var tasks = new List<Task>();
             while (textStorePosition < customTextSource4.Length)
             {
                 var runCount = customTextSource4.Runs.Count;
@@ -176,7 +159,9 @@ namespace RoslynCodeControls
                 var numPages = 0;
                 var pageBegin = new Point(0, 0);
                 var pageEnd = new Point(0, 0);
-                if (mainUpdateParameters.Paginate) pageEnd.Offset(mainUpdateParameters.PageSize.Value.Width, mainUpdateParameters.PageSize.Value.Height);
+                if (mainUpdateParameters.Paginate)
+                    pageEnd.Offset(mainUpdateParameters.PageSize.Value.Width,
+                        mainUpdateParameters.PageSize.Value.Height);
 
                 using (var myTextLine = mainUpdateParameters.TextFormatter.FormatLine(customTextSource4,
                     textStorePosition, mainUpdateParameters.ParagraphWidth,
@@ -185,7 +170,8 @@ namespace RoslynCodeControls
                 {
                     LineInfo pr = null;
                     mainUpdateParameters.LinePosition = HandleTextLine(ref textStorePosition,
-                        out _, ref pr, ref lineNo, mainUpdateParameters.LinePosition, mainUpdateParameters.ParagraphWidth, customTextSource4, runCount,
+                        out _, ref pr, ref lineNo, mainUpdateParameters.LinePosition,
+                        mainUpdateParameters.ParagraphWidth, customTextSource4, runCount,
                         myTextLine, allCharInfos, runsInfos, myDc, out var lineInfo);
                     if (mainUpdateParameters.Paginate && mainUpdateParameters.LinePosition.Y >= pageEnd.Y)
                     {
@@ -211,8 +197,9 @@ namespace RoslynCodeControls
             {
                 myDc.Close();
                 myGroup.Freeze();
-                var curUi = new UpdateInfo() {DrawingGroup = myGroup, CharInfos = Enumerable.ToList<CharInfo>(allCharInfos), FinalBlock = true};
-                await  mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
+                var curUi = new UpdateInfo()
+                    {DrawingGroup = myGroup, CharInfos = Enumerable.ToList<CharInfo>(allCharInfos), FinalBlock = true};
+                await mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
                 // tasks.Add(writeAsync.AsTask());
             }
             else
@@ -221,16 +208,17 @@ namespace RoslynCodeControls
             }
 
             // await Task.WhenAll(tasks);
-            
+
             return customTextSource4;
         }
 
         public static Point HandleTextLine(ref int textStorePosition, out TextLineBreak prev, ref LineInfo prevLine,
-    ref int lineNo, Point linePosition, double paragraphWidth, CustomTextSource4 customTextSource4,
-    int runCount,
-    TextLine myTextLine, LinkedList<CharInfo> allCharInfos, List<TextRunInfo> runsInfos, DrawingContext myDc,
-    out LineInfo lineInfo, bool drawOnSecondaryThread = true, Dispatcher dispatcher = null)
+            ref int lineNo, Point linePosition, double paragraphWidth, CustomTextSource4 customTextSource4,
+            int runCount,
+            TextLine myTextLine, LinkedList<CharInfo> allCharInfos, [NotNull] List<TextRunInfo> runsInfos, DrawingContext myDc,
+            out LineInfo lineInfo, bool drawOnSecondaryThread = true, Dispatcher dispatcher = null)
         {
+
             var nRuns = customTextSource4.Runs.Count - runCount;
 #if DEBUGTEXTSOURCE
                     Debug.WriteLine("num runs for line is "  + nRuns);
@@ -259,7 +247,7 @@ namespace RoslynCodeControls
             if (llNode == null)
             {
                 fakeHead = true;
-                llNode = allCharInfos.AddLast((CharInfo)null);
+                llNode = allCharInfos.AddLast((CharInfo) null);
             }
 
             var curPos = linePosition;
@@ -295,7 +283,11 @@ namespace RoslynCodeControls
                         }
 
                         var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
-                        runsInfos.Add(new TextRunInfo(enum1.Current, item));
+                        if (runsInfos != null)
+                        {
+                            runsInfos.Add(new TextRunInfo(enum1.Current, item));
+                            
+                        }
                         positions.Add(item);
                         curPos.X += advanceSum;
                         enum1.MoveNext();
@@ -346,12 +338,13 @@ namespace RoslynCodeControls
             textStorePosition += myTextLine.Length;
             return linePosition;
         }
-        static Typeface CreateTypeface(FontFamily fontFamily, FontStyle fontStyle, FontStretch fontStretch,
+
+        private static Typeface CreateTypeface(FontFamily fontFamily, FontStyle fontStyle, FontStretch fontStretch,
             FontWeight fontWeight)
         {
             return new Typeface(fontFamily, fontStyle, fontWeight, fontStretch);
         }
 
-        public static TextFormatter Formatter { get;  }= TextFormatter.Create();
+        public static TextFormatter Formatter { get; } = TextFormatter.Create();
     }
 }

@@ -17,8 +17,9 @@ namespace RoslynCodeControls
 
         public RoslynPaginator(ICodeView control, Size? pageSize = null, Thickness? margins = null)
         {
-            _hdpi = 96;
-            _vdpi = 96;
+            _hdpi = 300;
+            _vdpi = 300;
+            _defaultPageSize = new Size(8.5 * _hdpi, 11 * _vdpi);
             _defaultMargins = new Thickness(0.25 * _hdpi, 0.25 * _vdpi, 0.25 * _hdpi, 0.25 * _vdpi);
             var ps = pageSize.GetValueOrDefault(_defaultPageSize);
             var m = margins.GetValueOrDefault(_defaultMargins);
@@ -41,21 +42,23 @@ namespace RoslynCodeControls
             {
                 Drawing = _control.TextDestination,
                 Viewbox = _control.TextDestination.Bounds,
-                ViewboxUnits = BrushMappingMode.Absolute,
-                Viewport = _control.TextDestination.Bounds,
-                ViewportUnits = BrushMappingMode.Absolute
+                ViewboxUnits = BrushMappingMode.Absolute
+                // Viewport = _control.TextDestination.Bounds,
+                // ViewportUnits = BrushMappingMode.Absolute
             };
 
 
             var v = new DrawingVisual();
             var dpi = VisualTreeHelper.GetDpi(v);
+            var dpiPixelsPerInchX = _hdpi;
+            var dpiPixelsPerInchY = _vdpi;
             var bmp = new RenderTargetBitmap(intWidth
                 , intHeight
-                , dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+                , dpiPixelsPerInchX, dpiPixelsPerInchY, PixelFormats.Pbgra32);
 
             var dc = v.RenderOpen();
-            dc.DrawRectangle(b, null, _control.TextDestination.Bounds);
-            var formattedText = new FormattedText($"{intWidth}x{intHeight} @ {dpi.PixelsPerInchX}x{dpi.PixelsPerInchY}",
+            dc.DrawRectangle(b, null, new Rect(DocPageSize));
+            var formattedText = new FormattedText($"{intWidth}x{intHeight} @ {dpiPixelsPerInchX}x{dpiPixelsPerInchY}",
                 CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                 new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
                 16, Brushes.Yellow
@@ -70,8 +73,8 @@ namespace RoslynCodeControls
 
             bmp.Render(v);
             _bmp = bmp;
-            var zz = new PngBitmapEncoder();
-            zz.Frames.Add(BitmapFrame.Create(bmp));
+            // var zz = new PngBitmapEncoder();
+            // zz.Frames.Add(BitmapFrame.Create(bmp));
             // FileStream stream = new FileStream(@"c:\temp\new.png", FileMode.Create);
             // zz.Save(stream);
             PageCount = (int) (b.Drawing.Bounds.Height / DocPageSize.Height + 1) + 1;
@@ -94,14 +97,22 @@ namespace RoslynCodeControls
                 // dc0.PushTransform(new TranslateTransform());
 
                 // var p = new FixedPage();
-                var text = new FormattedText(_control.DocumentTitle, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,new Typeface(new FontFamily("Times new Roman"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 32, Brushes.Black, null,TextFormattingMode.Ideal,1); ;
+                var text = new FormattedText(_control.DocumentTitle ?? "Untitled", CultureInfo.CurrentCulture, FlowDirection.LeftToRight,new Typeface(new FontFamily("Times new Roman"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 32, Brushes.Black, null,TextFormattingMode.Ideal,1); ;
                 dc0.DrawText(text,new Point((PageSize.Width - text.Width)/2,4*_vdpi));
+                
+                string info1 =
+                    $"Margins:\t\tLeft: {_margins.Left / _hdpi:N1};\t\tRight: {_margins.Right / _hdpi:N1}; \r\n\t\tTop: {_margins.Top / _vdpi:N1};\t\tBottom: {_margins.Bottom / _vdpi:N1}\r\nPage Size:\t{PageSize.Width / _hdpi:N1}\"x{PageSize.Height / _vdpi:N1}\"\r\n";
+                var text1 = new FormattedText(info1, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 16, Brushes.Black, null, TextFormattingMode.Ideal, 1); ;
+                dc0.DrawText(text1, new Point((PageSize.Width - text1.Width) / 2, 5 * _vdpi));
+
                 dc0.Close();
                 info = null;
+
                 // var v = new VisualTarget(new HostVisual());
                 // v.RootVisual = d;
                 var dp1 = new DocumentPage(dv1, PageSize, new Rect(0, -1 * _vdpi, PageSize.Width, PageSize.Height + _vdpi),
                     new Rect(0, 0, PageSize.Width, PageSize.Height));
+
                 return dp1;
                 
             }
@@ -189,7 +200,7 @@ namespace RoslynCodeControls
         // }
 
 
-        private readonly Size _defaultPageSize = new Size(8.5 * 96, 11 * 96);
+        private readonly Size _defaultPageSize;
         private readonly Thickness _defaultMargins;
         private Size _pageSize;
         private Thickness _margins;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Microsoft.VisualStudio.Threading;
 
 namespace WpfTestApp
 {
@@ -64,16 +66,34 @@ namespace WpfTestApp
             get { return (ICommand) GetValue(DefaultHideToolBarCommandProperty); }
             set { SetValue(DefaultHideToolBarCommandProperty, value); }
         }
+
+        public JoinableTaskFactory JTF2 { get; set; }
+
         public MainWindow()
         {
             InitializeComponent();
             CoerceValue(FontsProperty);
+            Loaded += OnLoaded;
             //CodeControl.Filename = @"c:\temp\dockingmanager.cs";
-            CodeControl.SourceText = "";// "public class Test {\r\n    List<Tuple<int,string>> List1 {get; set;}\r\n    int _field = 1;\r\n}\r\n";
-            CodeControl.Focus();
-            Keyboard.Focus(CodeControl);
+           
             CommandBindings.Add(new CommandBinding(HideToolBar, OnExecutedHideToolBar));
         }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            JTF.RunAsync(M1);
+        }
+
+        private async Task M1()
+        {
+            CodeControl.JTF = JTF;
+            CodeControl.JTF2 = JTF2;
+            CodeControl.SourceText = File.ReadAllText(@"C:\temp\program.cs");
+            await CodeControl.UpdateFormattedTextAsync();
+            
+        }
+
+        public JoinableTaskFactory JTF { get; set; } = new JoinableTaskFactory(new JoinableTaskContext());
 
         private async void FontComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {

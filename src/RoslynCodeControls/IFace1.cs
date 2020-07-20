@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
+using Microsoft.VisualStudio.Threading;
 
 namespace RoslynCodeControls
 {
@@ -44,6 +45,7 @@ namespace RoslynCodeControls
         int InsertionPoint { get; set; }
         CharInfo InsertionCharInfo { get; set; }
         LinkedList<CharInfo> CharInfos { get; set; }
+        JoinableTaskFactory JTF2 { get; set; }
         Task UpdateFormattedTextAsync();
         void RaiseEvent(RoutedEventArgs p0);
         TextSourceInitializationParameters CreateDefaultTextSourceArguments();

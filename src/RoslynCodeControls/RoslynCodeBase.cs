@@ -51,7 +51,7 @@ namespace RoslynCodeControls
             f.OnSourceTextChanged1((string) e.NewValue, (string) e.OldValue);
         }
 
-        /// </summary>
+        
         public static readonly DependencyProperty CompilationProperty = RoslynProperties.CompilationProperty;
 
         public Compilation Compilation
@@ -114,16 +114,14 @@ namespace RoslynCodeControls
           
         }
 
-        public Rect DrawingBrushViewbox { get; set; }
+        public virtual Rect DrawingBrushViewbox { get; set; }
 
         public double MaxX { get; set; }
 
         public double MaxY { get; set; }
 
         /// <inheritdoc />
-        public DrawingBrush DrawingBrush { get; }
-
-
+        public virtual DrawingBrush DrawingBrush { get; }
 
         public static readonly DependencyProperty DocumentProperty = RoslynProperties.DocumentProperty;
 
@@ -135,7 +133,7 @@ namespace RoslynCodeControls
 
 
         /// <inheritdoc />
-        public bool PerformingUpdate { get; set; }
+        public virtual bool PerformingUpdate { get; set; }
 
         /// <inheritdoc />
         public CodeControlStatus Status { get; set; }
@@ -165,7 +163,7 @@ namespace RoslynCodeControls
         public Channel<UpdateInfo> UpdateChannel { get; set; }
 
         /// <inheritdoc />
-        public DocumentPaginator DocumentPaginator => new RoslynPaginator(this);
+        public virtual DocumentPaginator DocumentPaginator => new RoslynPaginator(this);
 
 
         /// <inheritdoc />
@@ -175,13 +173,13 @@ namespace RoslynCodeControls
         public CustomTextSource4 CustomTextSource { get; set; }
 
         /// <inheritdoc />
-        public bool InitialUpdate { get; set; }
+        public virtual bool InitialUpdate { get; set; }
 
         /// <inheritdoc />
-        public int InsertionPoint { get; set; }
+        public virtual int InsertionPoint { get; set; }
 
         /// <inheritdoc />
-        public CharInfo InsertionCharInfo { get; set; }
+        public virtual CharInfo InsertionCharInfo { get; set; }
 
         public TextSourceInitializationParameters CreateDefaultTextSourceArguments()
         {
@@ -211,7 +209,7 @@ namespace RoslynCodeControls
                 () => CreateCustomTextSource4(textSourceInitializationParameters));
         }
 
-        private static CustomTextSource4 CreateCustomTextSource4(
+        protected static CustomTextSource4 CreateCustomTextSource4(
             TextSourceInitializationParameters p)
         {
             var customTextSource4 =
@@ -254,8 +252,8 @@ namespace RoslynCodeControls
 
         public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
         private readonly ChannelReader<UpdateInfo> _reader;
-        public JoinableTaskFactory JTF;
-        public JoinableTaskFactory JTF2;
+        public JoinableTaskFactory JTF{ get; set; }
+        public JoinableTaskFactory JTF2{ get; set; }
 
         public SemanticModel SemanticModel
         {
@@ -276,7 +274,7 @@ namespace RoslynCodeControls
         public async Task UpdateFormattedTextAsync()
         {
             CustomTextSource4 ret;
-            Debug.WriteLine("Enteirng updateformattedtext " + ((ICodeView) this).PerformingUpdate);
+            Debug.WriteLine("Entering updateformattedtext " + ((ICodeView) this).PerformingUpdate);
             if (((ICodeView) this).PerformingUpdate)
             {
                 Debug.WriteLine("Already performing update");
@@ -364,7 +362,7 @@ namespace RoslynCodeControls
             await ReaderListenerAsync();
         }
 
-        public DrawingGroup TextDestination { get; set; }
+        public virtual DrawingGroup TextDestination { get; set; }
         public string DocumentTitle { get; set; }
     }
 }
