@@ -253,7 +253,7 @@ namespace RoslynCodeControls
         public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
         private readonly ChannelReader<UpdateInfo> _reader;
         public JoinableTaskFactory JTF{ get; set; }
-        public JoinableTaskFactory JTF2{ get; set; }
+        public virtual JoinableTaskFactory JTF2{ get; set; }
 
         public SemanticModel SemanticModel
         {
@@ -311,6 +311,8 @@ namespace RoslynCodeControls
                     null, customTextSource4Parameters);
 
                 await JTF2.SwitchToMainThreadAsync();
+
+                SecondaryThreadTasks();
                 // var dispatcherOperation = ((IFace1) this).SecondaryDispatcher.InvokeAsync(async () =>
                 // {
                 var rr = ((ICodeView) this).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
@@ -331,6 +333,10 @@ namespace RoslynCodeControls
                 ((ICodeView) this).Status = CodeControlStatus.Rendered;
               
             }
+        }
+
+        protected virtual async Task SecondaryThreadTasks()
+        {
         }
 
         private async Task ReaderListenerAsync()

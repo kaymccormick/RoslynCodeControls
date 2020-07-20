@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -15,6 +16,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.VisualStudio.Threading;
+using RoslynCodeControls;
 
 namespace WpfTestApp
 {
@@ -88,10 +90,21 @@ namespace WpfTestApp
         {
             CodeControl.JTF = JTF;
             CodeControl.JTF2 = JTF2;
-            CodeControl.SourceText = File.ReadAllText(@"C:\temp\program.cs");
+            CodeControl.SourceText = File.ReadAllText(@"C:\temp\dockingmanager.cs");
+            CodeControl.AddHandler(RoslynCodeControl.RenderStartEvent, new RoutedEventHandler((sender, args) =>
+            {
+                StartTime = DateTime.Now;
+                Debug.WriteLine("render start");
+            }));
+            CodeControl.AddHandler(RoslynCodeControl.RenderCompleteEvent, new RoutedEventHandler((sender, args) =>
+            {
+                var span = DateTime.Now - StartTime;
+                Debug.WriteLine("render complete " + span);
+            }));
             await CodeControl.UpdateFormattedTextAsync();
-            
         }
+
+        public DateTime StartTime { get; set; }
 
         public JoinableTaskFactory JTF { get; set; } = new JoinableTaskFactory(new JoinableTaskContext());
 
