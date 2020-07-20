@@ -14,6 +14,7 @@ using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.VisualStudio.Threading;
 
 namespace RoslynCodeControls
 {
@@ -216,9 +217,9 @@ namespace RoslynCodeControls
             ref int lineNo, Point linePosition, double paragraphWidth, CustomTextSource4 customTextSource4,
             int runCount,
             TextLine myTextLine, LinkedList<CharInfo> allCharInfos, [NotNull] List<TextRunInfo> runsInfos, DrawingContext myDc,
-            out LineInfo lineInfo, bool drawOnSecondaryThread = true, Dispatcher dispatcher = null)
+            out LineInfo lineInfo, bool drawOnSecondaryThread = true, Dispatcher dispatcher = null, JoinableTaskFactory joinableTaskFactory = null)
         {
-
+            Debug.WriteLine("HandleTextLine");
             var nRuns = customTextSource4.Runs.Count - runCount;
 #if DEBUGTEXTSOURCE
                     Debug.WriteLine("num runs for line is "  + nRuns);
@@ -315,7 +316,7 @@ namespace RoslynCodeControls
 #endif
 
             //OldHandleTextLine(linePosition, myTextLine, lineInfo, lineChars, cell, cellColumn, prevCell, characterOffset, location, spans, regionOffset);
-
+            var j = new JoinableTaskFactory(new JoinableTaskContext());
             if (fakeHead) allCharInfos.RemoveFirst();
             if (drawOnSecondaryThread)
             {
@@ -323,10 +324,12 @@ namespace RoslynCodeControls
             }
             else
             {
-                for (var i = 0; i < 3; i++)
-                    CustomTextSource4.DoEvents();
+                // for (var i = 0; i < 3; i++)
+                    // CustomTextSource4.DoEvents();
                 // ReSharper disable once PossibleNullReferenceException
-                dispatcher.Invoke(() => { myTextLine.Draw(myDc, linePosition, InvertAxes.None); });
+                // await joinableTaskFactory.SwitchToMainThreadAsync();
+                myTextLine.Draw(myDc, linePosition, InvertAxes.None);
+                // await j.SwitchToMainThreadAsync();
             }
 
             linePosition.Y += myTextLine.Height;
@@ -337,6 +340,94 @@ namespace RoslynCodeControls
             // Update the index position in the text store.
             textStorePosition += myTextLine.Length;
             return linePosition;
+        }
+        public static async Task HandleTextLineAsync(int textStorePosition, 
+            
+    int lineNo, Point linePosition, double paragraphWidth, CustomTextSource4 customTextSource4,
+    int runCount,
+    TextLine myTextLine, LinkedList<CharInfo> allCharInfos, [NotNull] List<TextRunInfo> runsInfos, DrawingContext myDc,
+     bool drawOnSecondaryThread = true, JoinableTaskFactory joinableTaskFactory = null)
+        {
+            Debug.WriteLine("HandleTextLine");
+            var nRuns = customTextSource4.Runs.Count - runCount;
+#if DEBUGTEXTSOURCE
+                    Debug.WriteLine("num runs for line is "  + nRuns);
+#endif
+            if (myTextLine.HasOverflowed) Debug.WriteLine("overflowed");
+
+            if (myTextLine.Width > paragraphWidth) Debug.WriteLine("overflowed2");
+         
+            var llNode = allCharInfos.Last;
+            var fakeHead = false;
+            if (llNode == null)
+            {
+                fakeHead = true;
+                llNode = allCharInfos.AddLast((CharInfo)null);
+            }
+
+            var curPos = linePosition;
+            var positions = new List<Rect>();
+            var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
+
+            var textRuns = customTextSource4.Runs.Skip(runCount).Take(nRuns);
+            using (var enum1 = textRuns.GetEnumerator())
+            {
+                enum1.MoveNext();
+                var lineCharIndex = 0;
+                var xOrigin = linePosition.X;
+                //var charInfos = new List<CharInfo>(myTextLine.Length);
+                if (indexedGlyphRuns != null)
+                    foreach (var glyphRunC in indexedGlyphRuns)
+                    {
+                        var gl = glyphRunC.GlyphRun;
+                        var advanceSum = gl.AdvanceWidths.Sum();
+
+                        for (var i = 0; i < gl.Characters.Count; i++)
+                        {
+                            var i0 = gl.ClusterMap?[i] ?? i;
+                            var glAdvanceWidth = gl.AdvanceWidths[i0];
+                            var glCharacter = gl.Characters[i];
+                            var glCaretStop = gl.CaretStops?[i0];
+                            var ci = new CharInfo(lineNo, textStorePosition + lineCharIndex, lineCharIndex, i,
+                                glCharacter, glAdvanceWidth,
+                                glCaretStop, xOrigin, linePosition.Y);
+                            lineCharIndex++;
+                            xOrigin += glAdvanceWidth;
+                            //charInfos.Add(ci);
+                            allCharInfos.AddAfter(llNode, ci);
+                        }
+
+                        var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
+                        if (runsInfos != null)
+                        {
+                            runsInfos.Add(new TextRunInfo(enum1.Current, item));
+
+                        }
+                        positions.Add(item);
+                        curPos.X += advanceSum;
+                        enum1.MoveNext();
+                    }
+            }
+
+            var j = new JoinableTaskFactory(new JoinableTaskContext());
+            if (fakeHead) allCharInfos.RemoveFirst();
+            if (drawOnSecondaryThread)
+            {
+                myTextLine.Draw(myDc, linePosition, InvertAxes.None);
+            }
+            else
+            {
+                // ReSharper disable once PossibleNullReferenceException
+                await joinableTaskFactory.SwitchToMainThreadAsync();
+                myTextLine.Draw(myDc, linePosition, InvertAxes.None);
+                await j.SwitchToMainThreadAsync();
+            }
+
+            linePosition.Y += myTextLine.Height;
+            lineNo++;
+
+            // Update the index position in the text store.
+            textStorePosition += myTextLine.Length;
         }
 
         private static Typeface CreateTypeface(FontFamily fontFamily, FontStyle fontStyle, FontStretch fontStretch,

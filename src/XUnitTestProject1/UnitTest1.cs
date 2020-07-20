@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Windows.Xps.Packaging;
 using Microsoft.VisualStudio.Threading;
@@ -19,6 +20,8 @@ namespace XUnitTestProject1
     public class UnitTest1 : IClassFixture<MyFixture>
     {
         private readonly MyFixture _f;
+        private RoslynCodeControl _control;
+        private Window _window;
 
         public UnitTest1(MyFixture f)
         {
@@ -30,22 +33,49 @@ namespace XUnitTestProject1
         public void Test5()
         {
             RoslynCodeControl c= new RoslynCodeControl();
+            _control = c;
             c.JTF2 = _f.JTF2;
             c.JTF = new JoinableTaskFactory(new JoinableTaskContext());
             c.SourceText = "";
-            c.UpdateFormattedTextAsync();
+            
             Window w = new Window();
+            _window = w;
             w.Content = c;
-            w.Loaded += (sender, args) => Debug.WriteLine("loaded");
-            RenderTargetBitmap b = new RenderTargetBitmap(1024, 1024, 96, 96, PixelFormats.Pbgra32);
-            b.Render(c);
-            PngBitmapEncoder pngImage = new PngBitmapEncoder();
-            pngImage.Frames.Add(BitmapFrame.Create(b));
-            using (Stream fileStream = File.Create(@"C:\temp\1.png"))
-            {
-                pngImage.Save(fileStream);
-            }
+            w.Loaded += OnWOnLoaded;
+
             w.ShowDialog();
+        }
+
+        private async void OnWOnLoaded(object sender, RoutedEventArgs args)
+        {
+            var c2 = _control;
+            Debug.WriteLine("loaded");
+            await c2.UpdateFormattedTextAsync();
+            var success = await c2.DoInputAsync(new InputRequest(InputRequestKind.TextInput, "p"));
+            Debug.WriteLine("Success is " + success);
+            Debug.WriteLine("viewbox " + c2.DrawingBrushViewbox);
+            // var bmptmp = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgr24, null, new byte[3] { 0, 0, 0 }, 3);
+
+            // double width = 100;
+            // double height = 100;
+            // var imgcreated = new TransformedBitmap(bmptmp, new ScaleTransform(width, height));
+            // Rectangle r = new Rectangle();
+            // r.Fill = c2.MyDrawingBrush;
+            // r.Width = 100;
+            // r.Height = 100;
+
+            // RenderTargetBitmap b = new RenderTargetBitmap(1024, 1024, 96, 96, PixelFormats.Pbgra32);
+            // b.Render(r);
+            
+            // b.Render(c2);
+            // PngBitmapEncoder pngImage = new PngBitmapEncoder();
+            // pngImage.Frames.Add(BitmapFrame.Create(b));
+            // using (Stream fileStream = File.Create(@"C:\temp\1.png"))
+            // {
+            // pngImage.Save(fileStream);
+            // }
+            // _window.Close();
+            
         }
 
 
