@@ -1,4 +1,6 @@
-﻿namespace RoslynCodeControls
+﻿using System;
+
+namespace RoslynCodeControls
 {
     public class InputRequest
     {
@@ -13,6 +15,8 @@
             }
         }
 
+        public int SequenceId { get; set; }
+
         public InputRequest(InputRequestKind kind, string text)
         {
             Kind = kind;
@@ -22,6 +26,21 @@
         public InputRequest(InputRequestKind kind)
         {
             Kind = kind;
+        }
+        public override string ToString()
+        {
+            return $"{Kind} " + (Text != null ? $"({Text}) " : "") + $"Seq={SequenceId}";
+            // switch (Kind)
+            // {
+                // case InputRequestKind.TextInput:
+                    // return "TextInput (" + Text + ")";
+                // case InputRequestKind.NewLine:
+                    // return "NewLine";
+                // case InputRequestKind.Backspace:
+                    // return "Backspace";
+            // }
+
+            // return base.ToString();
         }
     }
 }

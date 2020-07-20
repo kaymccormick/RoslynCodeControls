@@ -74,7 +74,7 @@ namespace RoslynCodeControls
         /// <summary>
         /// 
         /// </summary>
-        void GenerateText();
+        // void GenerateText();
         /// <summary>
         /// 
         /// </summary>

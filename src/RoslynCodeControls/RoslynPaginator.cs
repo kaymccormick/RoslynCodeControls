@@ -14,11 +14,11 @@ namespace RoslynCodeControls
     {
         private readonly ICodeView _control;
         public RenderTargetBitmap _bmp;
-
+        private bool coverPage = false;
         public RoslynPaginator(ICodeView control, Size? pageSize = null, Thickness? margins = null)
         {
-            _hdpi = 300;
-            _vdpi = 300;
+            _hdpi = 96;
+            _vdpi = 96;
             _defaultPageSize = new Size(8.5 * _hdpi, 11 * _vdpi);
             _defaultMargins = new Thickness(0.25 * _hdpi, 0.25 * _vdpi, 0.25 * _hdpi, 0.25 * _vdpi);
             var ps = pageSize.GetValueOrDefault(_defaultPageSize);
@@ -52,6 +52,11 @@ namespace RoslynCodeControls
             var dpi = VisualTreeHelper.GetDpi(v);
             var dpiPixelsPerInchX = _hdpi;
             var dpiPixelsPerInchY = _vdpi;
+
+            intHeight = (int)(((int) intHeight / DocPageSize.Height) * DocPageSize.Height +
+                       ( (intHeight % (int)DocPageSize.Height == 0)
+                ? 0
+                : +DocPageSize.Height));
             var bmp = new RenderTargetBitmap(intWidth
                 , intHeight
                 , dpiPixelsPerInchX, dpiPixelsPerInchY, PixelFormats.Pbgra32);
@@ -73,11 +78,12 @@ namespace RoslynCodeControls
 
             bmp.Render(v);
             _bmp = bmp;
-            // var zz = new PngBitmapEncoder();
-            // zz.Frames.Add(BitmapFrame.Create(bmp));
-            // FileStream stream = new FileStream(@"c:\temp\new.png", FileMode.Create);
-            // zz.Save(stream);
-            PageCount = (int) (b.Drawing.Bounds.Height / DocPageSize.Height + 1) + 1;
+            var zz = new PngBitmapEncoder();
+            zz.Frames.Add(BitmapFrame.Create(bmp));
+            FileStream stream = new FileStream(@"c:\temp\new.png", FileMode.Create);
+            zz.Save(stream);
+
+            PageCount = (int) (b.Drawing.Bounds.Height / DocPageSize.Height + 1) + (coverPage ? 1 : 0);
             Source = control as IDocumentPaginatorSource;
         }
 
@@ -89,7 +95,7 @@ namespace RoslynCodeControls
 
         public DocumentPage GetDocumentPage(int pageNumber, out Info1 info)
         {
-            if (pageNumber == 0)
+            if (pageNumber == 0 && coverPage)
             {
                 DrawingVisual dv1 = new DrawingVisual();
                 var dc0 =dv1.RenderOpen();
@@ -123,20 +129,64 @@ namespace RoslynCodeControls
             // var h = _control.MaxY;
             // var p = h /
             // PageSize.Height;
+
+            var dv = new DrawingVisual();
+            var dc = dv.RenderOpen();
+
+            DrawPage(pageNumber, dc, out info);
+
+            dc.Close();
+            // PngBitmapEncoder zz = new PngBitmapEncoder();
+            // var b1 = new RenderTargetBitmap((int) PageSize.Width, (int) PageSize.Height, 96, 96, PixelFormats.Pbgra32);
+            // b1.Render(dv);
+
+            // zz.Frames.Add(BitmapFrame.Create(b1));
+            // FileStream stream = new FileStream(@"c:\temp\page" + pageNumber + ".png", FileMode.Create);
+            // zz.Save(stream);
+            
+            var dp = new DocumentPage(dv, PageSize, new Rect(0, 0, PageSize.Width, PageSize.Height + _vdpi),
+                new Rect(0, 0, PageSize.Width, PageSize.Height));
+            return dp;
+        }
+
+        public void DrawPage(int pageNumber, DrawingContext dc, out Info1 info)
+        {
             var b = new ImageBrush {ImageSource = _bmp};
-            pageNumber--;
+            
+            if (coverPage)
+                pageNumber--;
 
             var rectangle = new Rect(_margins.Left, _margins.Top,
                 DocPageSize.Width, DocPageSize.Height);
-            var viewPort = new Rect(0, pageNumber * DocPageSize.Height, _bmp.PixelWidth, _bmp.PixelHeight);
+            var topOfPage = pageNumber * DocPageSize.Height;
+
+            var transformGroup = new TransformGroup();
+            transformGroup.Children.Add(new TranslateTransform(0, -1 * topOfPage));
+            TransformedBitmap bb = new TransformedBitmap(_bmp, transformGroup);
+            bb.BeginInit();
+            bb.BeginInit();
+            CroppedBitmap cropped  = new CroppedBitmap(bb, new Int32Rect((int) rectangle.X, (int) rectangle.Y, (int) rectangle.Width, (int) rectangle.Height));
+            cropped.BeginInit();
+            cropped.EndInit();
+            dc.DrawImage(cropped, rectangle);
+
+            b.RelativeTransform = new TranslateTransform(0, -1 * topOfPage); 
+            // b.Transform = 
             var width = Math.Min(_bmp.PixelWidth, DocPageSize.Width);
-            var viewBox = new Rect(-1 * _margins.Left,
-                -1 * pageNumber * DocPageSize.Height - _margins.Top, width,
-                DocPageSize.Height + _margins.Top);
+            
+            var viewPort = new Rect(0, 0, width, _bmp.Height);
+
+            var viewBox = new Rect(0, 0, width, _bmp.Height);
+            // -1 * _margins.Left,
+                // -1 * pageNumber * DocPageSize.Height - _margins.Top, width,
+                // DocPageSize.Height + _margins.Top);
 
             Debug.WriteLine("port" + viewPort);
             Debug.WriteLine("box" + viewBox);
             b.Viewport = viewPort;
+             b.AlignmentY = AlignmentY.Top;
+             b.AlignmentX = AlignmentX.Left;
+            b.Stretch = Stretch.None;
             b.ViewportUnits = BrushMappingMode.Absolute;
 
             b.Viewbox = viewBox;
@@ -144,14 +194,18 @@ namespace RoslynCodeControls
             b.ViewboxUnits = BrushMappingMode.Absolute;
             // RenderTargetBitmap renderTarget = new RenderTargetBitmap((int)w, (int)h, 96, 96, PixelFormats.Pbgra32);
 
-            var dv = new DrawingVisual();
-            var dc = dv.RenderOpen();
-            dc.DrawRectangle(Brushes.Yellow, new Pen(Brushes.Orange, 2),
-                new Rect(0, -1 * _vdpi, PageSize.Width, 1 * _vdpi));
+            // dc.PushTransform(new TranslateTransform(0,_vdpi));
+            // dc.DrawRectangle(Brushes.Yellow, new Pen(Brushes.Orange, 2),
+                // new Rect(0, -1 * _vdpi, PageSize.Width, 1 * _vdpi));
 
             Debug.WriteLine(rectangle);
-            dc.DrawRectangle(b,
-                null, rectangle);
+            dc.PushTransform(new TranslateTransform(_margins.Left, _margins.Top));
+            var rect = rectangle;
+            rect.Offset(-1 * _margins.Left, -1 * _margins.Top);
+            // dc.DrawRectangle(b,
+                // null, rect);
+            dc.Pop();
+            
             // dc.DrawRectangle(null, new Pen(Brushes.Black, 2), rectangle);
             var cKayMccormick = "Publishing and Layout \x00a9 2020 Kay McCormick";
             var formattedText = new FormattedText(cKayMccormick, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
@@ -168,18 +222,7 @@ namespace RoslynCodeControls
                 FlowDirection.LeftToRight,
                 new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 12,
                 Brushes.Black, new NumberSubstitution(), TextFormattingMode.Ideal, 1);
-            dc.Close();
-            // PngBitmapEncoder zz = new PngBitmapEncoder();
-            // var b1 = new RenderTargetBitmap((int) PageSize.Width, (int) PageSize.Height, 96, 96, PixelFormats.Pbgra32);
-            // b1.Render(dv);
-
-            // zz.Frames.Add(BitmapFrame.Create(b1));
-            // FileStream stream = new FileStream(@"c:\temp\page" + pageNumber + ".png", FileMode.Create);
-            // zz.Save(stream);
             info = new Info1 {rectangle = rectangle, brush = b};
-            var dp = new DocumentPage(dv, PageSize, new Rect(0, -1 * _vdpi, PageSize.Width, PageSize.Height + _vdpi),
-                new Rect(0, 0, PageSize.Width, PageSize.Height));
-            return dp;
         }
 
         public Size DocPageSize { get; }

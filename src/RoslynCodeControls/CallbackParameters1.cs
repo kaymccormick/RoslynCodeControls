@@ -5,12 +5,12 @@ using System.Windows.Media.TextFormatting;
 
 namespace RoslynCodeControls
 {
-    public class CallbackParameters1
+    public struct CallbackParameters1
     {
         public CallbackParameters1(RoslynCodeControl roslynCodeControl, int lineNo, int offset, double y, double x,
             LineInfo2 lineInfo, TextFormatter textFormatter, double paragraphWidth, FontRendering currentRendering,
-            double pixelsPerDip, CustomTextSource4 customTextSource4, double maxY, double maxX, DrawingGroup d,
-            DrawingContext dc, double fontSize, string fontFamilyName, FontWeight fontWeight)
+            double pixelsPerDip, CustomTextSource4 customTextSource4, double maxY, double maxX, double fontSize,
+            string fontFamilyName, FontWeight fontWeight)
         {
             RoslynCodeControl = roslynCodeControl;
             LineNo = lineNo;
@@ -25,10 +25,9 @@ namespace RoslynCodeControls
             CustomTextSource4 = customTextSource4;
             MaxY = maxY;
             MaxX = maxX;
-            D = d;
-            Dc = dc;
             FontSize = fontSize;
             FontFamilyName = fontFamilyName;
+            FontWeight = fontWeight;
         }
 
 
@@ -45,10 +44,8 @@ namespace RoslynCodeControls
         public CustomTextSource4 CustomTextSource4 { get; private set; }
         public double MaxY { get; private set; }
         public double MaxX { get; private set; }
-        public DrawingGroup D { get; private set; }
-        public DrawingContext Dc { get; private set; }
         public string FontFamilyName { get; set; }
         public double FontSize { get; set; }
-        public FontWeight FontWeight { get; set; } = FontWeights.Normal;
+        public FontWeight FontWeight { get; set; }
     }
 }

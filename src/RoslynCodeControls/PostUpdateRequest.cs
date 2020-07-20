@@ -2,13 +2,16 @@
 {
     public class PostUpdateRequest
     {
-        public CallbackParameters2 In2 { get; }
-        public CallbackParameters1 Inn { get; }
+        public PostUpdateInput Input { get; }
 
-        public PostUpdateRequest(CallbackParameters2 in2, CallbackParameters1 inn)
+        public PostUpdateRequest(PostUpdateInput input)
         {
-            In2 = in2;
-            Inn = inn;
+            Input = input;
+        }
+
+        public void Deconstruct(out PostUpdateInput input)
+        {
+            input = Input;
         }
     }
 }

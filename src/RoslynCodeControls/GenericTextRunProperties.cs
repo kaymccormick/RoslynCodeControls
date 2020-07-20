@@ -60,6 +60,7 @@ namespace RoslynCodeControls
         /// </summary>
         /// <param name="newRender"></param>
         /// <param name="pixelsPerDip"></param>
+        /// <param name="pDebugFn"></param>
         public GenericTextRunProperties(FontRendering newRender,
             double pixelsPerDip)
         {

@@ -35,7 +35,7 @@ namespace RoslynCodeControls
         FontWeight FontWeight { get; set; }
         Dispatcher SecondaryDispatcher { get; }
         double PixelsPerDip { get; set; }
-        DispatcherOperation<CustomTextSource4> InnerUpdateDispatcherOperation { get; set; }
+        
         Channel<UpdateInfo> UpdateChannel { get; set; }
         DocumentPaginator DocumentPaginator { get; }
         Dispatcher Dispatcher { get; }

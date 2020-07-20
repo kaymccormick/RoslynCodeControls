@@ -1,4 +1,5 @@
-﻿using System.Threading.Channels;
+﻿using System;
+using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media.TextFormatting;
@@ -19,6 +20,7 @@ namespace RoslynCodeControls
             Point linePosition, TextFormatter textFormatter, double paragraphWidth, double pixelsPerDip, double emSize0,
             string faceName, ChannelWriter<UpdateInfo> channelWriter, FontWeight fontWeight,
             DocumentPaginator paginator, TextSourceInitializationParameters textSourceInitializationParameters,
+            Action<string> debugFn=null,
             Size? pageSize = null, bool paginate = false)
         {
             TextStorePosition = textStorePosition;
@@ -33,6 +35,7 @@ namespace RoslynCodeControls
             FontWeight = fontWeight;
             Paginator = paginator;
             TextSourceInitializationParameters = textSourceInitializationParameters;
+            DebugFn = debugFn;
             PageSize = pageSize;
             Paginate = paginate;
         }
@@ -49,6 +52,7 @@ namespace RoslynCodeControls
         public FontWeight FontWeight { get; private set; }
         public DocumentPaginator Paginator { get; private set; }
         public TextSourceInitializationParameters TextSourceInitializationParameters { get; private set; }
+        public Action<string> DebugFn { get; }
         public Size? PageSize { get; private set; }
         public bool Paginate { get; private set; }
     }

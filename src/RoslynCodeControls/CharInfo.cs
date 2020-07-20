@@ -28,5 +28,11 @@ namespace RoslynCodeControls
             XOrigin = xOrigin;
             YOrigin = yOrigin;
         }
+
+        /// <inheritdoc />
+        public override string ToString()
+        {
+            return $"{nameof(Index)}: {Index}, {nameof(LineNumber)}: {LineNumber}, {nameof(LineIndex)}: {LineIndex}, {nameof(RunIndex)}: {RunIndex}, {nameof(Character)}: {Character}, {nameof(AdvanceWidth)}: {AdvanceWidth:N1}, {nameof(CaretStop)}: {CaretStop}, {nameof(XOrigin)}: {XOrigin}, {nameof(YOrigin)}: {YOrigin}";
+        }
     }
 }

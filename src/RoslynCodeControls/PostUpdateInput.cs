@@ -2,7 +2,7 @@
 
 namespace RoslynCodeControls
 {
-    public class CallbackParameters2
+    public class PostUpdateInput
     {
         public RoslynCodeControl RoslynCodeControl { get; }
         public int InsertionPoint { get; }
@@ -13,21 +13,22 @@ namespace RoslynCodeControls
         public DrawingGroup DrawingGroup { get; }
         public double MaxX { get; }
         public double MaxY { get; }
+        public RedrawLineResult RedrawLineResult { get; }
 
-        public CallbackParameters2(RoslynCodeControl roslynCodeControl, in int insertionPoint,
+        public PostUpdateInput(RoslynCodeControl roslynCodeControl, in int insertionPoint,
             InputRequest inputRequest,
-            string text, CallbackParameters1 in1, LineInfo2 lineInfo, DrawingGroup drawingGroup, double maxX,
-            double maxY)
+            string text, CallbackParameters1 in1, RedrawLineResult redrawLineResult)
         {
             RoslynCodeControl = roslynCodeControl;
             InsertionPoint = insertionPoint;
             InputRequest = inputRequest;
             Text = text;
             In1 = in1;
-            LineInfo = lineInfo;
-            DrawingGroup = drawingGroup;
-            MaxX = maxX;
-            MaxY = maxY;
+            LineInfo = redrawLineResult.LineInfo;
+            DrawingGroup = redrawLineResult.DrawingGroup;
+            MaxX = redrawLineResult.LineMaxX;
+            MaxY = redrawLineResult.LineMaxY;
+            RedrawLineResult = redrawLineResult;
         }
     }
 }

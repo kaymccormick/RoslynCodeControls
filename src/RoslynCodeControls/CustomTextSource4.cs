@@ -35,15 +35,17 @@ namespace RoslynCodeControls
         /// <param name="pixelsPerDip"></param>
         /// <param name="fontRendering"></param>
         /// <param name="genericTextRunProperties"></param>
+        /// <param name="pDebugFn"></param>
         /// <param name="synchContext"></param>
         public CustomTextSource4(double pixelsPerDip, FontRendering fontRendering,
-            GenericTextRunProperties genericTextRunProperties)
+            GenericTextRunProperties genericTextRunProperties, Action<string> debugFn)
         {
             Dispatcher = Dispatcher.CurrentDispatcher;
             PixelsPerDip = pixelsPerDip;
 
-            Rendering = fontRendering;
+            // Rendering = fontRendering;
             _baseProps = genericTextRunProperties;
+            _debugFn = debugFn;
             _prev = null;
         }
 
@@ -166,7 +168,7 @@ namespace RoslynCodeControls
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public override TextRun GetTextRun(int textSourceCharacterIndex)
         {
-            // Debug.WriteLine($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
+            _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
 
             if (textSourceCharacterIndex == 0)
             {
@@ -527,12 +529,6 @@ namespace RoslynCodeControls
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public void GenerateText()
-        {
-        }
 
         /// <summary>
         /// 
@@ -804,17 +800,12 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         private SyntaxInfo _prev;
         private IEnumerator<SyntaxInfo> _syntaxInfos;
         private GenericTextRunProperties _baseProps;
+        private readonly Action<string> _debugFn;
         private ObservableCollection<TextRun> _runs = new ObservableCollection<TextRun>();
         private int _length;
         public int EolLength { get; } = 2;
 
-        /// <summary>
-        /// 
-        /// </summary>
-        private FontRendering Rendering { get; }
-
-        private SynchronizationContext SynchContext { get; }
-
+        
         /// <summary>
         /// 
         /// </summary>
@@ -827,11 +818,12 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         /// </summary>
         /// <param name="insertionPoint"></param>
         /// <param name="text"></param>
+        /// <param name="inputRequest"></param>
         public override void TextInput(int insertionPoint, InputRequest inputRequest)
         {
             var text = inputRequest.Text;
-            Debug.WriteLine($"Insertion point is {insertionPoint}.");
-            Debug.WriteLine($"Input text is \"{text}\"");
+            _debugFn?.Invoke($"Insertion point is {insertionPoint}.");
+            _debugFn?.Invoke($"Input text is \"{text}\"");
             TextChange change;
             if (inputRequest.Kind == InputRequestKind.Backspace)
                 change = new TextChange(new TextSpan(insertionPoint - 1, 1), "");
@@ -1086,19 +1078,5 @@ var chL = newTree.GetChangedSpans(Tree);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public static void DoEvents()
-        {
-            var frame = new DispatcherFrame();
-            Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,
-                new DispatcherOperationCallback(ExitFrame), frame);
-            Dispatcher.PushFrame(frame);
-        }
-
-        private static object ExitFrame(object f)
-        {
-            ((DispatcherFrame) f).Continue = false;
-
-            return null;
-        }
     }
 }

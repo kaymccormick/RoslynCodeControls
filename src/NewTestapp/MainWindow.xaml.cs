@@ -40,7 +40,7 @@ namespace NewTestapp
             InitializeComponent();
             _host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
 
-            var fileName = @"C:\temp\program.cs";
+            var fileName = @"C:\temp\commontext.cs";
             cb.SourceText = File.ReadAllText(fileName);
             cb.DocumentTitle = fileName;
             _f = new JoinableTaskFactory(new JoinableTaskContext());
@@ -62,6 +62,8 @@ namespace NewTestapp
 
         private XpsDocument _xps2;
         private MefHostServices _host;
+        private VisualBrush pageBrush;
+        private double _pageScale1=1.0;
 
         public int CurPage
         {
@@ -101,12 +103,28 @@ namespace NewTestapp
         {
             if (_dp != null)
             {
+                // DrawingGroup dg = new DrawingGroup();
+                // var dc = dg.Open();
+                // _dp.DrawPage(newVlue, dc, out _);
+                // dc.Close();
+                // var w = new DGWindow(dg);
+                // w.Show();
+
+                // Debug.WriteLine(dg.Bounds);
+
                 var p = _dp.GetDocumentPage(newVlue, out var info);
+                scroll.ScrollToTop();
+                scroll.ScrollToLeftEnd();
                 Info = info;
-                VisualBrush b = new VisualBrush(p.Visual);
+                pageBrush = new VisualBrush(p.Visual);
+                pageBrush.AlignmentX=AlignmentX.Left;
+                pageBrush.AlignmentY = AlignmentY.Top;
                 var dpi1 = VisualTreeHelper.GetDpi(p.Visual);
                 var dpi2 = VisualTreeHelper.GetDpi(this);
-                //b.Stretch = Stretch.Uniform;
+                pageBrush.Stretch = Stretch.None;
+                var b1 = VisualTreeHelper.GetContentBounds(p.Visual);
+                rect.Width = b1.Width;
+                rect.Height = b1.Height;
                 // var zz = VisualTreeHelper.GetContentBounds(p.Visual);
                 // b.Viewbox = zz;
                 // b.ViewboxUnits = BrushMappingMode.Absolute;
@@ -115,7 +133,7 @@ namespace NewTestapp
             
                 Debug.WriteLine(rect.ActualWidth);
                 Debug.WriteLine(rect.ActualHeight);
-                rect.Fill = b;
+                rect.Fill = pageBrush;
             }
         }
 
@@ -124,15 +142,18 @@ namespace NewTestapp
         {
             cb.JTF2 = JTF2;
             await cb.UpdateFormattedTextAsync();
+            
             DirectoryInfo d = new DirectoryInfo(@"C:\temp\code");
 
-            PrintDialog d1 = new PrintDialog();
+            
             LocalPrintServer s = new LocalPrintServer();
             var pdfQueues = s.GetPrintQueues().Where(queue => queue.FullName.ToLowerInvariant().Contains("pdf") && !queue.IsInError && !queue.IsOffline).ToList();
             PrintDialog pd1  = new PrintDialog();
-            pd1.ShowDialog();
+            //pd1.ShowDialog();
             _dp = (RoslynPaginator)new RoslynPaginator(cb);
-            pd1.PrintDocument(_dp, "code");
+            PageCount = _dp.PageCount;
+            // pd1.PrintDocument(_dp, "code");
+            
             // PrintQueue q;
             // if (pdfQueues.Count() == 1)
             // {
@@ -167,8 +188,245 @@ namespace NewTestapp
             var b1 = _dp._bmp;
             ImageBrush b2 = new ImageBrush(b1);
             rect2.Fill = b2;
+            AllPagesBitmap = b1;
+            b2.Stretch = Stretch.Uniform;
             CurPage = 0;
+            
+        }
 
+        public static readonly DependencyProperty AllPagesBitmapProperty = DependencyProperty.Register(
+            "AllPagesBitmap", typeof(ImageSource), typeof(MainWindow), new PropertyMetadata(default(ImageSource), OnAllPagesBitmapChanged));
+
+        public ImageSource AllPagesBitmap
+        {
+            get { return (ImageSource) GetValue(AllPagesBitmapProperty); }
+            set { SetValue(AllPagesBitmapProperty, value); }
+        }
+
+        private static void OnAllPagesBitmapChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnAllPagesBitmapChanged((ImageSource) e.OldValue, (ImageSource) e.NewValue);
+        }
+
+
+
+        protected virtual void OnAllPagesBitmapChanged(ImageSource oldValue, ImageSource newValue)
+        {
+        }
+
+        public int PageCount { get; set; }
+
+        public static readonly DependencyProperty ViewportXProperty = DependencyProperty.Register(
+            "ViewportX", typeof(double), typeof(MainWindow), new PropertyMetadata(default(double), OnViewportXChanged));
+
+        public double ViewportX
+        {
+            get { return (double) GetValue(ViewportXProperty); }
+            set { SetValue(ViewportXProperty, value); }
+        }
+
+        private static void OnViewportXChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewportXChanged((double) e.OldValue, (double) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewportXChanged(double oldValue, double newValue)
+        {
+            Viewport = new Rect(newValue, Viewport.Y, Viewport.Width, Viewport.Height);
+        }
+
+        public static readonly DependencyProperty ViewportYProperty = DependencyProperty.Register(
+            "ViewportY", typeof(double), typeof(MainWindow), new PropertyMetadata(default(double), OnViewportYChanged));
+
+        public double ViewportY
+        {
+            get { return (double) GetValue(ViewportYProperty); }
+            set { SetValue(ViewportYProperty, value); }
+        }
+
+        private static void OnViewportYChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewportYChanged((double) e.OldValue, (double) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewportYChanged(double oldValue, double newValue)
+        {
+            Viewport = new Rect(Viewport.X, newValue, Viewport.Width, Viewport.Height);
+        }
+
+
+        public static readonly DependencyProperty ViewportWidthProperty = DependencyProperty.Register(
+            "ViewportWidth", typeof(double), typeof(MainWindow), new PropertyMetadata(default(double), OnViewportWidthChanged));
+
+        public double ViewportWidth
+        {
+            get { return (double) GetValue(ViewportWidthProperty); }
+            set { SetValue(ViewportWidthProperty, value); }
+        }
+
+        private static void OnViewportWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewportWidthChanged((double) e.OldValue, (double) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewportWidthChanged(double oldValue, double newValue)
+        {
+            Viewport = new Rect(Viewport.X, Viewport.Y, newValue, Viewport.Height);
+        }
+
+        public static readonly DependencyProperty ViewportHeightProperty = DependencyProperty.Register(
+            "ViewportHeight", typeof(double), typeof(MainWindow), new PropertyMetadata(default(double), OnViewportHeightChanged));
+
+        public double ViewportHeight
+        {
+            get { return (double) GetValue(ViewportHeightProperty); }
+            set { SetValue(ViewportHeightProperty, value); }
+        }
+
+        private static void OnViewportHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewportHeightChanged((double) e.OldValue, (double) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewportHeightChanged(double oldValue, double newValue)
+        {
+                Viewport = new Rect(Viewport.X, Viewport.Y, Viewport.Width, newValue);
+        }
+
+        public static readonly DependencyProperty ViewboxXProperty = DependencyProperty.Register(
+            "ViewboxX", typeof(double), typeof(MainWindow), new FrameworkPropertyMetadata(default(double), OnViewboxXChanged));
+
+        public double ViewboxX
+        {
+            get { return (double) GetValue(ViewboxXProperty); }
+            set { SetValue(ViewboxXProperty, value); }
+        }
+
+        private static void OnViewboxXChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewboxXChanged((double) e.OldValue, (double) e.NewValue);
+        }
+
+
+        protected virtual void OnViewboxXChanged(double oldValue, double newValue)
+        {
+            Viewbox = new Rect(newValue, Viewbox.Y, Viewbox.Width, Viewbox.Height);
+        }
+
+        public static readonly DependencyProperty ViewboxYProperty = DependencyProperty.Register(
+            "ViewboxY", typeof(double), typeof(MainWindow), new PropertyMetadata(default(double), OnViewboxYChanged));
+
+        public double ViewboxY
+        {
+            get { return (double) GetValue(ViewboxYProperty); }
+            set { SetValue(ViewboxYProperty, value); }
+        }
+
+        private static void OnViewboxYChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewboxYChanged((double) e.OldValue, (double) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewboxYChanged(double oldValue, double newValue)
+        {
+            Viewbox = new Rect(Viewbox.X, newValue, Viewbox.Width, Viewbox.Height);
+        }
+
+        public static readonly DependencyProperty ViewboxWidthProperty = DependencyProperty.Register(
+            "ViewboxWidth", typeof(double), typeof(MainWindow), new PropertyMetadata(default(double), OnViewboxWidthChanged));
+
+        public double ViewboxWidth
+        {
+            get { return (double) GetValue(ViewboxWidthProperty); }
+            set { SetValue(ViewboxWidthProperty, value); }
+        }
+
+        private static void OnViewboxWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewboxWidthChanged((double) e.OldValue, (double) e.NewValue);
+        }
+        
+
+
+        protected virtual void OnViewboxWidthChanged(double oldValue, double newValue)
+        {
+            Viewbox = new Rect(Viewbox.X, Viewbox.Y, newValue, Viewbox.Height);
+        }
+
+        public static readonly DependencyProperty ViewboxHeightProperty = DependencyProperty.Register(
+            "ViewboxHeight", typeof(double), typeof(MainWindow), new PropertyMetadata(default(double), OnViewboxHeightChanged));
+        
+        public double ViewboxHeight
+        {
+            get { return (double) GetValue(ViewboxHeightProperty); }
+            set { SetValue(ViewboxHeightProperty, value); }
+        }
+
+        private static void OnViewboxHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewboxHeightChanged((double) e.OldValue, (double) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewboxHeightChanged(double oldValue, double newValue)
+        {
+            Viewbox = new Rect(Viewbox.X, Viewbox.Y, Viewbox.Width, newValue);
+            
+        }
+
+        public static readonly DependencyProperty ViewboxProperty = DependencyProperty.Register(
+            "Viewbox", typeof(Rect), typeof(MainWindow), new FrameworkPropertyMetadata(default(Rect), FrameworkPropertyMetadataOptions.AffectsRender,OnViewboxChanged));
+
+        public Rect Viewbox
+        {
+            get { return (Rect) GetValue(ViewboxProperty); }
+            set { SetValue(ViewboxProperty, value); }
+        }
+
+        private static void OnViewboxChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewboxChanged((Rect) e.OldValue, (Rect) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewboxChanged(Rect oldValue, Rect newValue)
+        {
+            Debug.WriteLine("Viewbox now " + newValue);
+            Debug.WriteLine(ImageBrush.Viewbox);
+        }
+
+
+        public static readonly DependencyProperty ViewportProperty = DependencyProperty.Register(
+            "Viewport", typeof(Rect), typeof(MainWindow), new PropertyMetadata(default(Rect), OnViewportChanged));
+
+        public Rect Viewport
+        {
+            get { return (Rect) GetValue(ViewportProperty); }
+            set { SetValue(ViewportProperty, value); }
+        }
+
+        private static void OnViewportChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewportChanged((Rect) e.OldValue, (Rect) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewportChanged(Rect oldValue, Rect newValue)
+        {
+            Debug.WriteLine(newValue);
         }
 
         private void ButtonBase_OnClick(object sender, RoutedEventArgs e)
@@ -182,6 +440,63 @@ namespace NewTestapp
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private void ButtonBase_OnClick1(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void ZoomPage(object sender, RoutedEventArgs e)
+        {
+            //pageBrush.Viewbox = new Rect(0, 0, rect.ActualWidth, rect.ActualHeight);
+            _pageScale1 /= 0.33;
+            pageBrush.RelativeTransform = new ScaleTransform(_pageScale1, _pageScale1, 0.0, 0.0);
+        }
+
+        private void PrevPage(object sender, RoutedEventArgs e)
+        {
+            if(CurPage > 0)
+            {
+                CurPage--;
+            }
+        }
+
+        private void NextPage(object sender, RoutedEventArgs e)
+        {
+            if (CurPage < PageCount - 1)
+            {
+                CurPage++;
+            }
+        }
+    }
+
+    internal class DGWindow : Window
+    {
+        public DGWindow(DrawingGroup dg)
+        {
+            DrawingVisual v = new DrawingVisual();
+            var dc = v.RenderOpen();
+            dc.DrawDrawing(dg);
+            dc.Close();
+            Content = new DGElement(dg);
+        }
+
+    }
+
+    internal class DGElement : UIElement
+    {
+        private Drawing dg;
+
+        public DGElement(Drawing dg)
+        {
+            this.dg = dg;
+        }
+
+        /// <inheritdoc />
+        protected override void OnRender(DrawingContext drawingContext)
+        {
+            drawingContext.DrawDrawing(dg);
         }
     }
 }

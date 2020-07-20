@@ -17,8 +17,10 @@
 
         <roslynCodeControls:RoslynCodeBase x:Name="cb" FontSize="14" FontFamily="Roboto Mono" />
         <StackPanel Orientation="Horizontal">
+            <Button Content="&lt;" Click="PrevPage"></Button>
             <TextBox Name="page"
-                 Text="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=CurPage,Mode=TwoWay}" />
+                     Text="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=CurPage,Mode=TwoWay}" />
+            <Button Content="&gt;" Click="NextPage"></Button>
             <Button Content="Refresh" Click="ButtonBase_OnClick"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" Grid.Row="1">
@@ -30,18 +32,63 @@
                 <DocumentViewer x:Name="DocView"></DocumentViewer>
             </TabItem>
             <TabItem Header="Preview">
-                <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" DataContext="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window}}">
                     <Grid.RowDefinitions>
+
+                        <RowDefinition Height="Auto"></RowDefinition>
                         <RowDefinition Height="*"></RowDefinition>
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="33*" />
-                        <ColumnDefinition Width="497*"/>
-                        <ColumnDefinition Width="265*" />
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="1*"/>
                     </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" >
+                        <Button Content="-" Click="ButtonBase_OnClick1"/>
+                        <Button Content="+" Click="ZoomPage"/>
+                        <Label Content="X"/>
+                        <TextBox Text="{Binding ViewportX,Mode=TwoWay}"/>
+                        <Label Content="Y"/>
+                        <TextBox Text="{Binding ViewportY,Mode=TwoWay}"/>
+                        <Label Content="Width"/>
+                        <TextBox Text="{Binding ViewportWidth,Mode=TwoWay}"/>
+                        <Label Content="Height"/>
+                        <TextBox Text="{Binding ViewportHeight,Mode=TwoWay}"/>
+                        <Label Content="X"/>
+                        <TextBox Text="{Binding ViewboxX,Mode=TwoWay}"/>
+                        <Label Content="Y"/>
+                        <TextBox Text="{Binding ViewboxY,Mode=TwoWay}"/>
+                        <Label Content="Width"/>
+                        <TextBox Text="{Binding ViewboxWidth,Mode=TwoWay}"/>
+                        <Label Content="Height"/>
+                        <TextBox Text="{Binding ViewboxHeight,Mode=TwoWay}"/>
+<ComboBox IsEditable="False" SelectedItem="{Binding ElementName=ImageBrush,Path=Stretch}">
 
-                    <Rectangle x:Name="rect" Grid.ColumnSpan="2" />
-                    <Rectangle x:Name="rect2" Grid.Column="1" Grid.ColumnSpan="2" Margin="496,0,0,0" />
+    <x:Static Member="Stretch.Uniform"></x:Static>
+    <x:Static Member="Stretch.None"></x:Static>
+    <x:Static Member="Stretch.UniformToFill"></x:Static>
+    <x:Static Member="Stretch.Fill"></x:Static>
+                        </ComboBox>
+<TextBox Text="{Binding ElementName=rect1,Path=ActualWidth,Mode=OneWay}"></TextBox>
+                        <TextBox Text="{Binding ElementName=rect1,Path=ActualHeight,Mode=OneWay}"></TextBox>
+                    </StackPanel>
+                    <Border Margin="10" Grid.Row="1" Visibility="Hidden">
+                        <ScrollViewer x:Name="scroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"><Rectangle ClipToBounds="True" x:Name="rect" />
+                        </ScrollViewer>
+                    </Border>
+                    <Border Margin="10" Grid.Row="1" Panel.ZIndex="100">
+                        <ScrollViewer x:Name="scroll1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <Rectangle ClipToBounds="True" x:Name="rect1" Stroke="Blue" >
+                                <Rectangle.Fill>
+                                    <ImageBrush x:Name="ImageBrush" AlignmentX="Left" AlignmentY="Top" ImageSource="{Binding AllPagesBitmap}" Viewbox="{Binding Viewbox}" ViewboxUnits="Absolute" Viewport="{Binding Viewport}" ViewportUnits="Absolute" Stretch="None" TileMode="None"></ImageBrush>
+                                </Rectangle.Fill>
+                                </Rectangle>
+                        </ScrollViewer>
+                    </Border>
+
+                    <Border Margin="10" Grid.Column="1" Grid.Row="1">
+                    <ScrollViewer><Rectangle ClipToBounds="True" x:Name="rect2" />
+                    </ScrollViewer>
+                    </Border>
                 </Grid>
             </TabItem>
         </TabControl>

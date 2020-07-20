@@ -111,13 +111,13 @@ namespace WpfTestApp
         private async void FontComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CodeControl.FontFamily = (FontFamily) FontComboBox.SelectedItem;
-            await CodeControl.UpdateTextSource();
+            await CodeControl.UpdateTextSourceAsync();
         }
 
         private async void FontSizeCombo_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CodeControl.FontSize = (double) FontSizeCombo.SelectedItem;
-            await CodeControl.UpdateTextSource();
+            await CodeControl.UpdateTextSourceAsync();
         }
 
         private void OnExecutedHideToolBar(object sender, ExecutedRoutedEventArgs e)

@@ -1,4 +1,5 @@
-﻿using System.Windows.Media;
+﻿using System;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.CodeAnalysis;
 
@@ -13,7 +14,7 @@ namespace RoslynCodeControls
     public class TextSourceInitializationParameters : ParametersBase
     {
         public TextSourceInitializationParameters(double pixelsPerDip, double emSize0,
-            SyntaxTree tree, SyntaxNode node0, Compilation compilation, Typeface tf)
+            SyntaxTree tree, SyntaxNode node0, Compilation compilation, Typeface tf, Action<string> debugFn)
         {
             
             PixelsPerDip = pixelsPerDip;
@@ -22,7 +23,7 @@ namespace RoslynCodeControls
             Node0 = node0;
             Compilation = compilation;
             Tf = tf;
-            
+            DebugFn = debugFn;
         }
 
         public RoslynCodeControl RoslynCodeControl { get; private set; }
@@ -30,6 +31,6 @@ namespace RoslynCodeControls
         public SyntaxNode Node0 { get; private set; }
         public Compilation Compilation { get; private set; }
         public Typeface Tf { get; private set; }
-        
+        public Action<string> DebugFn { get; }
     }
 }

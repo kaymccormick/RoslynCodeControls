@@ -155,7 +155,7 @@ namespace RoslynCodeControls
         private async void FontComboOnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CodeControl.FontFamily = (FontFamily) FontCombo.SelectedItem;
-            await CodeControl.UpdateTextSource();
+            await CodeControl.UpdateTextSourceAsync();
         }
 
 
