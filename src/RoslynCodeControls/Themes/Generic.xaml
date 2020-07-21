@@ -63,7 +63,7 @@
                             <ScrollViewer VerticalAlignment="Stretch" x:Name="ScrollViewer"
                                           HorizontalContentAlignment="Left"
                                           VerticalContentAlignment="Top" Grid.RowSpan="3" Grid.ColumnSpan="2">
-                                <Grid x:Name="InnerGrid">
+                                <Grid x:Name="InnerGrid" Background="White">
                                     <Rectangle x:Name="Rectangle" VerticalAlignment="Top" HorizontalAlignment="Left"
                                                Stroke="Aquamarine"
                                                TextElement.FontSize="12" />
@@ -100,8 +100,11 @@
                                             </DrawingBrush>
                                         </Rectangle.Fill>
                                     </Rectangle>
-                                    <Canvas x:Name="Canvas" Panel.ZIndex="101" VerticalAlignment="Stretch"
-                                            HorizontalAlignment="Stretch" />
+                                    <Canvas  x:Name="Canvas" Panel.ZIndex="101" VerticalAlignment="Stretch"
+                                    
+                                             HorizontalAlignment="Stretch">
+                                        <Canvas.Background><SolidColorBrush Color="BlueViolet" Opacity="0.1"></SolidColorBrush></Canvas.Background>
+                                    </Canvas>
 
                                 </Grid>
 
@@ -380,15 +383,7 @@
             </Setter.Value>
         </Setter>
     </Style>
-    <Style TargetType="{x:Type local:CoverPage}">
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="{x:Type local:CoverPage}">
-                    <Border />
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
+   
     <FixedPage x:Key="CoverPageDoc" />
     <Style TargetType="{x:Type local:CoverPageDocument}">
         <Setter Property="Template">

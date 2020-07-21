@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
@@ -195,10 +196,18 @@ namespace RoslynCodeControls
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public override TextRun GetTextRun(int textSourceCharacterIndex)
         {
-            try
-            {
+            var result = _GetTextRun(textSourceCharacterIndex);
+            _debugFn?.Invoke("Got " + result);
+            return result;
+        }
+
+        public TextRun _GetTextRun(int textSourceCharacterIndex)
+        {
+            // try
+
+            // {
                 _charIndex = textSourceCharacterIndex;
-                // _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
+                _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
 
                 if (textSourceCharacterIndex == 0)
                 {
@@ -210,6 +219,36 @@ namespace RoslynCodeControls
                         Runs.Add(endOfParagraph);
                         return endOfParagraph;
                     }
+                }
+                else
+                {
+                    Runs = Runs.Where(r =>
+                    {
+                        switch (r)
+                        {
+                            case CustomTextEndOfLine customTextEndOfLine:
+                                return customTextEndOfLine.Index.Value + customTextEndOfLine.Length <
+                                       textSourceCharacterIndex;
+                            case CustomTextEndOfParagraph customTextEndOfParagraph:
+                                return customTextEndOfParagraph.Index.Value + customTextEndOfParagraph.Length <
+                                       textSourceCharacterIndex;
+
+                            case SyntaxTokenTextCharacters syntaxTokenTextCharacters:
+                                return syntaxTokenTextCharacters.Index.Value + syntaxTokenTextCharacters.Length <
+                                       textSourceCharacterIndex;
+
+                            case SyntaxTriviaTextCharacters syntaxTriviaTextCharacters:
+                                return syntaxTriviaTextCharacters.Index.Value + syntaxTriviaTextCharacters.Length <
+                                       textSourceCharacterIndex;
+                            case CustomTextCharacters customTextCharacters:
+                                return customTextCharacters.Index.Value + customTextCharacters.Length <
+                                       textSourceCharacterIndex;
+                                ;
+
+                        }
+
+                        return false;
+                    }).ToList();
                 }
 
                 var si = SyntaxInfos.Current;
@@ -298,14 +337,14 @@ namespace RoslynCodeControls
                 var textEndOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
                 Runs.Add(textEndOfParagraph);
                 return textEndOfParagraph;
-            }
-            catch (Exception ex)
-            {
-                _debugFn?.Invoke(ex.ToString());
-                var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index = textSourceCharacterIndex };
-                Runs.Add(textEndOfParagraph);
-                return textEndOfParagraph;
-            }
+            // }
+            // catch (Exception ex)
+            // {
+                // _debugFn?.Invoke(ex.ToString());
+                // var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index = textSourceCharacterIndex };
+                // Runs.Add(textEndOfParagraph);
+                // return textEndOfParagraph;
+            // }
 #if false
             Debug.WriteLine($"index: {textSourceCharacterIndex}");
 
@@ -629,7 +668,7 @@ namespace RoslynCodeControls
                 _tree = value;
                 if (_tree != null)
                 {
-                    _debugFn("Tree set, resetting enumerator");
+                    _debugFn?.Invoke("Tree set, resetting enumerator");
                     Text = _tree.GetText();
                     SyntaxInfos = GetSyntaxInfos().GetEnumerator();
                     SyntaxInfos.MoveNext();
@@ -648,7 +687,7 @@ namespace RoslynCodeControls
         // ReSharper disable once UnusedParameter.Local
         private TextRunProperties PropsFor(SyntaxToken token, string text)
         {
-            var pp = BasicProps();
+            // var pp = BasicProps();
             var kind = CSharpExtensions.Kind(token);
             switch (kind)
             {
@@ -682,7 +721,6 @@ namespace RoslynCodeControls
                 // }
 
                 var syntaxKind = CSharpExtensions.Kind(token.Parent);
-                var tkind = "";
                 var zz = token.Parent.FirstAncestorOrSelf<SyntaxNode>(
                     z => SyntaxFacts.IsTrivia(CSharpExtensions.Kind((SyntaxNode) z)), false);
 
@@ -690,8 +728,9 @@ namespace RoslynCodeControls
                 {
                     var pt = zz.ParentTrivia;
                     var syntaxKind1 = CSharpExtensions.Kind(pt);
-                    tkind = syntaxKind1.ToString();
+                    
 
+                    // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
                     switch (syntaxKind1)
                     {
                         case SyntaxKind.EndOfLineTrivia:
@@ -781,7 +820,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
             // pp.SyntaxToken = trivia;
             // pp.Text = text;
 
-            return pp;
+            return new GenericTextRunProperties(CurrentRendering,PixelsPerDip);
         }
 
         /// <summary>
@@ -814,7 +853,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         }
 
         private SyntaxTree _tree;
-        private SourceText _text;
+        // private SourceText _text;
         
         private IEnumerator<SyntaxInfo> _syntaxInfos;
         private GenericTextRunProperties _baseProps;
@@ -980,82 +1019,32 @@ var chL = newTree.GetChangedSpans(Tree);
             Node = syntaxNode;
             return change;
 
-#if false
-            var t = SyntaxNode.GetFirstToken(true, true, true, true);
-            _starts.Push(new Tuple<TextSpan, SyntaxToken>(t.Span, t));
-            var q = _starts.Where(z => z.Item1.End >= insertionPoint || z.Item1.Start >= insertionPoint);
-            var syntaxToken = q.First().Item2;
-            var p = syntaxToken.Parent;
-            Debug.WriteLine(p.ToString());
-            var syntaxToken1 = SyntaxFactory.ParseToken(text);
-            Debug.WriteLine(syntaxToken1.ToString());
-            Debug.WriteLine(CSharpExtensions.Kind(syntaxToken1).ToString());
-            var syntaxTokens = new[] {syntaxToken1};
-            try
-            {
-                SyntaxNode? n;
-                if (syntaxToken.Span.End <= insertionPoint)
-                {
-                    n = p.InsertTokensAfter(syntaxToken, syntaxTokens);
-                }
-                else
-                {
-                    n = p.InsertTokensBefore(syntaxToken, syntaxTokens);
-                }
+        }
 
-
-                SyntaxNode = SyntaxNode.ReplaceNode(p, n);
-            }
-            catch (Exception ex)
-            {
-                var tr = SyntaxFactory.ParseSyntaxTree(syntaxToken1.Text);
-                Tree = tr;
-                SyntaxNode = tr.GetRoot();
-                _starts.Clear();
-            }
-            // var newNode = SyntaxNode.ReplaceNode(p, n);
-            // SyntaxNode = newNode;
-
-            var t2 = SyntaxNode.GetFirstToken(true, true, true, true);
-
-            // Debug.WriteLine($"{t2.Text} [{t2.Span}]");
-            _starts.Push(new Tuple<TextSpan, SyntaxToken>(t2.Span, t2));
-
-            //
-            // SyntaxNode.Repl
-            // if (chars.Count > InsertionPoint)
-            // {
-            //     var xx = chars[InsertionPoint];
-            //     var x = col[xx];
-            //     if (x is CustomTextCharacters ch)
-            //     {
-            //         var prev = ch.Text.Substring(0, InsertionPoint - ch.Index.Value);
-            //         var next = ch.Text.Substring(ch.Index.Value + ch.Length - InsertionPoint);
-            //         var t = prev + text + next;
-            //         Length += text.Length;
-            //         var customTextCharacters = new CustomTextCharacters(t, BaseProps, new TextSpan());
-            //         if (ch.PrevTextRun is CustomTextCharacters cc0) cc0.NextTextRun = customTextCharacters;
-            //
-            //         ch.PrevTextRun = null;
-            //         ch.NextTextRun = null;
-            //         ch.Invalid = true;
-            //         customTextCharacters.PrevTextRun = ch.PrevTextRun;
-            //         customTextCharacters.Index = ch.Index;
-            //         col[xx] = customTextCharacters;
-            //
-            //         UpdateCharMap();
-            //     }
-            // }
-            // else
-            // {
-            //     var customTextCharacters =
-            //         new CustomTextCharacters(text, BaseProps, new TextSpan()) {Index = InsertionPoint};
-            //     // customTextCharacters.PrevTextRun = ch.PrevTextRun;
-            //     col.Add(customTextCharacters);
-            //
-            //     UpdateCharMap();
-            // }
+        public async Task<TextChange> TextInputAsync(int insertionPoint, InputRequest inputRequest, int lineInfoOffset)
+        {
+            var text = inputRequest.Text;
+#if DEBUG
+            _debugFn?.Invoke($"Insertion point is {insertionPoint}.");
+            _debugFn?.Invoke($"Input text is \"{text}\"");
 #endif
+            var change = inputRequest.Kind == InputRequestKind.Backspace
+                ? new TextChange(new TextSpan(insertionPoint - 1, 1), "")
+                : new TextChange(new TextSpan(insertionPoint, 0), text);
+
+            var newText = Text.WithChanges(change);
+            if (text != null && newText.Length != Text.Length + text.Length) Debug.WriteLine($"Unexpected length");
+            var newTree = Tree.WithChangedText(newText);
+
+            var syntaxNode = await newTree.GetRootAsync();
+            _tree = newTree;
+            SyntaxInfos = GetSyntaxInfos(lineInfoOffset).GetEnumerator();
+            SyntaxInfos.MoveNext();
+
+            Text = newText;
+            Length = newText.Length;
+            Node = syntaxNode;
+            return change;
         }
 
         private IEnumerator<SyntaxInfo> SyntaxInfos
@@ -1083,7 +1072,7 @@ var chL = newTree.GetChangedSpans(Tree);
 
         public List<TextRunInfo> RunInfos { get; set; }
 
-        public List<TextRun> Runs { get; } = new List<TextRun>();
+        public List<TextRun> Runs { get; set; } = new List<TextRun>();
         // {
         // get { return _runs; }
         // set

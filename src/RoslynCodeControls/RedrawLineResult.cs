@@ -13,9 +13,10 @@ namespace RoslynCodeControls
         public LinkedList<CharInfo> CharInfos { get; }
         public List<TextRunInfo> RunsInfos { get; }
         public bool IsNewLineInfo { get; }
+        public DateTime BeganTimestamp { get; }
 
         public RedrawLineResult(LineInfo2 lineInfo, DrawingGroup drawingGroup, in double lineMaxX, in double lineMaxY,
-            LinkedList<CharInfo> charInfos, List<TextRunInfo> runsInfos, bool newLineInfo)
+            LinkedList<CharInfo> charInfos, List<TextRunInfo> runsInfos, bool newLineInfo, DateTime beganTimestamp)
         {
             LineInfo = lineInfo;
             DrawingGroup = drawingGroup;
@@ -24,6 +25,7 @@ namespace RoslynCodeControls
             CharInfos = charInfos;
             RunsInfos = runsInfos;
             IsNewLineInfo = newLineInfo;
+            BeganTimestamp = beganTimestamp;
             Timestamp = DateTime.Now;
             
         }

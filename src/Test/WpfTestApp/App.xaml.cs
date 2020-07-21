@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,10 +23,15 @@ namespace WpfTestApp
     {
         private Thread t2;
         private ManualResetEvent _mevent;
+        private string _file;
 
         /// <inheritdoc />
         protected override void OnStartup(StartupEventArgs e)
         {
+            if(e.Args.Any())
+            {
+                _file = e.Args.First();
+            }
             _mevent = new ManualResetEvent(false);
             t2 = RoslynCodeControls.RoslynCodeControl.StartSecondaryThread(_mevent, null);
             JoinableTaskFactory f = new JoinableTaskFactory(new JoinableTaskContext());
@@ -40,8 +46,15 @@ namespace WpfTestApp
             var jtf2 = new JoinableTaskFactory(new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
                 new DispatcherSynchronizationContext(d)));
             MainWindow w = new MainWindow();
+            w.Filename = _file;
             w.JTF2 = jtf2;
             w.Show();
+        }
+
+        private void App_OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            Debug.WriteLine(e.Exception.ToString());
+            MessageBox.Show(e.Exception.ToString(), "Error");
         }
     }
 

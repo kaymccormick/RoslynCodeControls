@@ -172,62 +172,9 @@ namespace RoslynCodeControls
         private async void FontSizeComboOnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CodeControl.FontSize = (double) FontSizeCombo.SelectedItem;
-            CustomTextSource4 ret;
-            Debug.WriteLine("Enteirng updateformattedtext " + ((ICodeView) CodeControl).PerformingUpdate);
-            if (((ICodeView) CodeControl).PerformingUpdate)
-            {
-                Debug.WriteLine("Already performing update");
-                ret = null;
-            }
-            else
-            {
-                ((ICodeView) CodeControl).PerformingUpdate = true;
-                ((ICodeView) CodeControl).Status = CodeControlStatus.Rendering;
-                ((ICodeView) CodeControl).RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, CodeControl));
-
-                var textStorePosition = 0;
-                var linePosition = new Point(((ICodeView) CodeControl).XOffset, 0);
-
-                ((ICodeView) CodeControl).TextDestination.Children.Clear();
-
-                var line = 0;
-
-                Debug.WriteLine("Calling inner update");
-                // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
-                var fontFamilyFamilyName = ((ICodeView) CodeControl).FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
-                Debug.WriteLine(fontFamilyFamilyName);
-                Debug.WriteLine("OutputWidth " + ((ICodeView) CodeControl).OutputWidth);
-                // not sure what to do here !!
-                // Rectangle.Width = OutputWidth + Rectangle.StrokeThickness * 2;
-                var emSize = ((ICodeView) CodeControl).FontSize;
-                var fontWeight = ((ICodeView) CodeControl).FontWeight;
-                var customTextSource4Parameters = ((ICodeView) CodeControl).CreateDefaultTextSourceArguments();
-                var mainUpdateParameters = new MainUpdateParameters(textStorePosition, line, linePosition, RoslynCodeControl.Formatter, ((ICodeView) CodeControl).OutputWidth, ((ICodeView) CodeControl).PixelsPerDip, emSize, fontFamilyFamilyName, ((ICodeView) CodeControl).UpdateChannel.Writer, fontWeight, ((ICodeView) CodeControl).DocumentPaginator, customTextSource4Parameters);
-                var dispatcherOperation = ((ICodeView) CodeControl).SecondaryDispatcher.InvokeAsync(async () =>
-                {
-                
-                    var rr = ((ICodeView) CodeControl).InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
-                    var src = await rr;
-                    return src;
-                });
-                //iface1.InnerUpdateDispatcherOperation = dispatcherOperation;
-                var source = await dispatcherOperation.Task
-                    .ContinueWith(
-                        task =>
-                        {
-                            if (task.IsFaulted)
-                            {
-                                var xx1 = task.Exception?.Flatten().ToString() ?? "";
-                                Debug.WriteLine(xx1);
-                                // ReSharper disable once PossibleNullReferenceException
-                                Debug.WriteLine(task.Exception.ToString());
-                            }
-
-                            return task.Result;
-                        }).ConfigureAwait(false);
-                var ss = await source;
-                ret = ss;
-            }
+            
+           
+            
         }
 
         public static readonly DependencyProperty CodeControlProperty = DependencyProperty.Register(

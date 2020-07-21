@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -7,82 +8,166 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Brushes = System.Windows.Media.Brushes;
+using FontFamily = System.Windows.Media.FontFamily;
+using Point = System.Windows.Point;
+using Size = System.Windows.Size;
 
 namespace RoslynCodeControls
 {
+    public class RoslynPaginatorExt : DocumentPaginator
+    {
+        private DocumentPaginator _documentPaginatorImplementation;
+
+        public RoslynPaginatorExt(DocumentPaginator documentPaginatorImplementation)
+        {
+            _documentPaginatorImplementation = documentPaginatorImplementation;
+        }
+
+        /// <inheritdoc />
+        public override DocumentPage GetPage(int pageNumber)
+        {
+            return _documentPaginatorImplementation.GetPage(pageNumber);
+        }
+
+        /// <inheritdoc />
+        public override bool IsPageCountValid
+        {
+            get { return _documentPaginatorImplementation.IsPageCountValid; }
+        }
+
+        /// <inheritdoc />
+        public override int PageCount
+        {
+            get { return _documentPaginatorImplementation.PageCount; }
+        }
+
+        /// <inheritdoc />
+        public override Size PageSize
+        {
+            get { return _documentPaginatorImplementation.PageSize; }
+            set { _documentPaginatorImplementation.PageSize = value; }
+        }
+
+        /// <inheritdoc />
+        public override IDocumentPaginatorSource Source
+        {
+            get { return _documentPaginatorImplementation.Source; }
+        }
+    }
     public class RoslynPaginator : DocumentPaginator
     {
         private readonly ICodeView _control;
         public RenderTargetBitmap _bmp;
         private bool coverPage = false;
+
         public RoslynPaginator(ICodeView control, Size? pageSize = null, Thickness? margins = null)
         {
             _hdpi = 96;
             _vdpi = 96;
-            _defaultPageSize = new Size(8.5 * _hdpi, 11 * _vdpi);
-            _defaultMargins = new Thickness(0.25 * _hdpi, 0.25 * _vdpi, 0.25 * _hdpi, 0.25 * _vdpi);
-            var ps = pageSize.GetValueOrDefault(_defaultPageSize);
-            var m = margins.GetValueOrDefault(_defaultMargins);
+
+            var defaultSizeInches = new Size(8.5, 11);
+            var defaultPageSize = new Size(defaultSizeInches.Width * _hdpi, defaultSizeInches.Height * _vdpi);
+            var marginInches = 1.0;
+            var defaultMargins = new Thickness(marginInches * _hdpi, marginInches * _vdpi, marginInches * _hdpi, marginInches * _vdpi);
+
+            var ps = pageSize.GetValueOrDefault(defaultPageSize);
+            var m = margins.GetValueOrDefault(defaultMargins);
+            
             _control = control;
             DocPageSize = new Size(ps.Width - m.Left - m.Right,
                 ps.Height - m.Top - m.Bottom);
             Debug.WriteLine(
                 $"PAge size is {DocPageSize} or {DocPageSize.Width / _hdpi}\"x{DocPageSize.Height / _vdpi}\"");
             if (_control.TextDestination.Bounds.IsEmpty) throw new InvalidOperationException();
-            var intWidth
-                = (int) _control.TextDestination.Bounds.Width;
+            var visual = (Control)_control;
+            var sourceDpi = VisualTreeHelper.GetDpi(visual);
+            double w = _control.TextDestination.Bounds.Width;
+            double h0 = _control.TextDestination.Bounds.Height;
+            int pixelWidth;
+            int pixelHeight;
+            using (var graphics = Graphics.FromHwnd(IntPtr.Zero))
+            {
+                pixelWidth = (int)(w * graphics.DpiX / 96.0);
+                pixelHeight = (int)(h0 * graphics.DpiY / 96.0);
+            }
+
+            var intWidth = (int) _control.TextDestination.Bounds.Width;
             Debug.WriteLine("Width of textdest is " + intWidth);
-            var intHeight
+            var intHeight0
                 = (int) _control.TextDestination.Bounds.Height;
-            Debug.WriteLine("Height of textdest is " + intHeight);
+            Debug.WriteLine("Height of textdest is " + intHeight0);
 
             _margins = m;
             _pageSize = ps;
             var b = new DrawingBrush
             {
                 Drawing = _control.TextDestination,
-                Viewbox = _control.TextDestination.Bounds,
-                ViewboxUnits = BrushMappingMode.Absolute
-                // Viewport = _control.TextDestination.Bounds,
-                // ViewportUnits = BrushMappingMode.Absolute
+                // Viewbox = _control.TextDestination.Bounds,
+                // ViewboxUnits = BrushMappingMode.Absolute
             };
 
+            bool fRando = false;
+            if (fRando)
+            {
+                var v = new DrawingVisual();
+                var dpi = VisualTreeHelper.GetDpi(v);
+                var dpiPixelsPerInchX = dpi.PixelsPerInchX;
+                var dpiPixelsPerInchY = dpi.PixelsPerInchY;
 
-            var v = new DrawingVisual();
-            var dpi = VisualTreeHelper.GetDpi(v);
-            var dpiPixelsPerInchX = _hdpi;
-            var dpiPixelsPerInchY = _vdpi;
+                var p1 = Math.Floor(intHeight0 / DocPageSize.Height);
+                if (Math.Abs(intHeight0 % DocPageSize.Height) > 0.5) p1++;
 
-            intHeight = (int)(((int) intHeight / DocPageSize.Height) * DocPageSize.Height +
-                       ( (intHeight % (int)DocPageSize.Height == 0)
-                ? 0
-                : +DocPageSize.Height));
-            var bmp = new RenderTargetBitmap(intWidth
-                , intHeight
-                , dpiPixelsPerInchX, dpiPixelsPerInchY, PixelFormats.Pbgra32);
+                var h = (int) Math.Floor(p1 * DocPageSize.Height);
 
-            var dc = v.RenderOpen();
-            dc.DrawRectangle(b, null, new Rect(DocPageSize));
-            var formattedText = new FormattedText($"{intWidth}x{intHeight} @ {dpiPixelsPerInchX}x{dpiPixelsPerInchY}",
-                CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
-                16, Brushes.Yellow
-                , null, TextFormattingMode.Ideal, 1);
-            var origin = new Point(5, 5);
-            var bg = new Rect(origin, new Size(formattedText.Width, formattedText.Height));
-            dc.DrawRectangle(Brushes.Black, null, bg);
-            dc.DrawText(
-                formattedText, origin);
-            ;
-            dc.Close();
+                var dc = v.RenderOpen();
+                var rectangle = new Rect(0, 0, _control.TextDestination.Bounds.Width,
+                    _control.TextDestination.Bounds.Height);
+                dc.DrawRectangle(b, null, rectangle);
+                var formattedText = new FormattedText($"{intWidth}x{h} @ {dpiPixelsPerInchX}x{dpiPixelsPerInchY}",
+                    CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                    new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                    16, Brushes.Yellow
+                    , null, TextFormattingMode.Ideal, 1);
+                var origin = new Point(5, 5);
+                var bg = new Rect(origin, new Size(formattedText.Width, formattedText.Height));
+                dc.DrawRectangle(Brushes.Black, null, bg);
+                dc.DrawText(
+                    formattedText, origin);
+                dc.Close();
 
-            bmp.Render(v);
-            _bmp = bmp;
-            var zz = new PngBitmapEncoder();
-            zz.Frames.Add(BitmapFrame.Create(bmp));
-            FileStream stream = new FileStream(@"c:\temp\new.png", FileMode.Create);
-            zz.Save(stream);
 
+                var bmp = new RenderTargetBitmap(pixelWidth
+                    , pixelHeight
+                    , dpiPixelsPerInchX * 2, dpiPixelsPerInchY * 2, PixelFormats.Pbgra32);
+                bmp.Render(v);
+                _bmp = bmp;
+
+               
+            } else
+            {
+
+                DrawingImage di = new DrawingImage(_control.TextDestination);
+                DrawingVisual v = new DrawingVisual();
+                var dc = v.RenderOpen();
+                dc.DrawImage(di, _control.TextDestination.Bounds
+                );
+                dc.Close();
+
+                var bmp = new RenderTargetBitmap(pixelWidth
+                    , pixelHeight
+                    , _hdpi, _vdpi, PixelFormats.Pbgra32);
+                bmp.Render(v);
+                _bmp = bmp;
+            }
+
+            var zz = new TiffBitmapEncoder();
+            var bitmapFrame = BitmapFrame.Create(_bmp);
+            zz.Frames.Add(bitmapFrame);
+            using (var stream = new FileStream(@"c:\temp\new.tiff", FileMode.Create))
+            {
+                zz.Save(stream);
+            }
             PageCount = (int) (b.Drawing.Bounds.Height / DocPageSize.Height + 1) + (coverPage ? 1 : 0);
             Source = control as IDocumentPaginatorSource;
         }
@@ -90,6 +175,7 @@ namespace RoslynCodeControls
 
         public override DocumentPage GetPage(int pageNumber)
         {
+            Debug.WriteLine("page " + pageNumber);
             return GetDocumentPage(pageNumber, out _);
         }
 
@@ -97,158 +183,131 @@ namespace RoslynCodeControls
         {
             if (pageNumber == 0 && coverPage)
             {
-                DrawingVisual dv1 = new DrawingVisual();
-                var dc0 =dv1.RenderOpen();
-
-                // dc0.PushTransform(new TranslateTransform());
-
-                // var p = new FixedPage();
-                var text = new FormattedText(_control.DocumentTitle ?? "Untitled", CultureInfo.CurrentCulture, FlowDirection.LeftToRight,new Typeface(new FontFamily("Times new Roman"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 32, Brushes.Black, null,TextFormattingMode.Ideal,1); ;
-                dc0.DrawText(text,new Point((PageSize.Width - text.Width)/2,4*_vdpi));
-                
-                string info1 =
-                    $"Margins:\t\tLeft: {_margins.Left / _hdpi:N1};\t\tRight: {_margins.Right / _hdpi:N1}; \r\n\t\tTop: {_margins.Top / _vdpi:N1};\t\tBottom: {_margins.Bottom / _vdpi:N1}\r\nPage Size:\t{PageSize.Width / _hdpi:N1}\"x{PageSize.Height / _vdpi:N1}\"\r\n";
-                var text1 = new FormattedText(info1, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 16, Brushes.Black, null, TextFormattingMode.Ideal, 1); ;
-                dc0.DrawText(text1, new Point((PageSize.Width - text1.Width) / 2, 5 * _vdpi));
-
-                dc0.Close();
-                info = null;
-
-                // var v = new VisualTarget(new HostVisual());
-                // v.RootVisual = d;
-                var dp1 = new DocumentPage(dv1, PageSize, new Rect(0, -1 * _vdpi, PageSize.Width, PageSize.Height + _vdpi),
-                    new Rect(0, 0, PageSize.Width, PageSize.Height));
-
-                return dp1;
-                
+                return CoverPageExt.CreateCoverPage(_hdpi, _margins, _vdpi, PageSize, _control, out info);
             }
-
-            // if (pageNumber != 0)
-            // throw new InvalidOperationException();
-            // var w = _control.MaxX;
-            // var h = _control.MaxY;
-            // var p = h /
-            // PageSize.Height;
 
             var dv = new DrawingVisual();
             var dc = dv.RenderOpen();
+            
+            // DrawingGroup dg = new DrawingGroup();
+            // var d = VisualTreeHelper.GetDpi((Visual)_control);
+            // var dpiScale = new DpiScale(d.DpiScaleX * 2, d.DpiScaleY * 2);
+            // VisualTreeHelper.SetRootDpi(dv, dpiScale);
 
             DrawPage(pageNumber, dc, out info);
 
             dc.Close();
-            // PngBitmapEncoder zz = new PngBitmapEncoder();
-            // var b1 = new RenderTargetBitmap((int) PageSize.Width, (int) PageSize.Height, 96, 96, PixelFormats.Pbgra32);
-            // b1.Render(dv);
 
-            // zz.Frames.Add(BitmapFrame.Create(b1));
-            // FileStream stream = new FileStream(@"c:\temp\page" + pageNumber + ".png", FileMode.Create);
-            // zz.Save(stream);
-            
-            var dp = new DocumentPage(dv, PageSize, new Rect(0, 0, PageSize.Width, PageSize.Height + _vdpi),
-                new Rect(0, 0, PageSize.Width, PageSize.Height));
-            return dp;
+            var bleedBox = new Rect(0, 0, PageSize.Width, PageSize.Height);
+            var contentBox = new Rect(0, 0, PageSize.Width, PageSize.Height);
+
+            // var contentBox =  new Rect(_margins.Left, _margins.Top,
+                // DocPageSize.Width, DocPageSize.Height);
+
+            return new DocumentPage(dv, PageSize, bleedBox, contentBox);
         }
 
-        public void DrawPage(int pageNumber, DrawingContext dc, out Info1 info)
+        private void DrawPage(int pageNumber, DrawingContext dc, out Info1 info)
         {
-            var b = new ImageBrush {ImageSource = _bmp};
-            
+            double pixelsPerDip = 1.0;
             if (coverPage)
                 pageNumber--;
 
+            var topOfPage = pageNumber * DocPageSize.Height;
+            var width = Math.Min(_bmp.Width, DocPageSize.Width);
+            var viewBox = new Rect(0, topOfPage, width, DocPageSize.Height);
+
+            var b = new ImageBrush
+            {
+                ImageSource = _bmp,
+                AlignmentY = AlignmentY.Top,
+                AlignmentX = AlignmentX.Left,
+                Stretch = Stretch.Uniform,
+                Viewbox = viewBox,
+                ViewboxUnits = BrushMappingMode.Absolute
+            };
+
             var rectangle = new Rect(_margins.Left, _margins.Top,
                 DocPageSize.Width, DocPageSize.Height);
-            var topOfPage = pageNumber * DocPageSize.Height;
 
-            var transformGroup = new TransformGroup();
-            transformGroup.Children.Add(new TranslateTransform(0, -1 * topOfPage));
-            TransformedBitmap bb = new TransformedBitmap(_bmp, transformGroup);
-            bb.BeginInit();
-            bb.BeginInit();
-            CroppedBitmap cropped  = new CroppedBitmap(bb, new Int32Rect((int) rectangle.X, (int) rectangle.Y, (int) rectangle.Width, (int) rectangle.Height));
-            cropped.BeginInit();
-            cropped.EndInit();
-            dc.DrawImage(cropped, rectangle);
-
-            b.RelativeTransform = new TranslateTransform(0, -1 * topOfPage); 
-            // b.Transform = 
-            var width = Math.Min(_bmp.PixelWidth, DocPageSize.Width);
-            
-            var viewPort = new Rect(0, 0, width, _bmp.Height);
-
-            var viewBox = new Rect(0, 0, width, _bmp.Height);
-            // -1 * _margins.Left,
-                // -1 * pageNumber * DocPageSize.Height - _margins.Top, width,
-                // DocPageSize.Height + _margins.Top);
-
-            Debug.WriteLine("port" + viewPort);
-            Debug.WriteLine("box" + viewBox);
-            b.Viewport = viewPort;
-             b.AlignmentY = AlignmentY.Top;
-             b.AlignmentX = AlignmentX.Left;
-            b.Stretch = Stretch.None;
-            b.ViewportUnits = BrushMappingMode.Absolute;
-
-            b.Viewbox = viewBox;
-            Debug.WriteLine("Viewbox = " + viewBox);
-            b.ViewboxUnits = BrushMappingMode.Absolute;
-            // RenderTargetBitmap renderTarget = new RenderTargetBitmap((int)w, (int)h, 96, 96, PixelFormats.Pbgra32);
-
-            // dc.PushTransform(new TranslateTransform(0,_vdpi));
-            // dc.DrawRectangle(Brushes.Yellow, new Pen(Brushes.Orange, 2),
-                // new Rect(0, -1 * _vdpi, PageSize.Width, 1 * _vdpi));
-
+            Debug.WriteLine("box = " + viewBox);
             Debug.WriteLine(rectangle);
-            dc.PushTransform(new TranslateTransform(_margins.Left, _margins.Top));
+            var fTransform = true;
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+            if (fTransform)
+            {
+                dc.PushTransform(new TranslateTransform(_margins.Left, _margins.Top));
+            }
+
             var rect = rectangle;
             rect.Offset(-1 * _margins.Left, -1 * _margins.Top);
-            // dc.DrawRectangle(b,
-                // null, rect);
-            dc.Pop();
-            
-            // dc.DrawRectangle(null, new Pen(Brushes.Black, 2), rectangle);
-            var cKayMccormick = "Publishing and Layout \x00a9 2020 Kay McCormick";
-            var formattedText = new FormattedText(cKayMccormick, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 12,
-                Brushes.Black, new NumberSubstitution(), TextFormattingMode.Ideal, 1);
-            var formattedText0 = new FormattedText(_control.DocumentTitle ?? "", CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 16,
-                Brushes.Black, new NumberSubstitution(), TextFormattingMode.Ideal, 1);
-            dc.DrawText(formattedText0, new Point(0.15 * _hdpi, (_margins.Top - formattedText0.Height) / 2 * _hdpi));
-            dc.DrawText(formattedText,
-                new Point(0.15 * _hdpi, rectangle.Bottom + (_margins.Bottom - formattedText.Height) / 2));
+            rect.Width = width;
+            dc.DrawRectangle(b, null, rect);
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+            if (fTransform)
+            {
+                dc.Pop();
+            }
+
+            DrawDocumentTitle(dc, pixelsPerDip);
+            DrawFooter(dc, rectangle, pixelsPerDip);
+            DrawPageNumber(pageNumber);
+
+            info = new Info1 {rectangle = rectangle, brush = b};
+        }
+
+        private static void DrawPageNumber(int pageNumber)
+        {
             var formattedText2 = new FormattedText((pageNumber + 1).ToString(), CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 12,
                 Brushes.Black, new NumberSubstitution(), TextFormattingMode.Ideal, 1);
-            info = new Info1 {rectangle = rectangle, brush = b};
         }
 
-        public Size DocPageSize { get; }
+        private void DrawFooter(DrawingContext dc, Rect rectangle, double pixelsPerDip)
+        {
+            var cKayMccormick = "Publishing and Layout \x00a9 2020 Kay McCormick";
+            var typeface = new Typeface(new FontFamily("Arial"),
+                FontStyles.Normal, 
+                FontWeights.Normal, FontStretches.Normal);
+
+            var formattedText = new FormattedText(
+                cKayMccormick, 
+                CultureInfo.CurrentCulture, 
+                FlowDirection.LeftToRight,
+                typeface, 12,
+                Brushes.Black, null, 
+                TextFormattingMode.Ideal, 
+                pixelsPerDip);
+            
+            var origin = new Point(0.15 * _hdpi, 
+                rectangle.Bottom + (_margins.Bottom - formattedText.Height) / 2);
+            dc.DrawText(formattedText, origin);
+        }
+
+        private void DrawDocumentTitle(DrawingContext dc, double pixelsPerDip)
+        {
+            var formattedText0 = new FormattedText(_control.DocumentTitle ?? "No title", CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 16,
+                Brushes.Black, new NumberSubstitution(), TextFormattingMode.Ideal, pixelsPerDip);
+            var origin = new Point(0.15 * _hdpi,
+                (_margins.Top - formattedText0.Height) / 2);
+            dc.DrawText(formattedText0, 
+                origin);
+        }
+
+        private Size DocPageSize { get; }
 
         public override bool IsPageCountValid { get; } = true;
 
         public override int PageCount { get; }
-        // {
-        // get
-        // { 
-        // var w = PageSize.Width;
-        // var h = _control.MaxY;
-        // var p = h / PageSize.Height;
 
-        // return (int) (p + 1);
-
-        // }
-        // }
-
-
-        private readonly Size _defaultPageSize;
-        private readonly Thickness _defaultMargins;
         private Size _pageSize;
         private Thickness _margins;
-        private static int _vdpi;
-        private static int _hdpi;
+        private readonly int _vdpi;
+        private readonly int _hdpi;
 
         public override Size PageSize
         {
@@ -265,7 +324,37 @@ namespace RoslynCodeControls
         public Rect rectangle { get; set; }
     }
 
-    public class CoverPage : Control
+    public static class CoverPageExt
     {
+        public static DocumentPage CreateCoverPage(int hdpi, Thickness thickness, int vdpi, Size pageSize, ICodeView codeView, out Info1 info)
+        {
+            var dv1 = new DrawingVisual();
+            var dc0 = dv1.RenderOpen();
+
+            var text = new FormattedText(codeView.DocumentTitle ?? "Untitled", CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface(new FontFamily("Times new Roman"), FontStyles.Normal, FontWeights.Normal,
+                    FontStretches.Normal), 32, Brushes.Black, null, TextFormattingMode.Ideal, 1);
+            ;
+            dc0.DrawText(text, new Point((pageSize.Width - text.Width) / 2, 4 * vdpi));
+
+            var info1 =
+                $"Margins:\t\tLeft: {thickness.Left / hdpi:N1};\t\tRight: {thickness.Right / hdpi:N1}; \r\n\t\tTop: {thickness.Top / vdpi:N1};\t\tBottom: {thickness.Bottom / vdpi:N1}\r\nPage Size:\t{pageSize.Width / hdpi:N1}\"x{pageSize.Height / vdpi:N1}\"\r\n";
+            var text1 = new FormattedText(info1, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                16, Brushes.Black, null, TextFormattingMode.Ideal, 1);
+            ;
+            dc0.DrawText(text1, new Point((pageSize.Width - text1.Width) / 2, 5 * vdpi));
+
+            dc0.Close();
+            info = null;
+
+
+            return new DocumentPage(dv1, pageSize,
+                new Rect(0, -1 * vdpi, pageSize.Width, pageSize.Height + vdpi),
+                new Rect(0, 0, pageSize.Width, pageSize.Height));
+        }
     }
+
+ 
 }

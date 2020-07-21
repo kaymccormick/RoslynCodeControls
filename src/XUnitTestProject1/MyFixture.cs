@@ -16,6 +16,8 @@ namespace XUnitTestProject1
     public class MyFixture : IAsyncLifetime
     {
         private ITestOutputHelper _outputHelper;
+        private JoinableTaskCollection _coll;
+        private Dispatcher _d;
 
         /// <inheritdoc />
         public async Task InitializeAsync()
@@ -27,9 +29,11 @@ namespace XUnitTestProject1
             var startSecondaryThread = RoslynCodeControl.StartSecondaryThread(mEvent, (d) => { });
 
             await mEvent.ToTask();
-            var d = Dispatcher.FromThread(startSecondaryThread);
-            var jtf2 = new JoinableTaskFactory(new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
-                new DispatcherSynchronizationContext(d)));
+            _d = Dispatcher.FromThread(startSecondaryThread);
+            var joinableTaskContext = new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
+                new DispatcherSynchronizationContext(_d));
+            _coll = joinableTaskContext.CreateCollection();
+            var jtf2 = joinableTaskContext.CreateFactory(_coll);
             JTF2 = jtf2;
         }
 
@@ -51,9 +55,13 @@ namespace XUnitTestProject1
         }
 
         /// <inheritdoc />
-        public Task DisposeAsync()
+        public async Task DisposeAsync()
         {
-            return Task.CompletedTask;
+            await _coll.JoinTillEmptyAsync();
+            if (JTF2.Context.MainThread.IsAlive)
+            {
+                _d.InvokeShutdown();
+            }
         }
     }
 }

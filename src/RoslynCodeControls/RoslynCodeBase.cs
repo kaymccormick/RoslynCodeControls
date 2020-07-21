@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Markup;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -27,13 +28,21 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         public RoslynCodeBase(Action<string> debugOut=null)
         {
-            _debugFn = debugOut;
+#if DEBUG
+            _debugFn = debugOut ?? ((s) => { Debug.WriteLine(s); });
+
+#else
+            
+_debugFn = debugOut ?? ((s) => { });
+#endif
+
             TextDestination = new DrawingGroup();
             DrawingBrush = new DrawingBrush();
             UpdateChannel = Channel.CreateUnbounded<UpdateInfo>(new UnboundedChannelOptions()
                 {SingleReader = true, SingleWriter = true});
-            
-            
+            PixelsPerDip = 1.0;
+            OutputWidth = 6.5 * 96 ;
+
         }
 
         public static readonly RoutedEvent RenderCompleteEvent = EventManager.RegisterRoutedEvent("RenderComplete",
@@ -72,27 +81,26 @@ namespace RoslynCodeControls
             set { SetValue(CompilationProperty, value); }
         }
 
-        protected virtual async void OnSourceTextChanged1(string newValue, string eOldValue)
+        protected virtual void OnSourceTextChanged1(string newValue, string eOldValue)
         {
             if (ChangingText || UpdatingSourceText)
                 return;
-            if (newValue != null)
-            {
-                UpdatingSourceText = true;
-                var compilation = CSharpCompilation.Create(
-                    "test",
-                    new[]
-                    {
-                        SyntaxFactory.ParseSyntaxTree(
-                            newValue)
-                    }, new[] {MetadataReference.CreateFromFile(typeof(object).Assembly.Location)});
-                Compilation = compilation;
-                SyntaxTree = compilation.SyntaxTrees.First();
+            if (newValue == null) return;
+            UpdatingSourceText = true;
+            DebugFn("Source text changed, creating copilation etc");
+            var compilation = CSharpCompilation.Create(
+                "test",
+                new[]
+                {
+                    SyntaxFactory.ParseSyntaxTree(
+                        newValue)
+                }, new[] {MetadataReference.CreateFromFile(typeof(object).Assembly.Location)});
+            Compilation = compilation;
+            SyntaxTree = compilation.SyntaxTrees.First();
 
-                SyntaxNode = await SyntaxTree.GetRootAsync().ConfigureAwait(true);
-                SemanticModel = compilation.GetSemanticModel(SyntaxTree);
-                UpdatingSourceText = false;
-            }
+            SyntaxNode =SyntaxTree.GetRoot();
+            SemanticModel = compilation.GetSemanticModel(SyntaxTree);
+            UpdatingSourceText = false;
         }
 
         public bool UpdatingSourceText { get; set; }
@@ -201,6 +209,10 @@ namespace RoslynCodeControls
                 CommonText.CreateAndInitTextSource(p.PixelsPerDip, p.Tf,
                     p.Tree, p.Node0,
                     p.Compilation, p.EmSize0, p.DebugFn);
+            customTextSource4.CurrentRendering = FontRendering.CreateInstance(p.EmSize0,
+                TextAlignment.Left,
+                new TextDecorationCollection(), Brushes.Black, p.Tf);
+
             return customTextSource4;
         }
 
@@ -245,7 +257,7 @@ namespace RoslynCodeControls
 #endif
         }
 
-        public JoinableTaskFactory JTF{ get; set; }
+        public virtual JoinableTaskFactory JTF { get;  } = new JoinableTaskFactory(new JoinableTaskContext());
         public virtual JoinableTaskFactory JTF2{ get; set; }
 
         public SemanticModel SemanticModel
@@ -335,32 +347,42 @@ namespace RoslynCodeControls
 
         private async Task ReaderListenerAsync()
         {
+            while (!UpdateChannel.Reader.Completion.IsCompleted)
+            {
+                var ui = await UpdateChannel.Reader.ReadAsync();
 
-            var ui = await UpdateChannel.Reader.ReadAsync();
-            
-            // fixme
-            //CharInfos.AddRange(ui.CharInfos);
-            var dg = ui.DrawingGroup;
-            var dg2 = new DrawingGroup();
-            foreach (var dgChild in dg.Children)
-                dg2.Children.Add(dgChild);
-            TextDestination.Children.Add(dg2);
-            var uiRect = dg2.Bounds;
-            _debugFn?.Invoke($"UIRect is {uiRect}");
-            var maxY = Math.Max(MaxY, uiRect.Bottom);
-            MaxY = maxY;
-            var maxX = Math.Max(MaxX, uiRect.Right);
-            MaxX = maxX;
-            // bound to viewbox height / width
-            // Rectangle.Height = maxY;
-            // Rectangle.Width = maxX;
-            var boundsLeft = Math.Min(TextDestination.Bounds.Left, 0);
-            boundsLeft -= 3;
-            var boundsTop = Math.Min(TextDestination.Bounds.Top, 0);
-            boundsTop -= 3;
-            DrawingBrushViewbox = new Rect(boundsLeft, boundsTop, maxX, maxY);
-            await ReaderListenerAsync();
+                // fixme
+                //CharInfos.AddRange(ui.CharInfos);
+                var dg = ui.DrawingGroup;
+                var dg2 = new DrawingGroup();
+                foreach (var dgChild in dg.Children) dg2.Children.Add(dgChild);
+                TextDestination.Children.Add(dg2);
+                var uiRect = dg2.Bounds;
+                _debugFn?.Invoke($"UIRect is {uiRect}");
+                var maxY = Math.Max(MaxY, uiRect.Bottom);
+                MaxY = maxY;
+                var maxX = Math.Max(MaxX, uiRect.Right);
+                MaxX = maxX;
+               
+
+                var boundsLeft = Math.Min(TextDestination.Bounds.Left, 0);
+                    boundsLeft -= 3;
+                    var boundsTop = Math.Min(TextDestination.Bounds.Top, 0);
+                    boundsTop -= 3;
+
+                    var width = maxX - boundsLeft;
+                    var height = maxY - boundsTop;
+                    DrawingBrush.Viewbox = DrawingBrushViewbox =
+                        new Rect(boundsLeft, boundsTop, width, height);
+
+                    if (Rectangle == null) continue;
+                    Rectangle.Width = width;
+                    Rectangle.Height = height;
+                
+            }
         }
+
+        public Rectangle Rectangle { get; set; }
 
         public virtual DrawingGroup TextDestination { get; set; }
         public string DocumentTitle { get; set; }

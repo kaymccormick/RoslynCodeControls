@@ -15,7 +15,6 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <roslynCodeControls:RoslynCodeBase x:Name="cb" FontSize="14" FontFamily="Roboto Mono" />
         <StackPanel Orientation="Horizontal">
             <Button Content="&lt;" Click="PrevPage"></Button>
             <TextBox Name="page"
@@ -71,11 +70,11 @@
 <TextBox Text="{Binding ElementName=rect1,Path=ActualWidth,Mode=OneWay}"></TextBox>
                         <TextBox Text="{Binding ElementName=rect1,Path=ActualHeight,Mode=OneWay}"></TextBox>
                     </StackPanel>
-                    <Border Margin="10" Grid.Row="1" Visibility="Hidden">
+                    <Border Margin="10" Grid.Row="1" Visibility="Visible">
                         <ScrollViewer x:Name="scroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"><Rectangle ClipToBounds="True" x:Name="rect" />
                         </ScrollViewer>
                     </Border>
-                    <Border Margin="10" Grid.Row="1" Panel.ZIndex="100">
+                    <Border Margin="10" Grid.Row="1" Panel.ZIndex="100" Visibility="Hidden">
                         <ScrollViewer x:Name="scroll1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <Rectangle ClipToBounds="True" x:Name="rect1" Stroke="Blue" >
                                 <Rectangle.Fill>

@@ -192,6 +192,7 @@ namespace RoslynCodeControls
                     }
                 }
 
+#if GROUPEDDG
                 if (lineNo > 0 && lineNo % 100 == 0)
                 {
                     myDc.Close();
@@ -202,9 +203,18 @@ namespace RoslynCodeControls
                     myGroup = new DrawingGroup();
                     myDc = myGroup.Open();
                 }
+#else
+                myDc.Close();
+                myGroup.Freeze();
+                var curUi = new UpdateInfo(){DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
+                mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
+                myGroup = new DrawingGroup();
+                myDc = myGroup.Open();
+#endif
             }
 
             customTextSource4.RunInfos = runsInfos;
+#if GROUPEDDG
             if (lineNo % 100 != 0)
             {
                 myDc.Close();
@@ -218,7 +228,7 @@ namespace RoslynCodeControls
             {
                 myDc.Close();
             }
-
+#endif
             // await Task.WhenAll(tasks);
 
             return customTextSource4;
@@ -253,7 +263,7 @@ namespace RoslynCodeControls
                             var glAdvanceWidth = gl.AdvanceWidths[i0];
                             var glCharacter = gl.Characters[i];
                             var glCaretStop = gl.CaretStops?[i0];
-                            if (curCi != null)
+                            if (curCi != null && curLineInfo != null)
                             {
                                 if (lineCharIndex + curLineInfo.Offset >= change.Value.Span.Start)
                                 {

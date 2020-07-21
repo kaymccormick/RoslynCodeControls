@@ -8,6 +8,8 @@ namespace RoslynCodeControls
         public int NewInsertionPoint { get; }
         public DateTime PostUpdateTimestamp { get; }
         public DateTime RenderRequestTimestamp { get; }
+        public DateTime RenderBeganTimestamp { get; }
+        public DateTime RenderCompleteTimestamp { get; }
 
         /// <inheritdoc />
         public override string ToString()
@@ -16,12 +18,14 @@ namespace RoslynCodeControls
         }
 
         public UpdateComplete(InputRequest inputRequest, int newInsertionPoint, DateTime postUpdateTimestamp,
-            DateTime rRenderRequestTimestamp)
+            DateTime rRenderRequestTimestamp, DateTime renderBeganTimestamp, DateTime renderCompleteTimestamp)
         {
             InputRequest = inputRequest;
             NewInsertionPoint = newInsertionPoint;
             PostUpdateTimestamp = postUpdateTimestamp;
             RenderRequestTimestamp = rRenderRequestTimestamp;
+            RenderBeganTimestamp = renderBeganTimestamp;
+            RenderCompleteTimestamp = renderCompleteTimestamp;
             Timestamp = DateTime.Now;
             IsSuccess = true;
 

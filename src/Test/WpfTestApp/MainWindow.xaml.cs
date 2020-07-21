@@ -76,7 +76,7 @@ namespace WpfTestApp
             InitializeComponent();
             CoerceValue(FontsProperty);
             Loaded += OnLoaded;
-            //CodeControl.Filename = @"c:\temp\dockingmanager.cs";
+            
            
             CommandBindings.Add(new CommandBinding(HideToolBar, OnExecutedHideToolBar));
         }
@@ -88,9 +88,9 @@ namespace WpfTestApp
 
         private async Task M1()
         {
-            CodeControl.JTF = JTF;
+            
             CodeControl.JTF2 = JTF2;
-            CodeControl.SourceText = File.ReadAllText(@"C:\temp\dockingmanager.cs");
+            CodeControl.SourceText = Filename !=null? File.ReadAllText(Filename) : "";
             CodeControl.AddHandler(RoslynCodeControl.RenderStartEvent, new RoutedEventHandler((sender, args) =>
             {
                 StartTime = DateTime.Now;
@@ -107,6 +107,7 @@ namespace WpfTestApp
         public DateTime StartTime { get; set; }
 
         public JoinableTaskFactory JTF { get; set; } = new JoinableTaskFactory(new JoinableTaskContext());
+        public string Filename { get; set; }
 
         private async void FontComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {

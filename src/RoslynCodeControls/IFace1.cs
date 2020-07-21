@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
@@ -19,6 +20,7 @@ namespace RoslynCodeControls
 
     public interface ICodeView
     {
+        Rectangle Rectangle { get; }
         Document Document { get; }
         string SourceText { get; set; }
         double MaxX { get; }

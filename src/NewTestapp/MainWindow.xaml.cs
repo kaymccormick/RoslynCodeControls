@@ -37,14 +37,14 @@ namespace NewTestapp
 
         public MainWindow()
         {
+            _context = new JoinableTaskContext();
+            _coll = _context.CreateCollection();
+            _f = _context.CreateFactory(_coll);
             InitializeComponent();
             _host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
 
-            var fileName = @"C:\temp\commontext.cs";
-            cb.SourceText = File.ReadAllText(fileName);
-            cb.DocumentTitle = fileName;
-            _f = new JoinableTaskFactory(new JoinableTaskContext());
-            cb.JTF = _f;
+            // _f = new JoinableTaskFactory(new JoinableTaskContext());
+            // cb.JTF = _f;
            Loaded += OnLoaded;
            
         }
@@ -140,12 +140,20 @@ namespace NewTestapp
 
         private async Task M1()
         {
-            cb.JTF2 = JTF2;
+            cb = new RoslynCodeBase(DebugFn)
+            {
+                JTF2 = JTF2,
+                SourceText = Filename != null ? File.ReadAllText(Filename) : "",
+                DocumentTitle = Filename ?? "Untitled",
+                Rectangle = new Rectangle(),
+                FontSize = 14.0,
+                FontFamily = new FontFamily("Lucida Console")
+            };
+            ;
             await cb.UpdateFormattedTextAsync();
             
             DirectoryInfo d = new DirectoryInfo(@"C:\temp\code");
 
-            
             LocalPrintServer s = new LocalPrintServer();
             var pdfQueues = s.GetPrintQueues().Where(queue => queue.FullName.ToLowerInvariant().Contains("pdf") && !queue.IsInError && !queue.IsOffline).ToList();
             PrintDialog pd1  = new PrintDialog();
@@ -192,6 +200,11 @@ namespace NewTestapp
             b2.Stretch = Stretch.Uniform;
             CurPage = 0;
             
+        }
+
+        private void DebugFn(string obj)
+        {
+            Debug.WriteLine(obj);
         }
 
         public static readonly DependencyProperty AllPagesBitmapProperty = DependencyProperty.Register(
@@ -411,11 +424,17 @@ namespace NewTestapp
         public static readonly DependencyProperty ViewportProperty = DependencyProperty.Register(
             "Viewport", typeof(Rect), typeof(MainWindow), new PropertyMetadata(default(Rect), OnViewportChanged));
 
+        private JoinableTaskContext _context;
+        private JoinableTaskCollection _coll;
+        private RoslynCodeBase cb;
+
         public Rect Viewport
         {
             get { return (Rect) GetValue(ViewportProperty); }
             set { SetValue(ViewportProperty, value); }
         }
+
+        public string Filename { get; set; }
 
         private static void OnViewportChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
