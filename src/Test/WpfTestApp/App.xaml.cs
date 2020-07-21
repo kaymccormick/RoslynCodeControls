@@ -55,6 +55,7 @@ namespace WpfTestApp
         {
             Debug.WriteLine(e.Exception.ToString());
             MessageBox.Show(e.Exception.ToString(), "Error");
+            Application.Current.Shutdown(1);
         }
     }
 

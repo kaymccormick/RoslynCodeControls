@@ -20,6 +20,8 @@ namespace RoslynCodeControls
 
     public interface ICodeView
     {
+        LineInfo2 InsertionLine { get; }
+        
         Rectangle Rectangle { get; }
         Document Document { get; }
         string SourceText { get; set; }
@@ -48,10 +50,12 @@ namespace RoslynCodeControls
         CharInfo InsertionCharInfo { get; set; }
         LinkedList<CharInfo> CharInfos { get; set; }
         JoinableTaskFactory JTF2 { get; set; }
+        LinkedListNode<LineInfo2> InsertionLineNode { get; set; }
         Task UpdateFormattedTextAsync();
         void RaiseEvent(RoutedEventArgs p0);
         TextSourceInitializationParameters CreateDefaultTextSourceArguments();
         Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters);
+        LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null);
     }
 
 }

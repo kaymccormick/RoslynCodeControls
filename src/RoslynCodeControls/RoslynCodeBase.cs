@@ -22,17 +22,16 @@ namespace RoslynCodeControls
     {
         public RoslynCodeBase() : this(null)
         {
-
         }
+
         /// <param name="debugOut"></param>
         /// <inheritdoc />
-        public RoslynCodeBase(Action<string> debugOut=null)
+        public RoslynCodeBase(Action<string> debugOut = null)
         {
 #if DEBUG
-            _debugFn = debugOut ?? ((s) => { Debug.WriteLine(s); });
+            _debugFn = debugOut ?? (DebubgFn0);
 
 #else
-            
 _debugFn = debugOut ?? ((s) => { });
 #endif
 
@@ -41,8 +40,13 @@ _debugFn = debugOut ?? ((s) => { });
             UpdateChannel = Channel.CreateUnbounded<UpdateInfo>(new UnboundedChannelOptions()
                 {SingleReader = true, SingleWriter = true});
             PixelsPerDip = 1.0;
-            OutputWidth = 6.5 * 96 ;
+            OutputWidth = 6.5 * 96;
+        }
 
+        private void DebubgFn0(string s)
+        {
+            Debug.WriteLine(s);
+            ProtoLogger.Instance.LogAction(s);
         }
 
         public static readonly RoutedEvent RenderCompleteEvent = EventManager.RegisterRoutedEvent("RenderComplete",
@@ -72,7 +76,7 @@ _debugFn = debugOut ?? ((s) => { });
             f.OnSourceTextChanged1((string) e.NewValue, (string) e.OldValue);
         }
 
-        
+
         public static readonly DependencyProperty CompilationProperty = RoslynProperties.CompilationProperty;
 
         public Compilation Compilation
@@ -98,7 +102,7 @@ _debugFn = debugOut ?? ((s) => { });
             Compilation = compilation;
             SyntaxTree = compilation.SyntaxTrees.First();
 
-            SyntaxNode =SyntaxTree.GetRoot();
+            SyntaxNode = SyntaxTree.GetRoot();
             SemanticModel = compilation.GetSemanticModel(SyntaxTree);
             UpdatingSourceText = false;
         }
@@ -156,7 +160,10 @@ _debugFn = debugOut ?? ((s) => { });
         public Channel<UpdateInfo> UpdateChannel { get; set; }
 
         /// <inheritdoc />
-        public virtual DocumentPaginator DocumentPaginator => new RoslynPaginator(this);
+        public virtual DocumentPaginator DocumentPaginator
+        {
+            get { return new RoslynPaginator(this); }
+        }
 
 
         /// <inheritdoc />
@@ -187,7 +194,8 @@ _debugFn = debugOut ?? ((s) => { });
                 FontStretches.Normal);
             // _debugFn?.Invoke($"{n1} {emSize0}");
 
-            return new TextSourceInitializationParameters(PixelsPerDip, emSize0, tree, node0, compilation, tf, _debugFn);
+            return new TextSourceInitializationParameters(PixelsPerDip, emSize0, tree, node0, compilation, tf,
+                _debugFn);
         }
 
 
@@ -257,8 +265,8 @@ _debugFn = debugOut ?? ((s) => { });
 #endif
         }
 
-        public virtual JoinableTaskFactory JTF { get;  } = new JoinableTaskFactory(new JoinableTaskContext());
-        public virtual JoinableTaskFactory JTF2{ get; set; }
+        public virtual JoinableTaskFactory JTF { get; } = new JoinableTaskFactory(new JoinableTaskContext());
+        public virtual JoinableTaskFactory JTF2 { get; set; }
 
         public SemanticModel SemanticModel
         {
@@ -292,7 +300,7 @@ _debugFn = debugOut ?? ((s) => { });
 
                 codeView.PerformingUpdate = true;
                 codeView.Status = CodeControlStatus.Rendering;
-                codeView.RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderStartEvent, this));
+                codeView.RaiseEvent(new RoutedEventArgs(RenderStartEvent, this));
 
                 var textStorePosition = 0;
                 var linePosition = new Point(codeView.XOffset, 0);
@@ -328,16 +336,20 @@ _debugFn = debugOut ?? ((s) => { });
                 // );
 
                 await JTF.SwitchToMainThreadAsync();
+                if (!JTF.Context.IsOnMainThread)
+                    if (JTF.Context.IsMainThreadBlocked())
+                    {
+                    }
 
-                
                 codeView.CustomTextSource = src;
                 _debugFn?.Invoke("Return from await inner update");
 
                 codeView.PerformingUpdate = false;
                 codeView.InitialUpdate = false;
-                codeView.RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderCompleteEvent, this));
+                codeView.RaiseEvent(new RoutedEventArgs(RenderCompleteEvent, this));
                 codeView.Status = CodeControlStatus.Rendered;
-              
+                codeView.InsertionPoint = 0;
+                codeView.InsertionLineNode = codeView.FindLine(0);
             }
         }
 
@@ -363,28 +375,70 @@ _debugFn = debugOut ?? ((s) => { });
                 MaxY = maxY;
                 var maxX = Math.Max(MaxX, uiRect.Right);
                 MaxX = maxX;
-               
+
 
                 var boundsLeft = Math.Min(TextDestination.Bounds.Left, 0);
-                    boundsLeft -= 3;
-                    var boundsTop = Math.Min(TextDestination.Bounds.Top, 0);
-                    boundsTop -= 3;
+                boundsLeft -= 3;
+                var boundsTop = Math.Min(TextDestination.Bounds.Top, 0);
+                boundsTop -= 3;
 
-                    var width = maxX - boundsLeft;
-                    var height = maxY - boundsTop;
-                    DrawingBrush.Viewbox = DrawingBrushViewbox =
-                        new Rect(boundsLeft, boundsTop, width, height);
+                var width = maxX - boundsLeft;
+                var height = maxY - boundsTop;
+                DrawingBrush.Viewbox = DrawingBrushViewbox =
+                    new Rect(boundsLeft, boundsTop, width, height);
 
-                    if (Rectangle == null) continue;
-                    Rectangle.Width = width;
-                    Rectangle.Height = height;
-                
+                if (Rectangle == null) continue;
+                Rectangle.Width = width;
+                Rectangle.Height = height;
+
+                LinkedListNode<LineInfo2> llNode = null;
+
+                var lineInfo2 = ui.LineInfo;
+                var li0 = FindLine(lineInfo2.LineNumber, InsertionLineNode);
+                if (li0 == null)
+                {
+                    li0 = FindLine(lineInfo2.LineNumber - 1);
+                    if (li0 != null)
+                    {
+                        llNode = LineInfos2.AddAfter(li0, lineInfo2);
+                    }
+                    else
+                    {
+                        if (LineInfos2.Any()) throw new InvalidOperationException();
+                        llNode = LineInfos2.AddFirst(lineInfo2);
+                    }
+                }
+                else
+                {
+                    // if (Equals(roslynCodeControl1.LineInfos2.First, li0))
+                    // roslynCodeControl1.OnPropertyChanged(nameof(FirstLine));
+                    li0.Value = lineInfo2;
+                    // roslynCodeControl1.OnPropertyChanged(nameof(InsertionLine));
+                    llNode = li0;
+                }
             }
         }
 
-        public Rectangle Rectangle { get; set; }
+        public virtual LinkedList<LineInfo2> LineInfos2 { get; } = new LinkedList<LineInfo2>();
+
+
+        /// <inheritdoc />
+        public virtual LineInfo2 InsertionLine { get; } = null;
+
+        public virtual Rectangle Rectangle { get; set; }
 
         public virtual DrawingGroup TextDestination { get; set; }
         public string DocumentTitle { get; set; }
+        public virtual LinkedListNode<LineInfo2> InsertionLineNode { get; set; }
+
+        public virtual LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null)
+        {
+            var li0 = startNode ?? LineInfos2.First;
+            for (; li0 != null; li0 = li0.Next)
+                if (li0.Value.LineNumber == lineNo)
+                    return li0;
+
+            return null;
+        }
     }
 }

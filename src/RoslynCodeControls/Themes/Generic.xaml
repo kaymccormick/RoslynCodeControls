@@ -211,6 +211,7 @@
     </Style>
 
     <local:VisibilityToBooleanConverter x:Key="B" />
+    <BooleanToVisibilityConverter x:Key="B2" />
     <Style TargetType="{x:Type local:EnhancedCodeControl}">
         <Setter Property="Template">
             <Setter.Value>
@@ -234,13 +235,14 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="5*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Menu Grid.Row="0">
+                            <Menu Grid.Row="0" Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
                                 <MenuItem Header="_Toolbars">
                                     <MenuItem IsCheckable="True" Header="Character _Movement"
                                               IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
@@ -248,7 +250,7 @@
                                               IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
                                 </MenuItem>
                             </Menu>
-                            <ToolBarTray Grid.Row="1">
+                            <ToolBarTray Grid.Row="1"  Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
                                 <ToolBar Band="1" BandIndex="1" x:Name="CharacterMovementToolbar">
                                     <Button FontSize="24" Command="MoveLeftByCharacter"
                                             CommandTarget="{x:Reference CodeControl}">
@@ -312,12 +314,20 @@
                                                      SyntaxNode="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SyntaxNode,Mode=TwoWay}"
                                                      SemanticModel="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SemanticModel,Mode=TwoWay}"
                                                      x:Name="CodeControl" />
-                            <StackPanel Grid.Row="3" Grid.Column="2">
-                                <TextBlock Text="{Binding ElementName=CodeControl,Path=EnclosingSymbol}" />
+                            <StackPanel Grid.Row="3" Grid.Column="0">
+                                <TextBlock Background="Aquamarine" Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.TypeInfo.Type,Converter={StaticResource SymbolInfoConverter}}" />
                             </StackPanel>
                             <StackPanel Background="DarkSeaGreen" Grid.Row="4" Grid.Column="0" Orientation="Horizontal"
                                         TextElement.FontSize="16">
+                                <TextBlock Margin="15,0,0,0" Text="Enclosing Symbol" />
+                                <TextBlock Background="Aquamarine" Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.EnclosingSymbol,Converter={StaticResource SymbolInfoConverter}}" />
+                                <TextBlock Background="BlueViolet" Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.EnclosingSymbol,Converter={StaticResource SymbolInfoConverter},ConverterParameter=kind}" />
+                                </StackPanel>
+                            <StackPanel Background="DarkSeaGreen" Grid.Row="5" Grid.Column="0" Orientation="Horizontal"
+                                        TextElement.FontSize="16">
+
                                 <TextBlock Margin="15,0,0,0" Text="HoverOffset" />
+
                                 <TextBlock Margin="5,0,0,0" Text="{Binding HoverOffset}" />
                                 <TextBlock Text=" ( " />
                                 <TextBlock Text="{Binding HoverColumn}" />
@@ -338,13 +348,13 @@
                                     <TextBlock Text="{Binding HoverSymbol}" />
                                 </StackPanel>
                             </StackPanel>
-                            <StackPanel Background="DarkSeaGreen" Orientation="Horizontal" Grid.Row="5" Grid.Column="0"
+                            <StackPanel Background="DarkSeaGreen" Orientation="Horizontal" Grid.Row="6" Grid.Column="0"
                                         TextElement.FontSize="16">
                                 <TextBlock
                                     Text="{Binding HoverRegionInfo.Trivia,Converter={StaticResource SyntaxTriviaConverter}}" />
                                 <TextBlock Text="{Binding HoverRegionInfo.TriviaValue.HasStructure}" />
                             </StackPanel>
-                            <StackPanel Background="DarkSeaGreen" Orientation="Horizontal" Grid.Row="6" Grid.Column="0"
+                            <StackPanel Background="DarkSeaGreen" Orientation="Horizontal" Grid.Row="7" Grid.Column="0"
                                         TextElement.FontSize="16">
                                 <StackPanel.Resources>
                                     <DataTemplate DataType="{x:Type local:SyntaxTokenTextCharacters}">

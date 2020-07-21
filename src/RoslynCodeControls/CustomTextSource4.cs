@@ -1,16 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
-using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -81,13 +78,9 @@ namespace RoslynCodeControls
                 {
                     var child = Node.ChildThatContainsPosition(lineInfoOffset);
                     if (child.SpanStart > lineInfoOffset)
-                    {
-                        
                         if (child.HasLeadingTrivia)
                             foreach (var syntaxTrivia in child.GetLeadingTrivia())
                                 yield return new SyntaxInfo(syntaxTrivia, Node);
-                        
-                    }
 
                     token1 = child.IsToken ? child.AsToken() : child.AsNode().GetFirstToken();
                 }
@@ -206,144 +199,148 @@ namespace RoslynCodeControls
             // try
 
             // {
-                _charIndex = textSourceCharacterIndex;
-                _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
+            _charIndex = textSourceCharacterIndex;
+            _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
 
-                if (textSourceCharacterIndex == 0)
-                {
-                    Runs.Clear();
-                    SyntaxInfos = GetSyntaxInfos().GetEnumerator();
-                    if (!SyntaxInfos.MoveNext())
-                    {
-                        var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
-                        Runs.Add(endOfParagraph);
-                        return endOfParagraph;
-                    }
-                }
-                else
-                {
-                    Runs = Runs.Where(r =>
-                    {
-                        switch (r)
-                        {
-                            case CustomTextEndOfLine customTextEndOfLine:
-                                return customTextEndOfLine.Index.Value + customTextEndOfLine.Length <
-                                       textSourceCharacterIndex;
-                            case CustomTextEndOfParagraph customTextEndOfParagraph:
-                                return customTextEndOfParagraph.Index.Value + customTextEndOfParagraph.Length <
-                                       textSourceCharacterIndex;
-
-                            case SyntaxTokenTextCharacters syntaxTokenTextCharacters:
-                                return syntaxTokenTextCharacters.Index.Value + syntaxTokenTextCharacters.Length <
-                                       textSourceCharacterIndex;
-
-                            case SyntaxTriviaTextCharacters syntaxTriviaTextCharacters:
-                                return syntaxTriviaTextCharacters.Index.Value + syntaxTriviaTextCharacters.Length <
-                                       textSourceCharacterIndex;
-                            case CustomTextCharacters customTextCharacters:
-                                return customTextCharacters.Index.Value + customTextCharacters.Length <
-                                       textSourceCharacterIndex;
-                                ;
-
-                        }
-
-                        return false;
-                    }).ToList();
-                }
-
-                var si = SyntaxInfos.Current;
-                if (si == null)
+            if (textSourceCharacterIndex == 0)
+            {
+#if DEBUG
+                _debugFn?.Invoke($"Clearing runs because at beginning of text source");
+#endif
+                Runs.Clear();
+                SyntaxInfos = GetSyntaxInfos().GetEnumerator();
+                if (!SyntaxInfos.MoveNext())
                 {
                     var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
                     Runs.Add(endOfParagraph);
                     return endOfParagraph;
                 }
+            }
+            else
+            {
+                foreach (var textRun in Runs) _debugFn?.Invoke("    " + textRun.ToString());
 
-                // ReSharper disable once PossibleNullReferenceException
-                while (si.Span1.End <= textSourceCharacterIndex || si.Text.Length == 0)
+                Runs = Runs.Where(r =>
                 {
-                    if (!SyntaxInfos.MoveNext())
+                    switch (r)
                     {
-                        if (textSourceCharacterIndex < Length)
-                        {
-                            var len = Length - textSourceCharacterIndex;
-                            var buf = new char[len];
-                            Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
-                            if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
-                            var t = string.Join("", buf);
-                            var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
-                                {Index = textSourceCharacterIndex};
-                            Runs.Add(customTextCharacters);
-                            return customTextCharacters;
-                        }
+                        case CustomTextEndOfLine customTextEndOfLine:
+                            return customTextEndOfLine.Index.Value + customTextEndOfLine.Length <
+                                   textSourceCharacterIndex;
+                        case CustomTextEndOfParagraph customTextEndOfParagraph:
+                            return customTextEndOfParagraph.Index.Value + customTextEndOfParagraph.Length <
+                                   textSourceCharacterIndex;
 
-                        var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
-                        Runs.Add(endOfParagraph);
-                        return endOfParagraph;
+                        case SyntaxTokenTextCharacters syntaxTokenTextCharacters:
+                            return syntaxTokenTextCharacters.Index.Value + syntaxTokenTextCharacters.Length <
+                                   textSourceCharacterIndex;
+
+                        case SyntaxTriviaTextCharacters syntaxTriviaTextCharacters:
+                            return syntaxTriviaTextCharacters.Index.Value + syntaxTriviaTextCharacters.Length <
+                                   textSourceCharacterIndex;
+                        case CustomTextCharacters customTextCharacters:
+                            return customTextCharacters.Index.Value + customTextCharacters.Length <
+                                   textSourceCharacterIndex;
+                            ;
                     }
 
-                    // _prev = si;
-                    si = SyntaxInfos.Current;
-                }
+                    return false;
+                }).ToList();
+            }
 
-                if (textSourceCharacterIndex < si.Span1.Start)
+            var si = SyntaxInfos.Current;
+            if (si == null)
+            {
+                var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
+                Runs.Add(endOfParagraph);
+                return endOfParagraph;
+            }
+
+            // ReSharper disable once PossibleNullReferenceException
+            while (si.Span1.End <= textSourceCharacterIndex || si.Text.Length == 0)
+            {
+                if (!SyntaxInfos.MoveNext())
                 {
-                    var len = si.Span1.Start - textSourceCharacterIndex;
-                    var buf = new char[len];
-                    Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
-                    if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
-                    var t = string.Join("", buf);
-                    var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
-                        {Index = textSourceCharacterIndex};
-                    Runs.Add(customTextCharacters);
-                    return customTextCharacters;
+                    if (textSourceCharacterIndex < Length)
+                    {
+                        var len = Length - textSourceCharacterIndex;
+                        var buf = new char[len];
+                        Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
+                        if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
+                        var t = string.Join("", buf);
+                        var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
+                            {Index = textSourceCharacterIndex};
+                        Runs.Add(customTextCharacters);
+                        return customTextCharacters;
+                    }
+
+                    var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
+                    Runs.Add(endOfParagraph);
+                    return endOfParagraph;
                 }
 
                 // _prev = si;
+                si = SyntaxInfos.Current;
+            }
 
-                if (si.SyntaxTrivia.HasValue)
+            if (textSourceCharacterIndex < si.Span1.Start)
+            {
+                var len = si.Span1.Start - textSourceCharacterIndex;
+                var buf = new char[len];
+                Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
+                if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
+                var t = string.Join("", buf);
+                var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
+                    {Index = textSourceCharacterIndex};
+                Runs.Add(customTextCharacters);
+                return customTextCharacters;
+            }
+
+            // _prev = si;
+
+            if (si.SyntaxTrivia.HasValue)
+            {
+                var syntaxKind = CSharpExtensions.Kind(si.SyntaxTrivia.Value);
+                if (syntaxKind == SyntaxKind.EndOfLineTrivia || syntaxKind == SyntaxKind.XmlTextLiteralNewLineToken)
                 {
-                    var syntaxKind = CSharpExtensions.Kind(si.SyntaxTrivia.Value);
-                    if (syntaxKind == SyntaxKind.EndOfLineTrivia || syntaxKind == SyntaxKind.XmlTextLiteralNewLineToken)
-                    {
-                        var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
-                        Runs.Add(customTextEndOfLine);
-                        return customTextEndOfLine;
-                    }
-
-                    var p = PropsFor(si.SyntaxTrivia.Value, si.Text);
-                    var syntaxTriviaTextCharacters = new SyntaxTriviaTextCharacters(si.Text, p, si.Span1,
-                            si.SyntaxTrivia.Value, si.Node, si.Token, si.TriviaPosition, si.StructuredTrivia)
-                        {Index = si.Span1.Start};
-                    Runs.Add(syntaxTriviaTextCharacters);
-                    return syntaxTriviaTextCharacters;
-                }
-                else if (si.SyntaxToken.HasValue)
-                {
-                    if (CSharpExtensions.Kind(si.SyntaxToken.Value) == SyntaxKind.XmlTextLiteralNewLineToken)
-                    {
-                        var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
-                        Runs.Add(customTextEndOfLine);
-                        return customTextEndOfLine;
-                    }
-
-                    var syntaxTokenTextCharacters = new SyntaxTokenTextCharacters(si.Text, si.Text.Length,
-                        PropsFor(si.SyntaxToken.Value, si.Text),
-                        si.SyntaxToken.Value, si.SyntaxToken.Value.Parent) {Index = si.Span1.Start};
-                    Runs.Add(syntaxTokenTextCharacters);
-                    return syntaxTokenTextCharacters;
+                    var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
+                    Runs.Add(customTextEndOfLine);
+                    return customTextEndOfLine;
                 }
 
-                var textEndOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
-                Runs.Add(textEndOfParagraph);
-                return textEndOfParagraph;
+                var p = PropsFor(si.SyntaxTrivia.Value, si.Text);
+                var syntaxTriviaTextCharacters = new SyntaxTriviaTextCharacters(si.Text, p, si.Span1,
+                        si.SyntaxTrivia.Value, si.Node, si.Token, si.TriviaPosition, si.StructuredTrivia)
+                    {Index = si.Span1.Start};
+                Runs.Add(syntaxTriviaTextCharacters);
+                return syntaxTriviaTextCharacters;
+            }
+            else if (si.SyntaxToken.HasValue)
+            {
+                if (CSharpExtensions.Kind(si.SyntaxToken.Value) == SyntaxKind.XmlTextLiteralNewLineToken)
+                {
+                    var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
+                    Runs.Add(customTextEndOfLine);
+                    return customTextEndOfLine;
+                }
+
+                var syntaxTokenTextCharacters = new SyntaxTokenTextCharacters(si.Text, si.Text.Length,
+                    PropsFor(si.SyntaxToken.Value, si.Text),
+                    si.SyntaxToken.Value, si.SyntaxToken.Value.Parent) {Index = si.Span1.Start};
+                Runs.Add(syntaxTokenTextCharacters);
+                return syntaxTokenTextCharacters;
+            }
+
+            var textEndOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
+            Runs.Add(textEndOfParagraph);
+            return textEndOfParagraph;
             // }
             // catch (Exception ex)
             // {
-                // _debugFn?.Invoke(ex.ToString());
-                // var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index = textSourceCharacterIndex };
-                // Runs.Add(textEndOfParagraph);
-                // return textEndOfParagraph;
+            // _debugFn?.Invoke(ex.ToString());
+            // var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index = textSourceCharacterIndex };
+            // Runs.Add(textEndOfParagraph);
+            // return textEndOfParagraph;
             // }
 #if false
             Debug.WriteLine($"index: {textSourceCharacterIndex}");
@@ -581,9 +578,10 @@ namespace RoslynCodeControls
 #endif
             if (syntaxKind == SyntaxKind.SingleLineCommentTrivia || syntaxKind == SyntaxKind.MultiLineCommentTrivia)
                 return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.YellowGreen);
-            
 
-            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.YellowGreen); ;
+
+            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.YellowGreen);
+            ;
         }
 
 
@@ -728,7 +726,7 @@ namespace RoslynCodeControls
                 {
                     var pt = zz.ParentTrivia;
                     var syntaxKind1 = CSharpExtensions.Kind(pt);
-                    
+
 
                     // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
                     switch (syntaxKind1)
@@ -743,7 +741,7 @@ namespace RoslynCodeControls
                         case SyntaxKind.MultiLineDocumentationCommentTrivia:
                         case SyntaxKind.DisabledTextTrivia:
 
-                            return new GenericTextRunProperties(CurrentRendering,PixelsPerDip,Brushes.SlateGray);
+                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.SlateGray);
                             break;
                         case SyntaxKind.DocumentationCommentExteriorTrivia:
                             return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
@@ -751,7 +749,7 @@ namespace RoslynCodeControls
                         case SyntaxKind.PreprocessingMessageTrivia:
                             break;
                         case SyntaxKind.IfDirectiveTrivia:
-                       
+
                         case SyntaxKind.ElifDirectiveTrivia:
                         case SyntaxKind.ElseDirectiveTrivia:
                         case SyntaxKind.EndIfDirectiveTrivia:
@@ -781,23 +779,15 @@ namespace RoslynCodeControls
                 }
 
                 if (SyntaxFacts.IsPredefinedType(kind))
-                {
-
                     return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Gold);
-                    // pp.SetForegroundBrush(Brushes.Gold);
-                }
+                // pp.SetForegroundBrush(Brushes.Gold);
                 else if (SyntaxFacts.IsKeywordKind(kind))
-                {
-
                     return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.CornflowerBlue);
-                    // pp.SetForegroundBrush(Brushes.CornflowerBlue);
-                    // return pp;
-                }
+                // pp.SetForegroundBrush(Brushes.CornflowerBlue);
+                // return pp;
                 else if (SyntaxFacts.IsLiteralExpression(kind))
-                {
                     return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Brown,
                         FontStyles.Italic);
-                }
 
 #if DEBUGTEXTSOURCE
 Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
@@ -812,15 +802,14 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
                         return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
 
                     else if (SyntaxFacts.IsKeywordKind(kind))
-                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, null, FontStyles.Italic);
-
+                        return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, null, FontStyles.Italic);
                 }
             }
 
             // pp.SyntaxToken = trivia;
             // pp.Text = text;
 
-            return new GenericTextRunProperties(CurrentRendering,PixelsPerDip);
+            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip);
         }
 
         /// <summary>
@@ -839,7 +828,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 
             return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Fuchsia);
 
-            
+
             // pp.SetBackgroundBrush(Brushes.Black);
             // return pp;
         }
@@ -854,7 +843,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 
         private SyntaxTree _tree;
         // private SourceText _text;
-        
+
         private IEnumerator<SyntaxInfo> _syntaxInfos;
         private GenericTextRunProperties _baseProps;
         private readonly Action<string> _debugFn;
@@ -1018,7 +1007,6 @@ var chL = newTree.GetChangedSpans(Tree);
             Length = newText.Length;
             Node = syntaxNode;
             return change;
-
         }
 
         public async Task<TextChange> TextInputAsync(int insertionPoint, InputRequest inputRequest, int lineInfoOffset)

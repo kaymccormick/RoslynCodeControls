@@ -16,6 +16,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.VisualStudio.Threading;
+using Microsoft.Win32;
 using RoslynCodeControls;
 
 namespace WpfTestApp
@@ -112,13 +113,13 @@ namespace WpfTestApp
         private async void FontComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CodeControl.FontFamily = (FontFamily) FontComboBox.SelectedItem;
-            await CodeControl.UpdateTextSourceAsync();
+            // await CodeControl.UpdateTextSourceAsync();
         }
 
         private async void FontSizeCombo_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             CodeControl.FontSize = (double) FontSizeCombo.SelectedItem;
-            await CodeControl.UpdateTextSourceAsync();
+            // await CodeControl.UpdateTextSourceAsync();
         }
 
         private void OnExecutedHideToolBar(object sender, ExecutedRoutedEventArgs e)
@@ -129,6 +130,25 @@ namespace WpfTestApp
         private void CommandBinding_OnCanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             
+        }
+
+        private void OpenFile(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog d =  new OpenFileDialog();
+            d.Filter = "CSharp Source|*.cs";
+            if (!d.ShowDialog().GetValueOrDefault()) return;
+            CodeControl.Filename = d.FileName;
+            JTF.RunAsync(CodeControl.UpdateFormattedTextAsync);
+
+        }
+
+        private void PrintFile(object sender, RoutedEventArgs e)
+        {
+            PrintDialog d = new PrintDialog();
+            if (!d.ShowDialog().GetValueOrDefault())
+                return;
+            d.PrintDocument(CodeControl.CodeControl.DocumentPaginator, "code file");
+
         }
     }
 }

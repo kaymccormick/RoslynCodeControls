@@ -168,6 +168,7 @@ namespace RoslynCodeControls
                     pageEnd.Offset(mainUpdateParameters.PageSize.Value.Width,
                         mainUpdateParameters.PageSize.Value.Height);
 
+                LineInfo2 lineInfo;
                 using (var myTextLine = mainUpdateParameters.TextFormatter.FormatLine(customTextSource4,
                     textStorePosition, mainUpdateParameters.ParagraphWidth,
                     genericTextParagraphProperties,
@@ -178,8 +179,11 @@ namespace RoslynCodeControls
 #if DEBUGTEXTSOURCE
                     Debug.WriteLine("num runs for line is "  + nRuns);
 #endif
-                    HandleLine(allCharInfos, linePosition, myTextLine, customTextSource4, runCount, nRuns, lineNo, textStorePosition, runsInfos);
+                    HandleLine(allCharInfos, linePosition, myTextLine, customTextSource4, runCount, nRuns, lineNo, textStorePosition, runsInfos, mainUpdateParameters.DebugFn);
                     myTextLine.Draw(myDc, linePosition, InvertAxes.None);
+
+                    lineInfo = new LineInfo2(lineNo, allCharInfos.First, textStorePosition, linePosition, myTextLine.Height,
+                        myTextLine.Length);
                     linePosition.Y += myTextLine.Height;
                     lineNo++;
 
@@ -206,7 +210,11 @@ namespace RoslynCodeControls
 #else
                 myDc.Close();
                 myGroup.Freeze();
-                var curUi = new UpdateInfo(){DrawingGroup = myGroup, CharInfos = allCharInfos.ToList()};
+                var curUi = new UpdateInfo()
+                {
+                    DrawingGroup = myGroup, CharInfos = allCharInfos.ToList(),
+                    LineInfo = lineInfo
+                };
                 mainUpdateParameters.ChannelWriter.WriteAsync(curUi);
                 myGroup = new DrawingGroup();
                 myDc = myGroup.Open();
@@ -236,14 +244,15 @@ namespace RoslynCodeControls
 
         public static void HandleLine(LinkedList<CharInfo> allCharInfos, Point linePosition, TextLine myTextLine,
             CustomTextSource4 customTextSource4, int runCount, int nRuns, int lineNo, int textStorePosition,
-            List<TextRunInfo> runsInfos, TextChange? change = null,
-            LineInfo2 curLineInfo=null)
+            List<TextRunInfo> runsInfos, Action<string> debugFn=null, TextChange? change = null,
+            LineInfo2 curLineInfo = null)
         {
             var curPos = linePosition;
             // var positions = new List<Rect>();
             var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
 
             var textRuns = customTextSource4.Runs.Skip(runCount).Take(nRuns);
+
             using (var enum1 = textRuns.GetEnumerator())
             {
                 enum1.MoveNext();
@@ -291,7 +300,10 @@ namespace RoslynCodeControls
                         }
 
                         var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
-                        runsInfos?.Add(new TextRunInfo(enum1.Current, item));
+                        var enum1Current = enum1.Current;
+                        var textRunInfo = new TextRunInfo(enum1Current, item);
+                        debugFn?.Invoke(textRunInfo.ToString());
+                        runsInfos?.Add(textRunInfo);
 
                         curPos.X += advanceSum;
                         enum1.MoveNext();

@@ -46,7 +46,7 @@ namespace RoslynCodeControls
                 if (symbol is INamedTypeSymbol s) return s.OriginalDefinition;
             }
 
-            return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             
         }
 

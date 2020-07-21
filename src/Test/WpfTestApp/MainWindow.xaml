@@ -632,6 +632,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open File" Click="OpenFile"/>
+
+                <MenuItem Header="_Print" Click="PrintFile"/>
+            </MenuItem>
+
             <MenuItem Header="_Toolbars">
                 <MenuItem IsCheckable="True" Header="Character _Movement" IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
                 <MenuItem IsCheckable="True" Header="_Font Style" IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
@@ -698,7 +704,7 @@
             </ToolBar>
         </ToolBarTray>
         <Border Grid.Row="2">
-            <roslynCodeControls:RoslynCodeControl FontSize="20" xml:space="preserve"
+            <roslynCodeControls:EnhancedCodeControl EnableToolBars="False"  FontSize="20" xml:space="preserve"
                                                   x:Name="CodeControl" />
         </Border>
         <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="18" DataContext="{Binding ElementName=CodeControl}">

@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -11,6 +12,7 @@ using System.Windows.Media;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.VisualStudio.Threading;
 
 namespace RoslynCodeControls
 {
@@ -183,6 +185,8 @@ namespace RoslynCodeControls
 
         private ComboBox _fontCombo;
         private ComboBox _fontSizeCombo;
+        private JoinableTaskFactory _jtf2;
+        public static readonly DependencyProperty EnableToolBarsProperty = DependencyProperty.Register("EnableToolBars", typeof(bool), typeof(EnhancedCodeControl), new PropertyMetadata(default(bool)));
 
         public RoslynCodeControl CodeControl
         {
@@ -220,12 +224,33 @@ namespace RoslynCodeControls
             }
         }
 
+        public JoinableTaskFactory JTF2
+        {
+            get { return _jtf2; }
+            set
+            {
+                _jtf2 = value;
+                CodeControl.JTF2 = value;
+            }
+        }
+
+        public bool EnableToolBars
+        {
+            get { return (bool) GetValue(EnableToolBarsProperty); }
+            set { SetValue(EnableToolBarsProperty, value); }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        public async Task UpdateFormattedTextAsync()
+        {
+            await CodeControl.UpdateFormattedTextAsync();
         }
     }
 }
