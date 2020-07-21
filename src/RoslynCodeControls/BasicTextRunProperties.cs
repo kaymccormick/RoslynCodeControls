@@ -5,10 +5,73 @@ using System.Windows.Media.TextFormatting;
 
 namespace RoslynCodeControls
 {
+    public class VeryBasicTextRunProperties : TextRunProperties
+    {
+        private TextRunProperties _textRunPropertiesImplementation;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="baseProps"></param>
+        public VeryBasicTextRunProperties(TextRunProperties baseProps)
+        {
+            _textRunPropertiesImplementation = baseProps;
+
+        }
+
+        /// <inheritdoc />
+        public override Brush BackgroundBrush
+        {
+            get { return _textRunPropertiesImplementation.BackgroundBrush; }
+        }
+
+        /// <inheritdoc />
+        public override CultureInfo CultureInfo
+        {
+            get { return _textRunPropertiesImplementation.CultureInfo; }
+        }
+
+        /// <inheritdoc />
+        public override double FontHintingEmSize
+        {
+            get { return _textRunPropertiesImplementation.FontHintingEmSize; }
+        }
+
+        /// <inheritdoc />
+        public override double FontRenderingEmSize
+        {
+            get { return _textRunPropertiesImplementation.FontRenderingEmSize; }
+        }
+
+        /// <inheritdoc />
+        public override Brush ForegroundBrush
+        {
+            get { return _textRunPropertiesImplementation.ForegroundBrush; }
+        }
+
+        /// <inheritdoc />
+        public override TextDecorationCollection TextDecorations
+        {
+            get { return _textRunPropertiesImplementation.TextDecorations; }
+        }
+
+        /// <inheritdoc />
+        public override TextEffectCollection TextEffects
+        {
+            get { return _textRunPropertiesImplementation.TextEffects; }
+        }
+
+        /// <inheritdoc />
+        public override Typeface Typeface
+        {
+            get { return _textRunPropertiesImplementation.Typeface; }
+        }
+    }
+
     /// <summary>
     /// 
     /// </summary>
-    public class BasicTextRunProperties : TextRunProperties
+    public class BasicTextRunProperties : VeryBasicTextRunProperties
     {
         private readonly TextRunProperties _baseProps;
         private Brush _backgroundBrush;
@@ -23,7 +86,7 @@ namespace RoslynCodeControls
         /// 
         /// </summary>
         /// <param name="baseProps"></param>
-        public BasicTextRunProperties(TextRunProperties baseProps)
+        public BasicTextRunProperties(TextRunProperties baseProps) : base(baseProps)
         {
             _baseProps = baseProps;
         }

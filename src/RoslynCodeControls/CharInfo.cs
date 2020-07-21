@@ -4,12 +4,12 @@ namespace RoslynCodeControls
     public class CharInfo
     {
         public int LineIndex { get; }
-        public int RunIndex { get; }
-        public char Character { get; }
-        public double AdvanceWidth { get; }
+        public int RunIndex { get; set; }
+        public char Character { get; set; }
+        public double AdvanceWidth { get; set; }
         public bool? CaretStop { get; }
-        public double XOrigin { get; }
-        public double YOrigin { get; }
+        public double XOrigin { get; set; }
+        public double YOrigin { get; set; }
         public int Index { get; set; }
         public int LineNumber { get; set; }
 

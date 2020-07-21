@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -19,6 +21,13 @@ using Xunit.Abstractions;
 
 namespace XUnitTestProject1
 {
+    class MyCompanyEventSource : EventSource
+    {
+        public static MyCompanyEventSource Log = new MyCompanyEventSource();
+
+        public void Startup() { WriteEvent(1); }
+        public void Timing(double timing) { WriteEvent(2, timing); }
+    }
     public class UnitTest1 : IClassFixture<MyFixture>
     {
         private readonly MyFixture _f;
@@ -26,7 +35,7 @@ namespace XUnitTestProject1
         private RoslynCodeControl _control;
         private Window _window;
         private RoslynCodeBase _control0;
-        private bool _closeWindow=true;
+        private bool _closeWindow = true;
 
         public UnitTest1(MyFixture f, ITestOutputHelper outputHelper)
         {
@@ -41,36 +50,45 @@ namespace XUnitTestProject1
         {
             // Action<string> debugOut = (s) => _f.Debugfn()
             // {
-                // _outputHelper.WriteLine(s);
-                // Debug.WriteLine(s);
+            // _outputHelper.WriteLine(s);
+            // Debug.WriteLine(s);
             // };
-            RoslynCodeControl c = new RoslynCodeControl(_f.Debugfn);
+            var c = new RoslynCodeControl(_f.Debugfn);
             _control = c;
             c.JTF2 = _f.JTF2;
             c.JTF = new JoinableTaskFactory(new JoinableTaskContext());
             c.SourceText = "";
-            
-            Window w = new Window();
+
+            var w = new Window();
             _window = w;
             w.Content = c;
             w.Loaded += OnWOnLoaded;
 
-            w.ShowDialog();
+            try
+            {
+                w.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                _f.Debugfn(ex.ToString());
+            }
+            Assert.False(true);
         }
-        [WpfFact]
+
+        // [WpfFact]
         public void Test6()
         {
             Action<string> debugOut = (s) => _outputHelper.WriteLine(s);
-            RoslynCodeControl c = new RoslynCodeControl(debugOut);
+            var c = new RoslynCodeControl(debugOut);
             _control0 = _control = c;
             c.JTF2 = _f.JTF2;
             c.JTF = new JoinableTaskFactory(new JoinableTaskContext());
             c.SourceText = File.ReadAllText(@"C:\temp\dockingmanager.cs");
 
-            Window w = new Window();
+            var w = new Window();
             _window = w;
             w.Content = c;
-            DateTime StartTime=DateTime.MinValue;
+            var StartTime = DateTime.MinValue;
             c.AddHandler(RoslynCodeBase.RenderStartEvent, new RoutedEventHandler((sender, args) =>
             {
                 StartTime = DateTime.Now;
@@ -87,7 +105,8 @@ namespace XUnitTestProject1
             _closeWindow = true;
             w.ShowDialog();
         }
-        [WpfFact]
+
+        // [WpfFact]
         public void Test7()
         {
             Action<string> debugOut = (s) => _outputHelper.WriteLine(s);
@@ -97,7 +116,7 @@ namespace XUnitTestProject1
             c.JTF = new JoinableTaskFactory(new JoinableTaskContext());
             c.SourceText = File.ReadAllText(@"C:\temp\dockingmanager.cs");
 
-            DateTime StartTime = DateTime.MinValue;
+            var StartTime = DateTime.MinValue;
             c.AddHandler(RoslynCodeBase.RenderStartEvent, new RoutedEventHandler((sender, args) =>
             {
                 StartTime = DateTime.Now;
@@ -110,40 +129,75 @@ namespace XUnitTestProject1
             }));
             c.JTF.Run(c.UpdateFormattedTextAsync);
             WriteDocument(c);
-
         }
+
         private async void OnWOnLoaded(object sender, RoutedEventArgs args)
         {
-            var code = File.ReadAllLines(@"C:\temp\program.cs");
+            EventSource e = new EventSource("Test1");
+            var cTempProgram0Cs = @"C:\temp\program.cs";
+            var csFile = Environment.GetEnvironmentVariable("CSFILE");
+            if (csFile != null)
+            {
+                cTempProgram0Cs = csFile;
+            }
+            var code = File.ReadAllLines(cTempProgram0Cs);
             var c2 = _control;
             Debug.WriteLine("loaded");
+            List<TimeSpan> timings = new List<TimeSpan>();
+            List<double> avgs = new List<double>();
             await c2.UpdateFormattedTextAsync();
             // var success2 = await c2.DoInputAsync(new InputRequest(InputRequestKind.NewLine));
+            var now0 = DateTime.Now;
             foreach (var s in code)
             {
                 foreach (var ch in s)
                 {
+                    // if (now0 + new TimeSpan(0, 1, 0) < DateTime.Now)
+                    // {
+                        // _window.Close();
+                        // return;
+                    // }
+                    _f.Debugfn("" + ch + " insertion point is " + c2.InsertionPoint);
+                    var now1 = DateTime.Now;
+                    var success = await c2.DoInputAsync(new InputRequest(InputRequestKind.TextInput, ch.ToString()));
+                    var successRenderRequestTimestamp = success.RenderRequestTimestamp - now1;
+                    var postUpdateTimestamp = success.PostUpdateTimestamp - now1;
+                    var completedTimestamp = success.Timestamp - now1;
+                    _f.Debugfn(successRenderRequestTimestamp.ToString());
+                    _f.Debugfn(postUpdateTimestamp.ToString());
+                    _f.Debugfn(completedTimestamp.ToString());
+                    var elapsed = DateTime.Now - now1;
+                    
+                    timings.Add(elapsed);
+                    _f.Debugfn("took " + elapsed);
 
-                    Debug.WriteLine("" + ch + " insertion point is " +c2.InsertionPoint);
-            var success = await c2.DoInputAsync(new InputRequest(InputRequestKind.TextInput, ch.ToString()));
-            // Debug.WriteLine("Success is " + success);
+                    if (timings.Count % 20 == 1)
+                    {
+                        var avg = timings.Average(span => span.TotalMilliseconds);
+                        var averageIs = "Average is " + avg;
+                        _outputHelper.WriteLine(averageIs);
+                        MyCompanyEventSource.Log.Timing(avg);
+                        avgs.Add(avg);
+                    }
 
-            // Debug.WriteLine("viewbox " + c2.DrawingBrushViewbox);
-            var l = c2.InsertionLine;
-            var ci = l.FirstCharInfo;
-            var i = 0;
-            while (ci != null)
-            {
+                    // Debug.WriteLine("Success is " + success);
 
+                    // Debug.WriteLine("viewbox " + c2.DrawingBrushViewbox);
+
+#if HEAVYDEBUG
+var l = c2.InsertionLine;
+                    var ci = l.FirstCharInfo;
+                    var i = 0;
+                    while (ci != null)
+                    {
                         _f.Debugfn($"Char[{i}] {ci.Value}");
                         ci = ci.Next;
                         i++;
-            }
-            // break;
-
+                    }
+#endif
+                    // break;
                 }
 
-                
                 await c2.DoInputAsync(new InputRequest(InputRequestKind.NewLine));
             }
             // var bmptmp = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgr24, null, new byte[3] { 0, 0, 0 }, 3);
@@ -166,20 +220,19 @@ namespace XUnitTestProject1
             // {
             // pngImage.Save(fileStream);
             // }
-            
-            if(_closeWindow)
-            _window.Close();
 
+            if (_closeWindow)
+                _window.Close();
         }
+
         private async void OnWOnLoaded2(object sender, RoutedEventArgs args)
         {
             var c2 = _control0;
-             await c2.UpdateFormattedTextAsync();
+            await c2.UpdateFormattedTextAsync();
 
-             WriteDocument(c2);
-             if(_closeWindow)
-                 _window.Close();
-
+            WriteDocument(c2);
+            if (_closeWindow)
+                _window.Close();
         }
 
         // [WpfFact]
@@ -212,10 +265,7 @@ namespace XUnitTestProject1
         private static void WriteDocument(RoslynCodeBase b)
         {
             var bDocumentPaginator = b.DocumentPaginator;
-            if (bDocumentPaginator == null)
-            {
-                throw new InvalidOperationException("No paginator");
-            }
+            if (bDocumentPaginator == null) throw new InvalidOperationException("No paginator");
             // var dg = new PrintDialog();
             // dg.PrintDocument(bDocumentPaginator, "");
             var cTempDoc12Xps = @"c:\temp\doc12.xps";
@@ -297,47 +347,6 @@ namespace XUnitTestProject1
             var updateFormattedTextAsync = c.UpdateFormattedTextAsync();
             await updateFormattedTextAsync;
             return b;
-        }
-    }
-
-    public class MyFixture : IAsyncLifetime
-    {
-        private ITestOutputHelper _outputHelper;
-
-        /// <inheritdoc />
-        public async Task InitializeAsync()
-        {
-            var mevent = new ManualResetEvent(false);
-            var startSecondaryThread = RoslynCodeControl.StartSecondaryThread(mevent, (d) => { });
-            // var joinableTaskFactory = new JoinableTaskFactory(new JoinableTaskContext());
-            
-            await mevent.ToTask();
-            var d = Dispatcher.FromThread(startSecondaryThread);
-            var jtf2 = new JoinableTaskFactory(new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
-                new DispatcherSynchronizationContext(d)));
-            this.JTF2 = jtf2;
-
-        }
-
-        public void Debugfn(string msg)
-        {
-            var newmsg = Thread.CurrentThread.ManagedThreadId + ": " + Task.CurrentId + ": " + msg;
-            Debug.WriteLine(newmsg);
-            _outputHelper.WriteLine(newmsg);
-        }
-
-        public JoinableTaskFactory JTF2 { get; set; }
-
-        public ITestOutputHelper OutputHelper
-        {
-            get { return _outputHelper; }
-            set { _outputHelper = value; }
-        }
-
-        /// <inheritdoc />
-        public Task DisposeAsync()
-        {
-            return Task.CompletedTask;
         }
     }
 }

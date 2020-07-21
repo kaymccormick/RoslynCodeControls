@@ -19,13 +19,17 @@ namespace RoslynCodeControls
 
         public InputRequest(InputRequestKind kind, string text)
         {
+            Timestamp = DateTime.Now;
             Kind = kind;
             _text = text;
         }
 
+        public DateTime Timestamp { get;  }
+
         public InputRequest(InputRequestKind kind)
         {
             Kind = kind;
+            Timestamp = DateTime.Now;
         }
         public override string ToString()
         {

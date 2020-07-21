@@ -18,6 +18,7 @@ using CSharpExtensions = Microsoft.CodeAnalysis.CSharp.CSharpExtensions;
 using SyntaxFacts = Microsoft.CodeAnalysis.CSharp.SyntaxFacts;
 using SyntaxKind = Microsoft.CodeAnalysis.CSharp.SyntaxKind;
 using TextChange = Microsoft.CodeAnalysis.Text.TextChange;
+
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Local
 #pragma warning disable 162
@@ -40,16 +41,13 @@ namespace RoslynCodeControls
         public CustomTextSource4(double pixelsPerDip, FontRendering fontRendering,
             GenericTextRunProperties genericTextRunProperties, Action<string> debugFn)
         {
-            Dispatcher = Dispatcher.CurrentDispatcher;
             PixelsPerDip = pixelsPerDip;
 
             // Rendering = fontRendering;
             _baseProps = genericTextRunProperties;
             _debugFn = debugFn;
-            _prev = null;
         }
 
-        public Dispatcher Dispatcher { get; set; }
 
         /// <summary>
         /// 
@@ -59,26 +57,55 @@ namespace RoslynCodeControls
         /// <summary>
         /// 
         /// </summary>
-        public override int Length
+        public override int Length { get; protected set; }
+        // {
+        // get { return _length; }
+        // protected set
+        // {
+        // if (value == _length) return;
+        // _length = value;
+        // OnPropertyChanged();
+        // }
+        // }
+
+        private IEnumerable<SyntaxInfo> GetSyntaxInfos(int lineInfoOffset = 0)
         {
-            get { return _length; }
-            protected set
+#if DEBUG
+            _debugFn?.Invoke($"{nameof(GetSyntaxInfos)} [{lineInfoOffset}]");
+#endif
+            SyntaxToken token1;
+            if (lineInfoOffset != 0)
             {
-                if (value == _length) return;
-                _length = value;
-                OnPropertyChanged();
+                if (lineInfoOffset < Length)
+                {
+                    var child = Node.ChildThatContainsPosition(lineInfoOffset);
+                    if (child.SpanStart > lineInfoOffset)
+                    {
+                        
+                        if (child.HasLeadingTrivia)
+                            foreach (var syntaxTrivia in child.GetLeadingTrivia())
+                                yield return new SyntaxInfo(syntaxTrivia, Node);
+                        
+                    }
+
+                    token1 = child.IsToken ? child.AsToken() : child.AsNode().GetFirstToken();
+                }
+                else
+                {
+                    yield break;
+                }
             }
-        }
+            else
+            {
+                if (Node == null)
+                    yield break;
+                if (Node.HasLeadingTrivia)
+                    foreach (var syntaxTrivia in Node.GetLeadingTrivia())
+                        yield return new SyntaxInfo(syntaxTrivia, Node);
+                token1 = Node.GetFirstToken();
+            }
 
-        private IEnumerable<SyntaxInfo> GetSyntaxInfos()
-        {
-            if (Node == null)
-                yield break;
-            if (Node.HasLeadingTrivia)
-                foreach (var syntaxTrivia in Node.GetLeadingTrivia())
-                    yield return new SyntaxInfo(syntaxTrivia, Node);
 
-            var token1 = Node.GetFirstToken();
             while (CSharpExtensions.Kind(token1) != SyntaxKind.None)
             {
                 if (CSharpExtensions.Kind(token1) == SyntaxKind.EndOfFileToken)
@@ -168,106 +195,117 @@ namespace RoslynCodeControls
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public override TextRun GetTextRun(int textSourceCharacterIndex)
         {
-            _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
-
-            if (textSourceCharacterIndex == 0)
+            try
             {
-                Runs.Clear();
-                SyntaxInfos = GetSyntaxInfos().GetEnumerator();
-                if (!SyntaxInfos.MoveNext())
+                _charIndex = textSourceCharacterIndex;
+                // _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
+
+                if (textSourceCharacterIndex == 0)
+                {
+                    Runs.Clear();
+                    SyntaxInfos = GetSyntaxInfos().GetEnumerator();
+                    if (!SyntaxInfos.MoveNext())
+                    {
+                        var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
+                        Runs.Add(endOfParagraph);
+                        return endOfParagraph;
+                    }
+                }
+
+                var si = SyntaxInfos.Current;
+                if (si == null)
                 {
                     var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
                     Runs.Add(endOfParagraph);
                     return endOfParagraph;
                 }
-            }
 
-            var si = SyntaxInfos.Current;
-            if (si == null)
-            {
-                var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
-                Runs.Add(endOfParagraph);
-                return endOfParagraph;
-            }
-
-            // ReSharper disable once PossibleNullReferenceException
-            while (si.Span1.End <= textSourceCharacterIndex || si.Text.Length == 0)
-            {
-                if (!SyntaxInfos.MoveNext())
+                // ReSharper disable once PossibleNullReferenceException
+                while (si.Span1.End <= textSourceCharacterIndex || si.Text.Length == 0)
                 {
-                    if (textSourceCharacterIndex < Length)
+                    if (!SyntaxInfos.MoveNext())
                     {
-                        var len = Length - textSourceCharacterIndex;
-                        var buf = new char[len];
-                        Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
-                        if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
-                        var t = string.Join("", buf);
-                        var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
-                            {Index = textSourceCharacterIndex};
-                        Runs.Add(customTextCharacters);
-                        return customTextCharacters;
+                        if (textSourceCharacterIndex < Length)
+                        {
+                            var len = Length - textSourceCharacterIndex;
+                            var buf = new char[len];
+                            Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
+                            if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
+                            var t = string.Join("", buf);
+                            var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
+                                {Index = textSourceCharacterIndex};
+                            Runs.Add(customTextCharacters);
+                            return customTextCharacters;
+                        }
+
+                        var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
+                        Runs.Add(endOfParagraph);
+                        return endOfParagraph;
                     }
 
-                    var endOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
-                    Runs.Add(endOfParagraph);
-                    return endOfParagraph;
+                    // _prev = si;
+                    si = SyntaxInfos.Current;
                 }
 
-                _prev = si;
-                si = SyntaxInfos.Current;
-            }
-
-            if (textSourceCharacterIndex < si.Span1.Start)
-            {
-                var len = si.Span1.Start - textSourceCharacterIndex;
-                var buf = new char[len];
-                Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
-                if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
-                var t = string.Join("", buf);
-                var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
-                    {Index = textSourceCharacterIndex};
-                Runs.Add(customTextCharacters);
-                return customTextCharacters;
-            }
-
-            _prev = si;
-
-            if (si.SyntaxTrivia.HasValue)
-            {
-                var syntaxKind = CSharpExtensions.Kind(si.SyntaxTrivia.Value);
-                if (syntaxKind == SyntaxKind.EndOfLineTrivia || syntaxKind == SyntaxKind.XmlTextLiteralNewLineToken)
+                if (textSourceCharacterIndex < si.Span1.Start)
                 {
-                    var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
-                    Runs.Add(customTextEndOfLine);
-                    return customTextEndOfLine;
+                    var len = si.Span1.Start - textSourceCharacterIndex;
+                    var buf = new char[len];
+                    Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
+                    if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
+                    var t = string.Join("", buf);
+                    var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
+                        {Index = textSourceCharacterIndex};
+                    Runs.Add(customTextCharacters);
+                    return customTextCharacters;
                 }
 
-                var p = PropsFor(si.SyntaxTrivia.Value, si.Text);
-                var syntaxTriviaTextCharacters = new SyntaxTriviaTextCharacters(si.Text, p, si.Span1,
-                        si.SyntaxTrivia.Value, si.Node, si.Token, si.TriviaPosition, si.StructuredTrivia)
-                    {Index = si.Span1.Start};
-                Runs.Add(syntaxTriviaTextCharacters);
-                return syntaxTriviaTextCharacters;
-            }
-            else if (si.SyntaxToken.HasValue)
-            {
-                if (CSharpExtensions.Kind(si.SyntaxToken.Value) == SyntaxKind.XmlTextLiteralNewLineToken)
+                // _prev = si;
+
+                if (si.SyntaxTrivia.HasValue)
                 {
-                    var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
-                    Runs.Add(customTextEndOfLine);
-                    return customTextEndOfLine;
+                    var syntaxKind = CSharpExtensions.Kind(si.SyntaxTrivia.Value);
+                    if (syntaxKind == SyntaxKind.EndOfLineTrivia || syntaxKind == SyntaxKind.XmlTextLiteralNewLineToken)
+                    {
+                        var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
+                        Runs.Add(customTextEndOfLine);
+                        return customTextEndOfLine;
+                    }
+
+                    var p = PropsFor(si.SyntaxTrivia.Value, si.Text);
+                    var syntaxTriviaTextCharacters = new SyntaxTriviaTextCharacters(si.Text, p, si.Span1,
+                            si.SyntaxTrivia.Value, si.Node, si.Token, si.TriviaPosition, si.StructuredTrivia)
+                        {Index = si.Span1.Start};
+                    Runs.Add(syntaxTriviaTextCharacters);
+                    return syntaxTriviaTextCharacters;
+                }
+                else if (si.SyntaxToken.HasValue)
+                {
+                    if (CSharpExtensions.Kind(si.SyntaxToken.Value) == SyntaxKind.XmlTextLiteralNewLineToken)
+                    {
+                        var customTextEndOfLine = new CustomTextEndOfLine(2) {Index = textSourceCharacterIndex};
+                        Runs.Add(customTextEndOfLine);
+                        return customTextEndOfLine;
+                    }
+
+                    var syntaxTokenTextCharacters = new SyntaxTokenTextCharacters(si.Text, si.Text.Length,
+                        PropsFor(si.SyntaxToken.Value, si.Text),
+                        si.SyntaxToken.Value, si.SyntaxToken.Value.Parent) {Index = si.Span1.Start};
+                    Runs.Add(syntaxTokenTextCharacters);
+                    return syntaxTokenTextCharacters;
                 }
 
-                var syntaxTokenTextCharacters = new SyntaxTokenTextCharacters(si.Text, si.Text.Length,
-                    PropsFor(si.SyntaxToken.Value, si.Text),
-                    si.SyntaxToken.Value, si.SyntaxToken.Value.Parent) {Index = si.Span1.Start};
-                Runs.Add(syntaxTokenTextCharacters);
-                return syntaxTokenTextCharacters;
+                var textEndOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
+                Runs.Add(textEndOfParagraph);
+                return textEndOfParagraph;
             }
-
-            var textEndOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
-            Runs.Add(textEndOfParagraph);
-            return textEndOfParagraph;
+            catch (Exception ex)
+            {
+                _debugFn?.Invoke(ex.ToString());
+                var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index = textSourceCharacterIndex };
+                Runs.Add(textEndOfParagraph);
+                return textEndOfParagraph;
+            }
 #if false
             Debug.WriteLine($"index: {textSourceCharacterIndex}");
 
@@ -482,10 +520,9 @@ namespace RoslynCodeControls
         /// 
         /// </summary>
         /// <returns></returns>
-        public override BasicTextRunProperties BasicProps()
+        public override TextRunProperties BasicProps()
         {
-            var xx = new BasicTextRunProperties(BaseProps);
-            return xx;
+            return new VeryBasicTextRunProperties(BaseProps);
         }
 
 
@@ -498,36 +535,32 @@ namespace RoslynCodeControls
         // ReSharper disable once UnusedParameter.Local
         private TextRunProperties PropsFor(in SyntaxTrivia trivia, string text)
         {
-            var r = BasicProps();
+            // var r = BasicProps();
             var syntaxKind = CSharpExtensions.Kind(trivia);
 #if DEBUGTEXTSOURCE
             Debug.WriteLine($"{syntaxKind}", DebugCategory.TextFormatting);
 #endif
             if (syntaxKind == SyntaxKind.SingleLineCommentTrivia || syntaxKind == SyntaxKind.MultiLineCommentTrivia)
-                r.SetForegroundBrush(Brushes.YellowGreen);
+                return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.YellowGreen);
+            
 
-            return r;
+            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.YellowGreen); ;
         }
 
 
         /// <summary>
         /// 
         /// </summary>
-        public FontRendering FontRendering { get; set; }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public SyntaxNode Node
-        {
-            get { return _node; }
-            set
-            {
-                if (Equals(value, _node)) return;
-                _node = value;
-                OnPropertyChanged();
-            }
-        }
+        public SyntaxNode Node { get; set; }
+        // {
+        // get { return _node; }
+        // set
+        // {
+        // if (Equals(value, _node)) return;
+        // _node = value;
+        // OnPropertyChanged();
+        // }
+        // }
 
 
         /// <summary>
@@ -541,42 +574,48 @@ namespace RoslynCodeControls
             TextRunProperties textRunProperties = null;
             if (arg == (object) SyntaxKind.None)
                 textRunProperties = PropsFor(text);
-            else if (arg is SyntaxTrivia st)
-                textRunProperties = PropsFor(st, text);
-            else if (arg is SyntaxToken t)
-                textRunProperties = PropsFor(t, text);
             else
-                textRunProperties = PropsFor(text);
-            if (textRunProperties != null)
-            {
-                if (textRunProperties is BasicTextRunProperties b)
-                    if (!b.HasCustomization)
+                switch (arg)
+                {
+                    case SyntaxTrivia st:
+                        textRunProperties = PropsFor(st, text);
+                        break;
+                    case SyntaxToken t:
+                        textRunProperties = PropsFor(t, text);
+                        break;
+                    default:
+                        textRunProperties = PropsFor(text);
+                        break;
+                }
+#if DEBUG
+            if (textRunProperties is BasicTextRunProperties b)
+                if (!b.HasCustomization)
+                {
+                    // b.SetBackgroundBrush(Brushes.LightBlue);
+                    var kind = "";
+
+                    var nodeKind = "";
+                    var tkind = "";
+                    if (arg is SyntaxToken stk)
                     {
-                        // b.SetBackgroundBrush(Brushes.LightBlue);
-                        var kind = "";
-
-                        var nodeKind = "";
-                        var tkind = "";
-                        if (arg is SyntaxToken stk)
+                        var syntaxKind = CSharpExtensions.Kind(stk.Parent);
+                        nodeKind = syntaxKind.ToString();
+                        kind = CSharpExtensions.Kind(stk).ToString();
+                        if (SyntaxFacts.IsTrivia(syntaxKind))
                         {
-                            var syntaxKind = CSharpExtensions.Kind(stk.Parent);
-                            nodeKind = syntaxKind.ToString();
-                            kind = CSharpExtensions.Kind(stk).ToString();
-                            if (SyntaxFacts.IsTrivia(syntaxKind))
-                            {
-                                var pt = stk.Parent.ParentTrivia;
-                                tkind = CSharpExtensions.Kind(pt).ToString();
-                            }
+                            var pt = stk.Parent.ParentTrivia;
+                            tkind = CSharpExtensions.Kind(pt).ToString();
                         }
-
-                        // Debug.WriteLine(
-                        // $"no customizations for {arg} - {text} {arg.GetType().Name} {kind} {nodeKind} [{tkind}]");
                     }
 
-                return textRunProperties;
-            }
+                    // Debug.WriteLine(
+                    // $"no customizations for {arg} - {text} {arg.GetType().Name} {kind} {nodeKind} [{tkind}]");
+                }
 
-            return null;
+
+#endif
+
+            return textRunProperties;
         }
 
         /// <summary>
@@ -590,6 +629,7 @@ namespace RoslynCodeControls
                 _tree = value;
                 if (_tree != null)
                 {
+                    _debugFn("Tree set, resetting enumerator");
                     Text = _tree.GetText();
                     SyntaxInfos = GetSyntaxInfos().GetEnumerator();
                     SyntaxInfos.MoveNext();
@@ -620,24 +660,25 @@ namespace RoslynCodeControls
                 case SyntaxKind.CloseParenToken:
                 case SyntaxKind.LessThanToken:
                 case SyntaxKind.GreaterThanToken:
-                    pp.SetForegroundBrush(Brushes.Red);
+                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Red);
+                    // pp.SetForegroundBrush(Brushes.Red);
                     break;
             }
 
             // if (token.ContainsDiagnostics)
             // {
-                // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
-                // var s = token.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
-                // pp.SetBackgroundBrush(sevB[(int) s]);
+            // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
+            // var s = token.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
+            // pp.SetBackgroundBrush(sevB[(int) s]);
             // }
 
             if (token.Parent != null)
             {
                 // if (token.Parent.ContainsDiagnostics)
                 // {
-                    // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
-                    // var s = token.Parent.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
-                    // pp.SetBackgroundBrush(sevB[(int) s]);
+                // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
+                // var s = token.Parent.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
+                // pp.SetBackgroundBrush(sevB[(int) s]);
                 // }
 
                 var syntaxKind = CSharpExtensions.Kind(token.Parent);
@@ -658,58 +699,31 @@ namespace RoslynCodeControls
                         case SyntaxKind.WhitespaceTrivia:
                             break;
                         case SyntaxKind.SingleLineCommentTrivia:
-                            pp.SetForegroundBrush(Brushes.LightGray);
-                            break;
                         case SyntaxKind.MultiLineCommentTrivia:
-                            pp.SetForegroundBrush(Brushes.LightGray);
+                        case SyntaxKind.SingleLineDocumentationCommentTrivia:
+                        case SyntaxKind.MultiLineDocumentationCommentTrivia:
+                        case SyntaxKind.DisabledTextTrivia:
+
+                            return new GenericTextRunProperties(CurrentRendering,PixelsPerDip,Brushes.SlateGray);
                             break;
                         case SyntaxKind.DocumentationCommentExteriorTrivia:
-                            pp.SetBackgroundBrush(Brushes.Aqua);
-                            break;
-                        case SyntaxKind.SingleLineDocumentationCommentTrivia:
-                            pp.SetForegroundBrush(Brushes.LightGray);
-                            break;
-                        case SyntaxKind.MultiLineDocumentationCommentTrivia:
-                            pp.SetForegroundBrush(Brushes.LightGray);
-                            break;
-                        case SyntaxKind.DisabledTextTrivia:
-                            pp.SetForegroundBrush(Brushes.LightGray);
+                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
                             break;
                         case SyntaxKind.PreprocessingMessageTrivia:
                             break;
                         case SyntaxKind.IfDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
+                       
                         case SyntaxKind.ElifDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.ElseDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.EndIfDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.RegionDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.EndRegionDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.DefineDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.UndefDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.ErrorDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.WarningDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
                         case SyntaxKind.LineDirectiveTrivia:
-                            pp.SetForegroundBrush(Brushes.BurlyWood);
-                            break;
+                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.BurlyWood);
                         case SyntaxKind.PragmaWarningDirectiveTrivia:
                             break;
                         case SyntaxKind.PragmaChecksumDirectiveTrivia:
@@ -729,17 +743,21 @@ namespace RoslynCodeControls
 
                 if (SyntaxFacts.IsPredefinedType(kind))
                 {
-                    pp.SetForegroundBrush(Brushes.Gold);
+
+                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Gold);
+                    // pp.SetForegroundBrush(Brushes.Gold);
                 }
                 else if (SyntaxFacts.IsKeywordKind(kind))
                 {
-                    pp.SetForegroundBrush(Brushes.CornflowerBlue);
-                    return pp;
+
+                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.CornflowerBlue);
+                    // pp.SetForegroundBrush(Brushes.CornflowerBlue);
+                    // return pp;
                 }
                 else if (SyntaxFacts.IsLiteralExpression(kind))
                 {
-                    pp.SetForegroundBrush(Brushes.Brown);
-                    pp.SetFontStyle(FontStyles.Italic);
+                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Brown,
+                        FontStyles.Italic);
                 }
 
 #if DEBUGTEXTSOURCE
@@ -752,9 +770,11 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
                 if (syntaxKind == SyntaxKind.MethodDeclaration)
                 {
                     if (SyntaxFacts.IsAccessibilityModifier(kind))
-                        pp.SetForegroundBrush(Brushes.Aqua);
+                        return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
+
                     else if (SyntaxFacts.IsKeywordKind(kind))
-                        pp.SetFontStyle(FontStyles.Italic);
+                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, null, FontStyles.Italic);
+
                 }
             }
 
@@ -774,19 +794,18 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         // ReSharper disable once UnusedParameter.Local
         private TextRunProperties PropsFor(string text)
         {
-            var pp = BasicProps();
+            // var pp = BasicProps();
 
-            if (text.Trim().Length == 0) return pp;
+            if (text.Trim().Length == 0) return new GenericTextRunProperties(CurrentRendering, PixelsPerDip);
 
-            pp.SetForegroundBrush(Brushes.Fuchsia);
+            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Fuchsia);
+
+            
             // pp.SetBackgroundBrush(Brushes.Black);
-            return pp;
+            // return pp;
         }
 
-        public FontFamily Family { get; set; } = new FontFamily("GlobalMonospace.CompositeFont");
-
         public double EmSize { get; set; } = 24;
-        private SyntaxNode _node;
 
         public override GenericTextRunProperties BaseProps
         {
@@ -796,16 +815,17 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 
         private SyntaxTree _tree;
         private SourceText _text;
-        private SyntaxTree _newTree;
-        private SyntaxInfo _prev;
+        
         private IEnumerator<SyntaxInfo> _syntaxInfos;
         private GenericTextRunProperties _baseProps;
         private readonly Action<string> _debugFn;
-        private ObservableCollection<TextRun> _runs = new ObservableCollection<TextRun>();
-        private int _length;
+
+        private int _charIndex;
+
+        // private ObservableCollection<TextRun> _runs = new ObservableCollection<TextRun>();
         public int EolLength { get; } = 2;
 
-        
+
         /// <summary>
         /// 
         /// </summary>
@@ -817,18 +837,18 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
         /// 
         /// </summary>
         /// <param name="insertionPoint"></param>
-        /// <param name="text"></param>
         /// <param name="inputRequest"></param>
-        public override void TextInput(int insertionPoint, InputRequest inputRequest)
+        /// <param name="lineInfoOffset"></param>
+        public override object TextInput(int insertionPoint, InputRequest inputRequest, int lineInfoOffset)
         {
             var text = inputRequest.Text;
+#if DEBUG
             _debugFn?.Invoke($"Insertion point is {insertionPoint}.");
             _debugFn?.Invoke($"Input text is \"{text}\"");
-            TextChange change;
-            if (inputRequest.Kind == InputRequestKind.Backspace)
-                change = new TextChange(new TextSpan(insertionPoint - 1, 1), "");
-            else
-                change = new TextChange(new TextSpan(insertionPoint, 0), text);
+#endif
+            var change = inputRequest.Kind == InputRequestKind.Backspace
+                ? new TextChange(new TextSpan(insertionPoint - 1, 1), "")
+                : new TextChange(new TextSpan(insertionPoint, 0), text);
 
             var newText = Text.WithChanges(change);
             if (text != null && newText.Length != Text.Length + text.Length) Debug.WriteLine($"Unexpected length");
@@ -951,9 +971,14 @@ var chL = newTree.GetChangedSpans(Tree);
                 Debug.WriteLine("Changed region " + textSpan);
             }
 #endif
-            Tree = newTree;
-            _newTree = null;
+            _tree = newTree;
+            SyntaxInfos = GetSyntaxInfos(lineInfoOffset).GetEnumerator();
+            SyntaxInfos.MoveNext();
+
+            Text = newText;
+            Length = newText.Length;
             Node = syntaxNode;
+            return change;
 
 #if false
             var t = SyntaxNode.GetFirstToken(true, true, true, true);
@@ -1045,29 +1070,31 @@ var chL = newTree.GetChangedSpans(Tree);
             }
         }
 
-        public SourceText Text
-        {
-            get { return _text; }
-            set
-            {
-                if (Equals(value, _text)) return;
-                _text = value;
-                OnPropertyChanged();
-            }
-        }
+        public SourceText Text { get; set; }
+        // {
+        // get { return _text; }
+        // private set
+        // {
+        // if (Equals(value, _text)) return;
+        // _text = value;
+        // OnPropertyChanged();
+        // }
+        // }
 
         public List<TextRunInfo> RunInfos { get; set; }
 
-        public ObservableCollection<TextRun> Runs
-        {
-            get { return _runs; }
-            set
-            {
-                if (Equals(value, _runs)) return;
-                _runs = value;
-                OnPropertyChanged();
-            }
-        }
+        public List<TextRun> Runs { get; } = new List<TextRun>();
+        // {
+        // get { return _runs; }
+        // set
+        // {
+        // if (Equals(value, _runs)) return;
+        // _runs = value;
+        // OnPropertyChanged();
+        // }
+        // }
+
+        public FontRendering CurrentRendering { get; set; }
 
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -1077,6 +1104,5 @@ var chL = newTree.GetChangedSpans(Tree);
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-
     }
 }

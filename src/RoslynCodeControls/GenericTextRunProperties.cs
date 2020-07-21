@@ -60,15 +60,17 @@ namespace RoslynCodeControls
         /// </summary>
         /// <param name="newRender"></param>
         /// <param name="pixelsPerDip"></param>
+        /// <param name="foregroundBrush"></param>
+        /// <param name="hintingSize"></param>
         /// <param name="pDebugFn"></param>
         public GenericTextRunProperties(FontRendering newRender,
-            double pixelsPerDip)
+            double pixelsPerDip, Brush foregroundBrush = null, FontStyle? style=null)
         {
             _typeface = newRender.Typeface;
             _emSize = newRender.FontSize;
             _emHintingSize = newRender.FontSize;
             _textDecorations = newRender.TextDecorations;
-            _foregroundBrush = Brushes.Black;
+            _foregroundBrush = foregroundBrush ?? Brushes.Black;
             _backgroundBrush = null;
             _baselineAlignment = BaselineAlignment.Baseline;
             _culture = CultureInfo.CurrentUICulture;

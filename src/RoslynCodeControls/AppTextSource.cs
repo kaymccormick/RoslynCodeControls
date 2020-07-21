@@ -25,12 +25,12 @@ namespace RoslynCodeControls
         /// 
         /// </summary>
         /// <returns></returns>
-        public abstract BasicTextRunProperties BasicProps();
+        public abstract TextRunProperties BasicProps();
 
 
         /// <summary>
         /// 
         /// </summary>
-        public abstract void TextInput(int insertionPoint, InputRequest inputRequest);
+        public abstract object TextInput(int insertionPoint, InputRequest inputRequest, int lineInfoOffset);
     }
 }

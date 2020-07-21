@@ -31,15 +31,15 @@
                                     </StackPanel>
                                 </DataTemplate>
 
-                                <DataTemplate DataType="{x:Type local:CustomTextSource4Proxy}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Length" />
-                                        <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" />
-                                        <TextBlock Margin="5,0,0,0" Text="RunCount" />
-                                        <TextBlock Margin="5,0,0,0" Text="{Binding RunCount,StringFormat=N0}" />
+                                <!-- <DataTemplate DataType="{x:Type local:CustomTextSource4Proxy}"> -->
+                                    <!-- <StackPanel Orientation="Horizontal"> -->
+                                        <!-- <TextBlock Text="Length" /> -->
+                                        <!-- <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" /> -->
+                                        <!-- <TextBlock Margin="5,0,0,0" Text="RunCount" /> -->
+                                        <!-- <TextBlock Margin="5,0,0,0" Text="{Binding RunCount,StringFormat=N0}" /> -->
 
-                                    </StackPanel>
-                                </DataTemplate>
+                                    <!-- </StackPanel> -->
+                                <!-- </DataTemplate> -->
                                 <DataTemplate DataType="{x:Type local:CodeToolTipContent}">
                                     <StackPanel Orientation="Vertical">
                                         <ContentControl Content="{Binding SyntaxNode}" />
@@ -65,10 +65,7 @@
                                           VerticalContentAlignment="Top" Grid.RowSpan="3" Grid.ColumnSpan="2">
                                 <Grid x:Name="InnerGrid">
                                     <Rectangle x:Name="Rectangle" VerticalAlignment="Top" HorizontalAlignment="Left"
-                                               Width="{Binding RelativeSource={RelativeSource
-                                        TemplatedParent},Path=DrawingBrushViewbox.Width}"
-                                               Height="{Binding RelativeSource={RelativeSource
-                                        TemplatedParent},Path=DrawingBrushViewbox.Height}"
+                                               Stroke="Aquamarine"
                                                TextElement.FontSize="12" />
                                     <Rectangle x:Name="Rect2" Panel.ZIndex="100" VerticalAlignment="Top"
                                                Width="{Binding ElementName=Rectangle,Path=ActualWidth}"
@@ -127,7 +124,7 @@
                                                 <TextBlock Text="{Binding InsertionPoint}" />
                                             </WrapPanel>
                                             <ContentPresenter Content="{Binding InsertionLine}" />
-                                            <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}" />
+                                            <!-- <ContentPresenter Content="{Binding Path=CustomTextSourceProxy}" /> -->
                                             <TextBlock Margin="10,0,0,0" Text="{Binding Path=Document}" />
                                             <TextBlock Margin="10,0,0,0" Text="{Binding Path=InsertionCharInfoNode}" />
                                         </StackPanel>

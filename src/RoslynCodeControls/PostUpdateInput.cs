@@ -1,8 +1,9 @@
-﻿using System.Windows.Media;
+﻿using System;
+using System.Windows.Media;
 
 namespace RoslynCodeControls
 {
-    public readonly struct PostUpdateInput
+    public readonly struct PostUpdateInput : ITimestampedRequest
     {
         public RoslynCodeControl RoslynCodeControl { get; }
         public int InsertionPoint { get; }
@@ -18,6 +19,10 @@ namespace RoslynCodeControls
             InputRequest = inputRequest;
             LineInfo = redrawLineResult.LineInfo;
             RedrawLineResult = redrawLineResult;
+            Timestamp = DateTime.Now;
         }
+
+        /// <inheritdoc />
+        public DateTime Timestamp { get; }
     }
 }

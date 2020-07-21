@@ -14,12 +14,10 @@ namespace RoslynCodeControls
         /// </summary>
         int Length { get; }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        FontRendering FontRendering { get; set; }
+    
+        // FontRendering FontRendering { get; set; }
 
-        FontFamily Family { get; set; }
+        // FontFamily Family { get; set; }
         /// <summary>
         /// 
         /// </summary>
@@ -69,7 +67,7 @@ namespace RoslynCodeControls
         /// 
         /// </summary>
         /// <returns></returns>
-        BasicTextRunProperties BasicProps();
+        // BasicTextRunProperties BasicProps();
 
         /// <summary>
         /// 
