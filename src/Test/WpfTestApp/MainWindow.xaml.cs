@@ -20,8 +20,10 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Host.Mef;
+using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.VisualStudio.Threading;
 using Microsoft.Win32;
 using RoslynCodeControls;
@@ -308,7 +310,7 @@ namespace WpfTestApp
         {
             StatusScrollViewer.Visibility = Visibility.Visible;
             status.Visibility = Visibility.Visible;
-            MSBuildLocator.RegisterDefaults();
+            
             var ww = MSBuildWorkspace.Create();
             var project = await ww.OpenProjectAsync(s, new Progress1(this)).ConfigureAwait(true);
             Project = project;
@@ -334,45 +336,19 @@ namespace WpfTestApp
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private void Combo_OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            combo.SelectedIndex = 0;
-        }
+        // private void Combo_OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        // {
+            // combo.SelectedIndex = 0;
+        // }
 
-        private void CommandBinding_OnExecuted(object sender, ExecutedRoutedEventArgs e)
-        {
-            PrintDialog d = new PrintDialog();
-            // d.ShowDialog();
-            // var i = d.PrintQueue.AddJob("test", d.PrintTicket);
-            
-            // Window w = new Window();
-            // var documentViewer = new DocumentViewer();
-            var codeControlCodeControl = Code.CodeControl.CodeControl;
-            
-
-            // d.PrintDocument(codeControlCodeControl.DocumentPaginator, "test");
-            var p = VisualTreeHelper.GetParent(codeControlCodeControl);
-            if (p is Grid g)
-            {
-                // g.Children.Remove(codeControlCodeControl);
-            }
-            else
-            {
-                TabItem t = (TabItem)p;
-                t.Content = null;
-            }
-
-            // documentViewer.Document = codeControlCodeControl;
-            // w.Content = documentViewer;
-            // w.ShowDialog();
-        }
+     
     }
 
     internal class Progress1 : IProgress<ProjectLoadProgress>
     {
-        public CodeWindow CodeWindow { get; }
+        public MainWindow CodeWindow { get; }
 
-        public Progress1(CodeWindow codeWindow)
+        public Progress1(MainWindow codeWindow)
         {
             CodeWindow = codeWindow;
         }

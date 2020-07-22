@@ -22,6 +22,12 @@ namespace WpfTestApp
 
     public partial class App : Application
     {
+        /// <inheritdoc />
+        public App()
+        {
+            // MSBuildLocator.RegisterDefaults();
+        }
+
         private Thread t2;
         private ManualResetEvent _mevent;
         private string _file;

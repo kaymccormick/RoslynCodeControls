@@ -18,16 +18,18 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.7.0-4.final" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="3.7.0-4.final" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.7.0-4.final" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Features" Version="3.7.0-4.final" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="3.7.0-3.final" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.7.0-3.final" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Features" Version="3.7.0-3.final" />
     <PackageReference Include="Microsoft.CodeAnalysis.Metrics" Version="3.3.0" />
     <PackageReference Include="Microsoft.VisualStudio.Threading" Version="16.6.13" />
-    <PackageReference Include="Microsoft.Build.Framework" Version="15.3.409" ExcludeAssets="runtime" />
-    <PackageReference Include="System.Threading.Channels" Version="5.0.0-preview.7.20364.11" />
-<PackageReference Include="System.Security.Principal" Version="4.3.0" />
-<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="3.7.0-4.final" />
-</ItemGroup>
+    <PackageReference Include="ModernWPF" Version="2.0.0-alpha97" />
+    <PackageReference Include="System.Threading.Channels" Version="5.0.0-preview.6.20305.6" />
+  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Build" Version="16.6.0" ExcludeAssets="runtime" />
+		<PackageReference Include="Microsoft.Build.Utilities.Core" Version="16.6.0" ExcludeAssets="runtime" />
+	</ItemGroup>
 
 
 </Project>

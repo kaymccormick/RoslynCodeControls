@@ -16,13 +16,18 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Threading" Version="16.6.13" />
-    <PackageReference Include="ModernWPF" Version="2.0.0-alpha97" />
-  </ItemGroup>
+<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="3.7.0-4.final" />
+<PackageReference Include="System.Threading.Channels" Version="5.0.0-preview.7.20364.11" />  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\RoslynCodeControls\RoslynCodeControls.csproj" />
   </ItemGroup>
 
+<ItemGroup>
+    <PackageReference Include="Microsoft.Build.Framework" Version="15.3.409" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="15.3.409" ExcludeAssets="runtime" />
+<PackageReference Include="System.Security.Principal" Version="4.3.0" />
+</ItemGroup>
   <ItemGroup>
     <Resource Include="icon-print-6.jpg" />
   </ItemGroup>
