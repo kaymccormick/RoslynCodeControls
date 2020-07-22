@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management.Automation;
+using System.Management.Automation.Internal;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -20,11 +24,14 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.VisualStudio.Threading;
 using Microsoft.Win32;
 using RoslynCodeControls;
+using WpfTerminalControlLib;
 
 namespace WpfTestApp
 {
@@ -88,10 +95,28 @@ namespace WpfTestApp
             InitializeComponent();
             CoerceValue(FontsProperty);
             Loaded += OnLoaded;
-
+            LoadAnalyzes();
 
             CommandBindings.Add(new CommandBinding(HideToolBar, OnExecutedHideToolBar));
         }
+
+        private void LoadAnalyzes()
+        {
+            
+            var analyzersAssembly  = Assembly.LoadFrom(@"C:\temp\roslyn.analyzers.dll");
+            var analyzerTypes = analyzersAssembly.ExportedTypes.Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) &&  t.GetCustomAttribute<DiagnosticAnalyzerAttribute>() != null).ToList();
+            foreach (var analyzerType in analyzerTypes)
+            {
+                Debug.WriteLine(analyzerType);
+                var  z= (DiagnosticAnalyzer)Activator.CreateInstance(analyzerType);
+                var c = new MyContxt(z);
+                z.Initialize(c);
+                AnalyzerContexts.Add(c);
+
+            }
+        }
+
+        public List<MyContxt> AnalyzerContexts { get; set; } = new List<MyContxt>();
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
@@ -132,7 +157,8 @@ namespace WpfTestApp
             // CodeControl.Workspace = _workspace;
             CodeControl.JTF2 = JTF2;
             CodeControl.Document = Document;
-            CodeControl.SyntaxTree = await Document.GetSyntaxTreeAsync();
+            var tree = await Document.GetSyntaxTreeAsync();
+            CodeControl.SyntaxTree = tree;
             var semanticModelAsync = await Document.GetSemanticModelAsync();
             CodeControl.SemanticModel = semanticModelAsync;
             if (semanticModelAsync != null) CodeControl.Compilation = semanticModelAsync.Compilation;
@@ -149,6 +175,45 @@ namespace WpfTestApp
                 Debug.WriteLine("render complete " + span);
             }));
             await CodeControl.UpdateFormattedTextAsync();
+
+            foreach (var action in AnalyzerContexts.SelectMany(z=>z.SyntaxTreeActions))
+            {
+                SyntaxTreeAnalysisContext ct = new SyntaxTreeAnalysisContext(CodeControl.SyntaxTree,
+                    new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
+                    diagnostic => { Debug.WriteLine(diagnostic.GetMessage());}, diagnostic => true, CancellationToken.None);
+                action(ct);
+            }
+
+
+            foreach (var (item1, item2, item3) in AnalyzerContexts.SelectMany(z => z.SyntaxNodeActions))
+            {
+                if (item2 == typeof(SyntaxKind))
+                {
+                    Debug.WriteLine(item2);
+                    foreach (SyntaxKind o in item3)
+                    {
+                        var nodes = tree.GetRoot().DescendantNodesAndSelf().Where(n => n.Kind() == o);
+                        foreach (var syntaxNode in nodes)
+                        {
+                            var ctx = new SyntaxNodeAnalysisContext(syntaxNode, semanticModelAsync,
+                                new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
+                                diagnostic =>
+                                {
+                                    var diagnosticLocation = diagnostic.Location.SourceSpan.ToString();
+                                    var message = $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
+                                    Debug.WriteLine(
+                                        message);
+                                },
+                                tru => true,
+                                CancellationToken.None);
+                            item1(ctx);
+                        }
+
+                        Debug.WriteLine(o);
+                    }
+                }
+            }
+
         }
 
         public DateTime StartTime { get; set; }
@@ -289,7 +354,49 @@ namespace WpfTestApp
             var ww = MSBuildWorkspace.Create();
             var project = await ww.OpenProjectAsync(s, new Progress1(this)).ConfigureAwait(true);
             Project = project;
+
+            foreach (var d in project.Documents)
+            {
+                var tree = await d.GetSyntaxTreeAsync();
+                var model = await d.GetSemanticModelAsync();
+                foreach (var (item1, item2, item3) in AnalyzerContexts.SelectMany(z => z.SyntaxNodeActions))
+                {
+                    if (item2 == typeof(SyntaxKind))
+                    {
+                        Debug.WriteLine(item2);
+                        foreach (SyntaxKind o in item3)
+                        {
+                            var nodes = tree.GetRoot().DescendantNodesAndSelf().Where(n => n.Kind() == o);
+                            foreach (var syntaxNode in nodes)
+                            {
+                                var ctx = new SyntaxNodeAnalysisContext(syntaxNode, model,
+                                    new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
+                                    diagnostic =>
+                                    {
+
+                                        var diagnosticLocation = diagnostic.Location.SourceSpan.ToString();
+                                        var message = $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
+
+
+
+                                        status.Text += message + "\r\n\r\n";
+
+                                        StatusScrollViewer.ScrollToBottom();
+
+                                    },
+                                    tru => true,
+                                    CancellationToken.None);
+                                item1(ctx);
+                            }
+
+                            Debug.WriteLine(o);
+                        }
+                    }
+                }
+            }
             StatusScrollViewer.Visibility = Visibility.Hidden;
+
+
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -312,5 +419,140 @@ namespace WpfTestApp
                 JTF.RunAsync(SetupCodeControlAsync);
             }
         }
+
+        private void PowershellExecuted(object sender, RoutedEventArgs e)
+        {
+            var shell = new WpfTerminalControl();
+            shell.BeginInit();
+            shell.ForegroundColor = ConsoleColor.Black;
+            shell.BackgroundColor = ConsoleColor.White;
+            shell.Background=Brushes.White;
+            ;
+            shell.Foreground = Brushes.Black;
+            ;
+            shell.AutoResize = true;
+            shell.CursorBrush = Brushes.Orange;
+            shell.EndInit();
+            var wrapped = new WrappedPowerShell();
+            wrapped.BeginInit();
+            wrapped.Terminal = shell;
+            wrapped.EndInit();
+            wrapped.CoerceValue(WrappedPowerShell.InitialSessionStateProperty);
+            wrapped.CoerceValue(WrappedPowerShell.RunspaceProperty);
+
+            shell.TextEntryComplete += (o, args) => JTF.RunAsync(async () =>
+            {
+                await wrapped.ExecuteAsync(args.Text);
+            });
+
+            Tabs.Items.Add(new TabItem() {Header = "PowerShell", Content = shell});
+            Tabs.SelectedIndex = Tabs.Items.Count - 1;
+        }
+    }
+
+    public class MyContxt : AnalysisContext
+    {
+        public DiagnosticAnalyzer Analyzer { get; }
+
+        /// <inheritdoc />
+        public MyContxt(DiagnosticAnalyzer analyzer)
+        {
+            Analyzer = analyzer;
+        }
+
+        /// <inheritdoc />
+        public override void RegisterSymbolStartAction(Action<SymbolStartAnalysisContext> action, SymbolKind symbolKind)
+        {
+            
+        }
+
+        /// <inheritdoc />
+        public override void RegisterOperationBlockStartAction(Action<OperationBlockStartAnalysisContext> action)
+        {
+         
+        }
+
+        /// <inheritdoc />
+        public override void RegisterOperationBlockAction(Action<OperationBlockAnalysisContext> action)
+        {
+         
+        }
+
+        /// <inheritdoc />
+        public override void RegisterOperationAction(Action<OperationAnalysisContext> action, ImmutableArray<OperationKind> operationKinds)
+        {
+            
+        }
+
+        /// <inheritdoc />
+        public override void EnableConcurrentExecution()
+        {
+            ConcurrentExetion = true;
+            Debug.WriteLine(nameof(EnableConcurrentExecution));
+        }
+
+        public bool ConcurrentExetion { get; set; }
+
+        /// <inheritdoc />
+        public override void ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags analysisMode)
+        {
+            GeneratedAnalysisMode = analysisMode;
+        }
+
+        public GeneratedCodeAnalysisFlags GeneratedAnalysisMode { get; set; }
+
+        /// <inheritdoc />
+        public override void RegisterCompilationStartAction(Action<CompilationStartAnalysisContext> action)
+        {
+            Debug.WriteLine(nameof(RegisterCompilationStartAction));
+        }
+
+        /// <inheritdoc />
+        public override void RegisterCompilationAction(Action<CompilationAnalysisContext> action)
+        {
+            Debug.WriteLine(nameof(RegisterCompilationAction));
+        }
+
+        /// <inheritdoc />nameof(
+        public override void RegisterSemanticModelAction(Action<SemanticModelAnalysisContext> action)
+        {
+            Debug.WriteLine(nameof(RegisterSemanticModelAction));
+        }
+
+        /// <inheritdoc />
+        public override void RegisterSymbolAction(Action<SymbolAnalysisContext> action, ImmutableArray<SymbolKind> symbolKinds)
+        {
+            Debug.WriteLine(nameof(RegisterSymbolAction));
+        }
+
+        /// <inheritdoc />
+        public override void RegisterCodeBlockStartAction<TLanguageKindEnum>(Action<CodeBlockStartAnalysisContext<TLanguageKindEnum>> action)
+        {
+            Debug.WriteLine(nameof(RegisterCodeBlockStartAction));
+        }
+
+        /// <inheritdoc />
+        public override void RegisterCodeBlockAction(Action<CodeBlockAnalysisContext> action)
+        {
+            Debug.WriteLine(nameof(RegisterCodeBlockAction));
+        }
+
+        /// <inheritdoc />
+        public override void RegisterSyntaxTreeAction(Action<SyntaxTreeAnalysisContext> action)
+        {
+            Debug.WriteLine(nameof(RegisterSyntaxTreeAction));
+            SyntaxTreeActions.Add(action);
+        }
+
+        public List<Action<SyntaxTreeAnalysisContext>> SyntaxTreeActions { get; } = new List<Action<SyntaxTreeAnalysisContext>>();
+
+        /// <inheritdoc />
+        public override void RegisterSyntaxNodeAction<TLanguageKindEnum>(Action<SyntaxNodeAnalysisContext> action, ImmutableArray<TLanguageKindEnum> syntaxKinds)
+        {
+            Debug.WriteLine(nameof(RegisterSyntaxNodeAction));
+            SyntaxNodeActions.Add(Tuple.Create(action, typeof(TLanguageKindEnum), (IList)syntaxKinds));
+        }
+
+        public List< Tuple< Action<SyntaxNodeAnalysisContext>, Type,IList >> SyntaxNodeActions  { get; } = new List<Tuple<Action<SyntaxNodeAnalysisContext>, Type, IList>>();
     }
 }

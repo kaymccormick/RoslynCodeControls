@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using CSharpExtensions = Microsoft.CodeAnalysis.CSharp.CSharpExtensions;
@@ -39,9 +40,9 @@ namespace RoslynCodeControls
         public CustomTextSource4(double pixelsPerDip, FontRendering fontRendering,
             GenericTextRunProperties genericTextRunProperties, Action<string> debugFn)
         {
+            CurrentRendering = fontRendering;
             PixelsPerDip = pixelsPerDip;
 
-            // Rendering = fontRendering;
             _baseProps = genericTextRunProperties;
             _debugFn = debugFn;
         }
@@ -1080,6 +1081,13 @@ var chL = newTree.GetChangedSpans(Tree);
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        public void SetText(string code)
+        {
+            var tree = SyntaxFactory.ParseSyntaxTree(code);
+            Node = tree.GetRoot();
+            Tree = tree;
         }
     }
 }

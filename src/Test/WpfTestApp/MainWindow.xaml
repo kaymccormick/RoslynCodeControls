@@ -649,7 +649,10 @@
                     </DataTemplate>
                 </MenuItem.ItemTemplate>
             </MenuItem>
-            <MenuItem Header="_Toolbars">
+            <MenuItem Header="_Tools">
+                <MenuItem Header="PowerShell" Click="PowershellExecuted"/>
+            </MenuItem>
+            <MenuItem Header="Tool_bars">
                 <MenuItem IsCheckable="True" Header="Character _Movement" IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
                 <MenuItem IsCheckable="True" Header="_Font Style" IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
             </MenuItem>
@@ -726,11 +729,13 @@
                 </TextBlock.Background></TextBlock>
         </ScrollViewer>
         <Border Grid.Row="2" Padding="15">
-             <roslynCodeControls:EnhancedCodeControl CornerRadius="3"   BorderBrush="CornflowerBlue"  BorderThickness="5" EnableToolBars="False"  FontSize="20" xml:space="preserve"
-                                                    FontFamily="Lucida Console" FontSize="13"
-                                                    x:Name="CodeControl" />
-            
-        </Border>
+            <TabControl x:Name="Tabs">
+                <TabItem>
+                <roslynCodeControls:EnhancedCodeControl CornerRadius="3"   BorderBrush="CornflowerBlue"  BorderThickness="5" EnableToolBars="False"  xml:space="preserve"
+                                                        FontFamily="Lucida Console" FontSize="18"
+                                                        x:Name="CodeControl" />
+                </TabItem>
+            </TabControl></Border>
 	        <StatusBar Grid.Row="3">
             <Ellipse Margin="5" Width="20" Height="20" x:Name="Ellipse" Fill="Red"/>
             <TextBlock Text="{Binding ElementName=Code,Path=CodeControl.CodeControl.InsertionPoint}"/>

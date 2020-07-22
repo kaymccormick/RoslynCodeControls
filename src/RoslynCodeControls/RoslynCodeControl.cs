@@ -614,6 +614,7 @@ namespace RoslynCodeControls
                 case Key.Space:
                     if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
                     {
+                        e.Handled = true;
                         JTF.RunAsync(DoCompletionAsync).Task.ContinueWith(HandleFault, CancellationToken.None,
                             TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext());
                     }
@@ -746,8 +747,20 @@ namespace RoslynCodeControls
         private async Task DoCompletionAsync()
         {
             var completionService = CompletionService.GetService(Document);
+      
             var results = await completionService.GetCompletionsAsync(Document, InsertionPoint);
             var listBx = false;
+
+            CompletionComboBox.ItemsSource = results.Items;
+            CompletionComboBox.IsDropDownOpen = true;
+            CompletionComboBox.IsEditable = true;
+            CompletionComboBox.Width = 100;
+            
+            CompletionPopup.StaysOpen = true;
+            CompletionPopup.PlacementTarget = _textCaret;
+            CompletionPopup.PlacementRectangle = new Rect(3, -1 * _textCaret.lineHeight, 100, _textCaret.lineHeight);
+            CompletionPopup.Placement = PlacementMode.Bottom;
+#if false
             ItemsControl child;
             var rPopup = new Popup
             {
@@ -794,7 +807,8 @@ namespace RoslynCodeControls
                 rPopup.Opened += (sender, args) => Keyboard.Focus(child);
 
                 rPopup.IsOpen = true;
-            }
+#endif
+        }
         
 
         public override DrawingGroup TextDestination
@@ -824,6 +838,8 @@ namespace RoslynCodeControls
             Debug2Container = (UIElement) GetTemplateChild("debug2container");
             Debug3Container = (UIElement) GetTemplateChild("debug3container");
 #endif
+            CompletionPopup = (Popup)GetTemplateChild("CompletionPopup");
+            CompletionComboBox = (ComboBox) GetTemplateChild("CompletionComboBox");
             _scrollViewer = (ScrollViewer) GetTemplateChild("ScrollViewer");
             if (_scrollViewer != null)
                 OutputWidth = _scrollViewer.ActualWidth;
@@ -873,6 +889,10 @@ namespace RoslynCodeControls
             _rect2 = (Rectangle) GetTemplateChild("Rect2");
             _dg2 = (DrawingGroup) GetTemplateChild("DG2");
         }
+
+        public ComboBox CompletionComboBox { get; set; }
+
+        public Popup CompletionPopup { get; set; }
 
         protected override async void OnPreviewTextInput(TextCompositionEventArgs e)
         {
@@ -939,7 +959,7 @@ public override bool PerformingUpdate
         }
 #endif
 
-        #endregion
+#endregion
 
         static RoslynCodeControl()
         {
@@ -990,7 +1010,7 @@ public override bool PerformingUpdate
         }
 
 
-        #region Input handling
+#region Input handling
 
         public void MoveLeftByCharacter()
         {
@@ -1156,7 +1176,7 @@ public override bool PerformingUpdate
             Status = CodeControlStatus.Idle;
         }
 
-        #endregion
+#endregion
 
         private static void SetupCommands(RoslynCodeControl control1, UIElement control)
         {
@@ -1234,7 +1254,7 @@ public override bool PerformingUpdate
         }
 
 
-        #region Debug Elements
+#region Debug Elements
 
 #if DEBUG
         public UIElement Debug3Container { get; set; }
@@ -1243,9 +1263,9 @@ public override bool PerformingUpdate
         public UIElement Debug2Container { get; set; }
 #endif
 
-        #endregion
+#endregion
 
-        #region thread
+#region thread
 
         public static Thread StartSecondaryThread(ManualResetEvent mEvent = default,
             Action<object> cb = null)
@@ -1279,7 +1299,7 @@ public override bool PerformingUpdate
 
         public static Dispatcher StaticSecondaryDispatcher { get; set; }
 
-        #endregion
+#endregion
 
         public TranslateTransform Translate { get; set; }
 
@@ -1352,7 +1372,7 @@ public override bool PerformingUpdate
         public int SequenceId { get; set; } = 1;
 
 
-        #region Focus
+#region Focus
 
         /// <inheritdoc />
         protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
@@ -1368,9 +1388,9 @@ public override bool PerformingUpdate
             _textCaret.BeginAnimation(VisibilityProperty, null);
         }
 
-        #endregion
+#endregion
 
-        private static RedrawLineResult RedrawLine(RenderRequestInput renderRequestInput,
+        public static RedrawLineResult RedrawLine(RenderRequestInput renderRequestInput,
             FontRendering currentRendering, TextChange? change, LineInfo2 curLineInfo)
         {
             var begin = DateTime.Now;
@@ -1799,7 +1819,7 @@ public override bool PerformingUpdate
         private TypeInfo _typeInfo;
         private AdhocWorkspace _workspace;
 
-        #region Mouse
+#region Mouse
 
         /// <inheritdoc />
 #if MOUSE
@@ -2201,7 +2221,7 @@ public override bool PerformingUpdate
         }
 #endif
 
-        #endregion
+#endregion
 
         public bool SelectionEnabled { get; set; }
 

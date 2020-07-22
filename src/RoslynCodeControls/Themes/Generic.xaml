@@ -2,17 +2,21 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:RoslynCodeControls"
-    xmlns:themes="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Classic">
+    xmlns:themes="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Classic"
+    xmlns:completion="clr-namespace:Microsoft.CodeAnalysis.Completion;assembly=Microsoft.CodeAnalysis.Features">
     <local:RectConverter x:Key="RectConverter" />
     <local:PointConverter x:Key="PointConverter" />
+
     <Style TargetType="{x:Type local:RoslynCodeControl}">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type local:RoslynCodeControl}">
+                    <ControlTemplate.Resources>
+                    </ControlTemplate.Resources>
                     <Border Background="{TemplateBinding Background}"
                             DataContext="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                           
+
                             BorderThickness="{TemplateBinding BorderThickness}"
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                         <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" x:Name="Grid">
@@ -33,13 +37,13 @@
                                 </DataTemplate>
 
                                 <!-- <DataTemplate DataType="{x:Type local:CustomTextSource4Proxy}"> -->
-                                    <!-- <StackPanel Orientation="Horizontal"> -->
-                                        <!-- <TextBlock Text="Length" /> -->
-                                        <!-- <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" /> -->
-                                        <!-- <TextBlock Margin="5,0,0,0" Text="RunCount" /> -->
-                                        <!-- <TextBlock Margin="5,0,0,0" Text="{Binding RunCount,StringFormat=N0}" /> -->
+                                <!-- <StackPanel Orientation="Horizontal"> -->
+                                <!-- <TextBlock Text="Length" /> -->
+                                <!-- <TextBlock Margin="5,0,0,0" Text="{Binding Length,StringFormat=N0}" /> -->
+                                <!-- <TextBlock Margin="5,0,0,0" Text="RunCount" /> -->
+                                <!-- <TextBlock Margin="5,0,0,0" Text="{Binding RunCount,StringFormat=N0}" /> -->
 
-                                    <!-- </StackPanel> -->
+                                <!-- </StackPanel> -->
                                 <!-- </DataTemplate> -->
                                 <DataTemplate DataType="{x:Type local:CodeToolTipContent}">
                                     <StackPanel Orientation="Vertical">
@@ -61,6 +65,23 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="17" />
                             </Grid.ColumnDefinitions>
+                            <Popup x:Name="CompletionPopup">
+                                <ComboBox x:Name="CompletionComboBox" IsDropDownOpen="True" StaysOpenOnEdit="True" IsEditable="True" Width="100">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type completion:CompletionItem}">
+                                            <Grid>
+                                                <Grid.ToolTip><Border><TextBlock Text=""/></Border></Grid.ToolTip>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Path=DisplayText}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Path=InlineDescription}" Opacity="0.6" TextAlignment="Right" HorizontalAlignment="Right" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </Popup>
                             <ScrollViewer VerticalAlignment="Stretch" x:Name="ScrollViewer"
                                           HorizontalContentAlignment="Left"
                                           VerticalContentAlignment="Top" Grid.RowSpan="3" Grid.ColumnSpan="2">
@@ -101,10 +122,12 @@
                                             </DrawingBrush>
                                         </Rectangle.Fill>
                                     </Rectangle>
-                                    <Canvas  x:Name="Canvas" Panel.ZIndex="101" VerticalAlignment="Stretch"
-                                    
-                                             HorizontalAlignment="Stretch">
-                                        <Canvas.Background><SolidColorBrush Color="BlueViolet" Opacity="0.1"></SolidColorBrush></Canvas.Background>
+                                    <Canvas x:Name="Canvas" Panel.ZIndex="101" VerticalAlignment="Stretch"
+
+                                            HorizontalAlignment="Stretch">
+                                        <Canvas.Background>
+                                            <SolidColorBrush Color="BlueViolet" Opacity="0.1" />
+                                        </Canvas.Background>
                                     </Canvas>
 
                                 </Grid>
@@ -242,7 +265,8 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Menu Grid.Row="0" Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
+                            <Menu Grid.Row="0"
+                                  Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
                                 <MenuItem Header="_Toolbars">
                                     <MenuItem IsCheckable="True" Header="Character _Movement"
                                               IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
@@ -250,7 +274,8 @@
                                               IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
                                 </MenuItem>
                             </Menu>
-                            <ToolBarTray Grid.Column="0" Grid.Row="1"  Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
+                            <ToolBarTray Grid.Column="0" Grid.Row="1"
+                                         Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
                                 <ToolBar Band="1" BandIndex="1" x:Name="CharacterMovementToolbar">
                                     <Button FontSize="24" Command="MoveLeftByCharacter"
                                             CommandTarget="{x:Reference CodeControl}">
@@ -315,14 +340,17 @@
                                                      SemanticModel="{Binding RelativeSource={RelativeSource TemplatedParent},Path=SemanticModel,Mode=TwoWay}"
                                                      x:Name="CodeControl" />
                             <StackPanel Grid.Row="3" Grid.Column="0">
-                                <TextBlock Background="Aquamarine" Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.TypeInfo.Type,Converter={StaticResource SymbolInfoConverter}}" />
+                                <TextBlock Background="Aquamarine"
+                                           Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.TypeInfo.Type,Converter={StaticResource SymbolInfoConverter}}" />
                             </StackPanel>
                             <StackPanel Background="DarkSeaGreen" Grid.Row="4" Grid.Column="0" Orientation="Horizontal"
                                         TextElement.FontSize="16">
                                 <TextBlock Margin="15,0,0,0" Text="Enclosing Symbol" />
-                                <TextBlock Background="Aquamarine" Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.EnclosingSymbol,Converter={StaticResource SymbolInfoConverter}}" />
-                                <TextBlock Background="BlueViolet" Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.EnclosingSymbol,Converter={StaticResource SymbolInfoConverter},ConverterParameter=kind}" />
-                                </StackPanel>
+                                <TextBlock Background="Aquamarine"
+                                           Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.EnclosingSymbol,Converter={StaticResource SymbolInfoConverter}}" />
+                                <TextBlock Background="BlueViolet"
+                                           Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=CodeControl.EnclosingSymbol,Converter={StaticResource SymbolInfoConverter},ConverterParameter=kind}" />
+                            </StackPanel>
                             <StackPanel Background="DarkSeaGreen" Grid.Row="5" Grid.Column="0" Orientation="Horizontal"
                                         TextElement.FontSize="16">
 
@@ -393,18 +421,18 @@
             </Setter.Value>
         </Setter>
     </Style>
-   
+
     <FixedPage x:Key="CoverPageDoc" />
     <Style TargetType="{x:Type local:CoverPageDocument}">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type local:CoverPageDocument}">
-                    <Border >
+                    <Border>
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <TextBlock Text="{TemplateBinding DocumentTitle}"/>
+                            <TextBlock Text="{TemplateBinding DocumentTitle}" />
                         </Grid>
                     </Border>
                 </ControlTemplate>
