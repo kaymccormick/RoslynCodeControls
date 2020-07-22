@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:WpfTestApp"
         xmlns:roslynCodeControls="clr-namespace:RoslynCodeControls;assembly=RoslynCodeControls"
         xmlns:modernWpf="http://modernwpf"
+        xmlns:codeAnalysis="clr-namespace:Microsoft.CodeAnalysis;assembly=Microsoft.CodeAnalysis.Workspaces"
         mc:Ignorable="d" FontSize="24"
         Title="MainWindow" Height="1000" Width="800">
     <Window.Resources>
@@ -625,6 +626,7 @@
         <local:VisibilityToBooleanConverter x:Key="B" />
     </Window.Resources>
     <Window.CommandBindings>
+        <CommandBinding  Command="Open" Executed="OnDocumentOpen"/>
         <CommandBinding  Command="Print" Executed="OnPrintExecuted"/>
     </Window.CommandBindings>
     <Grid>
@@ -640,7 +642,13 @@
 
                 <MenuItem Header="_Print" Click="PrintFile"/>
             </MenuItem>
-
+            <MenuItem Header="_Project" ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Project.Documents}">
+                <MenuItem.ItemTemplate>
+                    <DataTemplate DataType="{x:Type codeAnalysis:Document}">
+                        <MenuItem Header="{Binding Name}" Command="Open" CommandParameter="{Binding}"/>
+                    </DataTemplate>
+                </MenuItem.ItemTemplate>
+            </MenuItem>
             <MenuItem Header="_Toolbars">
                 <MenuItem IsCheckable="True" Header="Character _Movement" IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
                 <MenuItem IsCheckable="True" Header="_Font Style" IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
@@ -719,7 +727,7 @@
         </ScrollViewer>
         <Border Grid.Row="2" Padding="15">
              <roslynCodeControls:EnhancedCodeControl CornerRadius="3"   BorderBrush="CornflowerBlue"  BorderThickness="5" EnableToolBars="False"  FontSize="20" xml:space="preserve"
-                                                    
+                                                    FontFamily="Lucida Console" FontSize="13"
                                                     x:Name="CodeControl" />
             
         </Border>

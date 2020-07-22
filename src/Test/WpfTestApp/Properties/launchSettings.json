@@ -1,8 +1,7 @@
 {
   "profiles": {
     "WpfTestApp": {
-      "commandName": "Project",
-      "commandLineArgs": "-print c:\\temp\\program2.cs"
+      "commandName": "Project"
     }
   }
 }

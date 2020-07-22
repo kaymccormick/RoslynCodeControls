@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -19,7 +18,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Host.Mef;
@@ -35,7 +33,9 @@ namespace WpfTestApp
     /// </summary>
     public partial class MainWindow : Window
     {
-        public static RoutedUICommand HideToolBar = new RoutedUICommand("Hide toolbar", nameof(HideToolBar), typeof(MainWindow));
+        public static RoutedUICommand HideToolBar =
+            new RoutedUICommand("Hide toolbar", nameof(HideToolBar), typeof(MainWindow));
+
         public static double[] CommonFontSizes
         {
             get
@@ -88,8 +88,8 @@ namespace WpfTestApp
             InitializeComponent();
             CoerceValue(FontsProperty);
             Loaded += OnLoaded;
-            
-           
+
+
             CommandBindings.Add(new CommandBinding(HideToolBar, OnExecutedHideToolBar));
         }
 
@@ -101,8 +101,10 @@ namespace WpfTestApp
         private async Task M1()
         {
             Thread.CurrentThread.Name = "App thread";
-            var host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
-            _workspace = new AdhocWorkspace(host);
+            _host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
+
+            await LoadFileOrProject();
+#if false
             var project = _workspace.AddProject("Default project", LanguageNames.CSharp);
             var documentId = DocumentId.CreateNewId(project.Id);
             Document doocument;
@@ -119,16 +121,22 @@ namespace WpfTestApp
                     "default.cs");
                 doocument = _workspace.AddDocument(documentInfo);
             }
+#endif
+            await SetupCodeControlAsync();
 
+            StartupCommmad?.Execute(null);
+        }
 
-            CodeControl.Workspace = _workspace;
-                CodeControl.JTF2 = JTF2;
-                CodeControl.Document = doocument;
-                CodeControl.SyntaxTree = await doocument.GetSyntaxTreeAsync();
-                var semanticModelAsync = await doocument.GetSemanticModelAsync();
-                CodeControl.SemanticModel = semanticModelAsync;
-                if (semanticModelAsync != null) CodeControl.Compilation = semanticModelAsync.Compilation;
-            
+        private async Task SetupCodeControlAsync()
+        {
+            // CodeControl.Workspace = _workspace;
+            CodeControl.JTF2 = JTF2;
+            CodeControl.Document = Document;
+            CodeControl.SyntaxTree = await Document.GetSyntaxTreeAsync();
+            var semanticModelAsync = await Document.GetSemanticModelAsync();
+            CodeControl.SemanticModel = semanticModelAsync;
+            if (semanticModelAsync != null) CodeControl.Compilation = semanticModelAsync.Compilation;
+
 
             CodeControl.AddHandler(RoslynCodeBase.RenderStartEvent, new RoutedEventHandler((sender, args) =>
             {
@@ -141,15 +149,13 @@ namespace WpfTestApp
                 Debug.WriteLine("render complete " + span);
             }));
             await CodeControl.UpdateFormattedTextAsync();
-
-            StartupCommad?.Execute(null);
         }
 
         public DateTime StartTime { get; set; }
 
         public JoinableTaskFactory JTF { get; set; } = new JoinableTaskFactory(new JoinableTaskContext());
         public string Filename { get; set; }
-        public ICommand StartupCommad { get; set; }
+        public ICommand StartupCommmad { get; set; }
 
         private async void FontComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -165,41 +171,34 @@ namespace WpfTestApp
 
         private void OnExecutedHideToolBar(object sender, ExecutedRoutedEventArgs e)
         {
-            
-        }
-
-        private void CommandBinding_OnCanExecute(object sender, CanExecuteRoutedEventArgs e)
-        {
-            
         }
 
         private void OpenFile(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog d =  new OpenFileDialog();
-            d.Filter = "CSharp Source|*.cs";
+            var d = new OpenFileDialog {Filter = "CSharp Source|*.cs"};
             if (!d.ShowDialog().GetValueOrDefault()) return;
-            CodeControl.Filename = d.FileName;
-            JTF.RunAsync(CodeControl.UpdateFormattedTextAsync);
-
+            Filename = d.FileName;
+            // CodeControl.Filename = d.FileName;
+            JTF.RunAsync(LoadFileOrProject);
         }
 
         private void PrintFile(object sender, RoutedEventArgs e)
         {
-            PrintDialog d = new PrintDialog();
+            var d = new PrintDialog();
             if (!d.ShowDialog().GetValueOrDefault())
                 return;
             d.PrintDocument(CodeControl.CodeControl.DocumentPaginator, "code file");
-
         }
 
         private void OnPrintExecuted(object sender, ExecutedRoutedEventArgs e)
         {
-            PrintDialog pd = new PrintDialog();
+            var pd = new PrintDialog();
             var r = pd.ShowDialog();
             if (!r.GetValueOrDefault())
                 return;
             pd.PrintDocument(CodeControl.CodeControl.DocumentPaginator, CodeControl.CodeControl.DocumentTitle);
         }
+
         public static readonly DependencyProperty DocumentProperty = DependencyProperty.Register(
             "Document", typeof(Document), typeof(MainWindow),
             new PropertyMetadata(default(Document), OnDocumentChanged));
@@ -221,7 +220,6 @@ namespace WpfTestApp
         private Task _task;
         private MefHostServices _host;
         
-
         public Project Project
         {
             get { return (Project) GetValue(ProjectProperty); }
@@ -236,42 +234,22 @@ namespace WpfTestApp
 
         protected virtual void OnProjectChanged(Project oldValue, Project newValue)
         {
-            if (newValue != null)
-            {
-                Ellipse.Fill = Brushes.LawnGreen;
-                
-            }
-        }
-
-        /// <inheritdoc />
-        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
-        {
-            base.OnPreviewMouseDown(e);
-
-            var s = e.OriginalSource;
-            string n = "";
-            if (s is FrameworkElement ee)
-            {
-                n = ee.Name;
-            }
-            
-            Debug.WriteLine(n);
+            if (newValue != null) Ellipse.Fill = Brushes.LawnGreen;
         }
 
         protected virtual void OnDocumentChanged(Document oldValue, Document newValue)
         {
         }
 
-        public void Setup1()
+        public async Task LoadFileOrProject()
         {
-             if (Filename != null && Filename.EndsWith(".csproj"))
+            if (Filename != null && Filename.EndsWith(".csproj"))
             {
-
-                _task = LoadProjectAsync(Filename);
+                await LoadProjectAsync(Filename);
                 return;
             }
 
-            var w = new AdhocWorkspace(_host);
+            var w = _workspace = new AdhocWorkspace(_host);
             w.AddSolution(SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create()));
             var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Create(),
                 "Code Project", "code", LanguageNames.CSharp);
@@ -291,41 +269,27 @@ namespace WpfTestApp
 
             Project = w.CurrentSolution.GetProject(projectInfo.Id);
             Document = w.CurrentSolution.GetDocument(documentInfo.Id);
-            
         }
 
-        private void Target1(object sender, RoutedEventArgs e)
-        {
-            Ellipse2.Fill = Brushes.Orange;
-            
-        }
+        // private void Target1(object sender, RoutedEventArgs e)
+        // {
+            // Ellipse2.Fill = Brushes.Orange;
+        // }
 
-        private void Target(object sender, RoutedEventArgs e)
-        {
-            Ellipse2.Fill = Brushes.GreenYellow;
-            
-        }
+        // private void Target(object sender, RoutedEventArgs e)
+        // {
+            // Ellipse2.Fill = Brushes.GreenYellow;
+        // }
 
         private async Task LoadProjectAsync(string s)
         {
             StatusScrollViewer.Visibility = Visibility.Visible;
             status.Visibility = Visibility.Visible;
-            
+
             var ww = MSBuildWorkspace.Create();
             var project = await ww.OpenProjectAsync(s, new Progress1(this)).ConfigureAwait(true);
             Project = project;
             StatusScrollViewer.Visibility = Visibility.Hidden;
-        }
-
-        public string SourceText
-        {
-            get { return _sourceText; }
-            set
-            {
-                if (value == _sourceText) return;
-                _sourceText = value;
-                OnPropertyChanged();
-            }
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -338,31 +302,15 @@ namespace WpfTestApp
 
         // private void Combo_OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         // {
-            // combo.SelectedIndex = 0;
+        // combo.SelectedIndex = 0;
         // }
-
-     
-    }
-
-    internal class Progress1 : IProgress<ProjectLoadProgress>
-    {
-        public MainWindow CodeWindow { get; }
-
-        public Progress1(MainWindow codeWindow)
+        private void OnDocumentOpen(object sender, ExecutedRoutedEventArgs e)
         {
-            CodeWindow = codeWindow;
-        }
-
-        /// <inheritdoc />
-        public void Report(ProjectLoadProgress value)
-        {
-            CodeWindow.Dispatcher.Invoke(() =>
+            if (e.Parameter is Document d)
             {
-                CodeWindow.status.Text +=
-                     $"{value.Operation}: {value.TargetFramework}: {value.ElapsedTime}: {value.FilePath}\r\n\r\n";
-                CodeWindow.StatusScrollViewer.ScrollToBottom();
-            }, DispatcherPriority.Send);
+                Document = d;
+                JTF.RunAsync(SetupCodeControlAsync);
+            }
         }
-    
     }
 }

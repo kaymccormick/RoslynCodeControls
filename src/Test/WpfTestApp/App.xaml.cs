@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Microsoft.Build.Locator;
 using Microsoft.VisualStudio.Threading;
 using RoslynCodeControls;
 
@@ -25,7 +26,8 @@ namespace WpfTestApp
         /// <inheritdoc />
         public App()
         {
-            // MSBuildLocator.RegisterDefaults();
+            
+            MSBuildLocator.RegisterDefaults();
         }
 
         private Thread t2;
@@ -73,7 +75,7 @@ namespace WpfTestApp
             var jtf2 = new JoinableTaskFactory(new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
                 new DispatcherSynchronizationContext(d)));
             MainWindow w = new MainWindow();
-            w.StartupCommad = StartupCommand;
+            w.StartupCommmad = StartupCommand;
             w.Filename = _file;
             w.JTF2 = jtf2;
             w.Show();

@@ -53,6 +53,7 @@ namespace RoslynCodeControls
 
         public RoslynCodeControl(Action<string> debugOut = null) : base(debugOut)
         {
+
             _typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
             _textDestination = new DrawingGroup();
             _myDrawingBrush = new DrawingBrush()
@@ -751,8 +752,8 @@ namespace RoslynCodeControls
             var rPopup = new Popup
             {
                 PlacementTarget = _textCaret,
-                Placement = PlacementMode.Top,
-                PlacementRectangle = new Rect(Canvas.GetLeft(_textCaret), Canvas.GetTop(_textCaret), 10, 10)
+                Placement = PlacementMode.Top
+                // PlacementRectangle = new Rect(Canvas.GetLeft(_textCaret), Canvas.GetTop(_textCaret), 10, 10)
             };
 
             // ReSharper disable once ConditionIsAlwaysTrueOrFalse
