@@ -12,6 +12,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
@@ -23,11 +24,13 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Completion;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.Threading;
 using CSharpExtensions = Microsoft.CodeAnalysis.CSharp.CSharpExtensions;
 using TextChange = Microsoft.CodeAnalysis.Text.TextChange;
+// ReSharper disable UnusedParameter.Local
 
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
@@ -41,7 +44,7 @@ namespace RoslynCodeControls
     /// <summary>
     /// 
     /// </summary>
-    public class RoslynCodeControl : RoslynCodeBase, ILineDrawer, INotifyPropertyChanged, IFace1, ICodeView
+    public sealed class RoslynCodeControl : RoslynCodeBase, ILineDrawer, INotifyPropertyChanged, IFace1, ICodeView
     {
         /// <inheritinpc />
         public RoslynCodeControl() : this(null)
@@ -50,7 +53,6 @@ namespace RoslynCodeControls
 
         public RoslynCodeControl(Action<string> debugOut = null) : base(debugOut)
         {
-            
             _typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
             _textDestination = new DrawingGroup();
             _myDrawingBrush = new DrawingBrush()
@@ -83,19 +85,21 @@ namespace RoslynCodeControls
                 {SingleReader = true, SingleWriter = true});
             PostUpdateChannel = Channel.CreateUnbounded<PostUpdateRequest>(new UnboundedChannelOptions()
                 {SingleReader = true, SingleWriter = true});
-            
+
             UpdateChannel = Channel.CreateUnbounded<UpdateInfo>(new UnboundedChannelOptions()
                 {SingleReader = true, SingleWriter = true});
-            
-            _joinableTaskContext = new JoinableTaskContext(Dispatcher.Thread, new DispatcherSynchronizationContext(Dispatcher));
+
+            _joinableTaskContext =
+                new JoinableTaskContext(Dispatcher.Thread, new DispatcherSynchronizationContext(Dispatcher));
             _taskCollection = _joinableTaskContext.CreateCollection();
             _myJoinableTaskFactory = _joinableTaskContext.CreateFactory(_taskCollection);
-            
+
 
             _postUpdateReaderJoinableTask = _myJoinableTaskFactory.RunAsync(StartPostUpdateReaderAsync);
 
-            _postUpdateReaderFaultContinuation = _postUpdateReaderJoinableTask.Task.ContinueWith(FaultHandler, null,CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted,TaskScheduler.Current);
-            
+            _postUpdateReaderFaultContinuation = _postUpdateReaderJoinableTask.Task.ContinueWith(FaultHandler, null,
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext());
+
             _x1 = new ObjectAnimationUsingKeyFrames
             {
                 RepeatBehavior = RepeatBehavior.Forever,
@@ -110,7 +114,7 @@ namespace RoslynCodeControls
             };
             _x1.KeyFrames = c;
 
-            
+
             PixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
             SetupCommands(this, this);
@@ -119,15 +123,9 @@ namespace RoslynCodeControls
         private void FaultHandler(Task arg1, object arg2)
         {
             DebugFn("Faulted !!!");
-            if (!arg1.IsFaulted)
-            {
-                return;
-            }
+            if (!arg1.IsFaulted) return;
 
-            if (!Dispatcher.CheckAccess())
-            {
-                DebugFn("Wrongthread");
-            }
+            if (!Dispatcher.CheckAccess()) DebugFn("Wrong thread");
 
             IsFaulted = true;
             Exception1 = arg1.Exception;
@@ -166,6 +164,7 @@ namespace RoslynCodeControls
                     @in.RedrawLineResult.BeganTimestamp, @in.RedrawLineResult.Timestamp);
                 await UpdateCompleteChannel.Writer.WriteAsync(updateComplete);
             }
+
             DebugFn("exiting post update");
         }
 
@@ -246,6 +245,7 @@ namespace RoslynCodeControls
         // }
 
 
+        // ReSharper disable once UnusedMember.Local
         private static object CoerceInsertionPoint(DependencyObject d, object basevalue)
         {
             var p = (int) basevalue;
@@ -278,7 +278,7 @@ namespace RoslynCodeControls
             }
         }
 
-        protected virtual void OnInsertionPointChanged(int oldValue, int newValue)
+        private void OnInsertionPointChanged(int oldValue, int newValue)
         {
             if (newValue == -1)
             {
@@ -286,25 +286,29 @@ namespace RoslynCodeControls
 
             if (!_updatingCaret)
                 UpdateCaretPosition(oldValue, newValue);
-            
+
 #if true
             try
             {
+                if (SyntaxNode != null && !SyntaxNode.FullSpan.Contains(newValue)) return;
+
+
                 var enclosingSymbol = SemanticModel?.GetEnclosingSymbol(newValue);
                 EnclosingSymbol = enclosingSymbol;
 
                 if (EnclosingSymbol != null)
 #if DEBUG
-                    _debugFn?.Invoke("Enclosing ymbol " + EnclosingSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) + " " + EnclosingSymbol.Kind);
+                    _debugFn?.Invoke("Enclosing symbol " +
+                                     EnclosingSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) +
+                                     " " + EnclosingSymbol.Kind);
 #endif
-                if (SemanticModel != null)// && InsertionRegion.SyntaxNode != null)
+                if (SemanticModel != null) // && InsertionRegion.SyntaxNode != null)
                 {
-                    
                     var nodeOrToken = SyntaxNode.ChildThatContainsPosition(newValue);
                     if (nodeOrToken.IsNode)
                     {
                         var syntaxNode = nodeOrToken.AsNode();
-                        SyntaxNodeOrToken x=null;
+                        SyntaxNodeOrToken x = null;
                         while (syntaxNode != null)
                         {
                             x = syntaxNode.ChildThatContainsPosition(newValue);
@@ -314,7 +318,6 @@ namespace RoslynCodeControls
                         syntaxNode = x.Parent;
                         if (syntaxNode.Span.Contains(newValue))
                         {
-
                             DebugFn(CSharpExtensions.Kind(syntaxNode).ToString());
                             DebugFn(syntaxNode.ToString());
                             var ti = SemanticModel.GetTypeInfo(syntaxNode);
@@ -324,7 +327,8 @@ namespace RoslynCodeControls
                                 TypeInfo = ti;
 #if DEBUG
                                 _debugFn?.Invoke("type info: " +
-                                                 ti.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+                                                 ti.Type.ToDisplayString(SymbolDisplayFormat
+                                                     .MinimallyQualifiedFormat));
 
 #endif
                             }
@@ -334,9 +338,7 @@ namespace RoslynCodeControls
                             TypeInfo = default(TypeInfo);
                         }
                     }
-                    
                 }
-
             }
             catch (Exception)
             {
@@ -432,11 +434,6 @@ namespace RoslynCodeControls
             set { SetValue(HoverRowProperty, value); }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        protected bool UiLoaded { get; set; }
-
         private async void SourceOnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "Text")
@@ -458,13 +455,13 @@ namespace RoslynCodeControls
         }
 
 
-        protected virtual void OnTextSourceTextChanged(string oldValue, string newValue)
+        private void OnTextSourceTextChanged(string oldValue, string newValue)
         {
         }
 
         #region Private members
 
-        private DrawingBrush _myDrawingBrush;
+        private readonly DrawingBrush _myDrawingBrush;
 
         // ReSharper disable once NotAccessedField.Local
         private int _startColumn;
@@ -492,18 +489,21 @@ namespace RoslynCodeControls
         private LinkedListNode<CharInfo> _insertionCharInfoNode;
         private LinkedListNode<LineInfo2> _insertionLineNode;
         private Rect _drawingBrushViewbox;
-        private DrawingGroup _textDestination;
+        private readonly DrawingGroup _textDestination;
 
         #endregion
 
         #region Public properties
 
         public Channel<UpdateComplete> UpdateCompleteChannel { get; }
+
         public LineInfo2 FirstLine
         {
             get { return LineInfos2?.First?.Value; }
         }
+
         #region Channel tasks
+
         private async Task RenderChannelReaderAsync()
         {
             while (!RenderChannel.Reader.Completion.IsCompleted)
@@ -519,12 +519,14 @@ namespace RoslynCodeControls
                 }
 
                 await HandleRenderRequestAsync(inp);
-                
             }
+
             DebugFn("exiting render channel");
             // ReSharper disable once FunctionNeverReturns
         }
-#endregion
+
+        #endregion
+
         private async Task HandleRenderRequestAsync(RenderRequest renderRequest)
         {
 #if DEBUG
@@ -542,10 +544,10 @@ namespace RoslynCodeControls
             if (renderRequest.InputRequest != null)
                 try
                 {
-                    DebugFn("Calling textinputasync");
+                    DebugFn("Calling TextInputAsync");
                     change = await inn.CustomTextSource4.TextInputAsync(renderRequest.InsertionPoint,
                         renderRequest.InputRequest, renderRequest.LineInfo?.Offset ?? 0);
-                    DebugFn("returned textinputasync");
+                    DebugFn("returned from TextInputAsync");
                 }
                 catch (Exception ex)
                 {
@@ -555,7 +557,7 @@ namespace RoslynCodeControls
 
             var redrawLine = RedrawLine(inn, renderRequest.Input.CustomTextSource4.CurrentRendering, change,
                 renderRequest.LineInfo);
-            
+
             redrawLine.DrawingGroup.Freeze();
             var postUpdateInput = new PostUpdateInput(this,
                 renderRequest.InsertionPoint, renderRequest.InputRequest,
@@ -576,24 +578,20 @@ namespace RoslynCodeControls
         }
 
         /// <inheritdoc />
-        protected override Task SecondaryThreadTasks()
+        protected override void SecondaryThreadTasks()
         {
             _renderChannelReaderTask = RenderChannelReaderAsync().ContinueWith(t =>
             {
-                if (t.IsFaulted)
+                if (!t.IsFaulted) return;
+                _debugFn?.Invoke(t.Exception.Flatten().ToString());
+                JTF.Run(async () =>
                 {
-                    _debugFn?.Invoke(t.Exception.Flatten().ToString());
-                    JTF.Run(async () =>
-                    {
-                        await JTF.SwitchToMainThreadAsync();
-                        FaultedTask = t;
-                        IsFaulted = true;
-                        Exception1 = t.Exception;
-                    });
-                }
+                    await JTF.SwitchToMainThreadAsync();
+                    FaultedTask = t;
+                    IsFaulted = true;   
+                    Exception1 = t.Exception;
+                });
             });
-
-            return Task.CompletedTask;
         }
 
         public Task FaultedTask { get; set; }
@@ -608,6 +606,19 @@ namespace RoslynCodeControls
             if (e.Handled) return;
             switch (e.Key)
             {
+                case Key.Escape:
+                    e.Handled = true;
+                    HandleFault(Task.FromException(new CodeControlFaultException("test fault")));
+                    break;
+                case Key.Space:
+                    if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
+                    {
+                        JTF.RunAsync(DoCompletionAsync).Task.ContinueWith(HandleFault, CancellationToken.None,
+                            TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext());
+                    }
+
+                    break;
+
 #if DEBUG
                 case Key.F1:
                 case Key.D1:
@@ -697,6 +708,94 @@ namespace RoslynCodeControls
             }
         }
 
+        private void HandleFault(Task obj)
+        {
+            if (!obj.IsFaulted)
+                return;
+            var ex = obj.Exception;
+            Popup errPopup = new Popup();
+            var errPopupChild = new Border
+            {
+                Padding = new Thickness(25),
+                Background = Brushes.Red,
+                BorderBrush = Brushes.Black,
+                BorderThickness = new Thickness(5),
+                CornerRadius = new CornerRadius(3),
+                Child = new TextBlock
+                {
+                    FontSize = 28.0,
+                    Text = ex.Flatten().Message,
+                    TextWrapping = TextWrapping.Wrap,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+            errPopup.Child = errPopupChild;
+            
+            errPopup.PlacementTarget = this;
+            errPopup.Placement = PlacementMode.Center;
+            errPopup.StaysOpen = true;
+            errPopup.IsOpen = true;
+            BooleanKeyFrameCollection kf = new BooleanKeyFrameCollection {new DiscreteBooleanKeyFrame(true, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3))), new DiscreteBooleanKeyFrame(false)};
+            BooleanAnimationUsingKeyFrames tl = new BooleanAnimationUsingKeyFrames(){KeyFrames = kf,FillBehavior = FillBehavior.HoldEnd};
+            errPopup.BeginAnimation(Popup.IsOpenProperty, tl);
+
+        }
+
+        private async Task DoCompletionAsync()
+        {
+            var completionService = CompletionService.GetService(Document);
+            var results = await completionService.GetCompletionsAsync(Document, InsertionPoint);
+            var listBx = false;
+            ItemsControl child;
+            var rPopup = new Popup
+            {
+                PlacementTarget = _textCaret,
+                Placement = PlacementMode.Top,
+                PlacementRectangle = new Rect(Canvas.GetLeft(_textCaret), Canvas.GetTop(_textCaret), 10, 10)
+            };
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+            if (listBx)
+            {
+                var rListbox = new ListBox();
+                rListbox.ItemsSource = results.Items;
+                child = rListbox;
+            }
+            else
+            {
+                var combo = new ComboBox {IsDropDownOpen = true, ItemsSource = results.Items};
+                combo.MaxDropDownHeight = 300;
+                combo.StaysOpenOnEdit = true;
+                combo.IsEditable = true;
+                combo.MinWidth = 120;
+                combo.SelectionChanged += (sender, args) =>
+                {
+                    DebugFn("selected item is " + combo.SelectedItem ?? "null");
+                };
+                combo.AddHandler(PreviewKeyDownEvent, new KeyEventHandler((sender, args) =>
+                {
+                    if (args.Key != Key.Tab || combo.SelectedItem == null) return;
+                    args.Handled = true;
+                    var comboSelectedItem = (CompletionItem) combo.SelectedItem;
+                    var text = comboSelectedItem
+                        .ToString(); //comboSelectedItem.Properties["InsertionText"];
+                    var inputRequest = new InputRequest(InputRequestKind.TextInput,
+                        text);
+                    rPopup.IsOpen = false;
+                    var jt = JTF.RunAsync(async () => DoInputAsync(inputRequest));
+                }));
+                child = combo;
+            }
+
+            rPopup.Child = child;
+            rPopup.StaysOpen = true;
+                rPopup.Opened += (sender, args) => Keyboard.Focus(child);
+
+                rPopup.IsOpen = true;
+            }
+        
+
         public override DrawingGroup TextDestination
         {
             get { return _textDestination; }
@@ -772,17 +871,14 @@ namespace RoslynCodeControls
 
             _rect2 = (Rectangle) GetTemplateChild("Rect2");
             _dg2 = (DrawingGroup) GetTemplateChild("DG2");
-            UiLoaded = true;
         }
 
-        /// <inheritdoc />
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods",
-            Justification = "<Pending>")]
         protected override async void OnPreviewTextInput(TextCompositionEventArgs e)
         {
             base.OnPreviewTextInput(e);
             if (_handlingInput)
                 return;
+            DebugFn("*** TEXT INPUT ***");
             var eText = e.Text;
             e.Handled = true;
             try
@@ -793,13 +889,6 @@ namespace RoslynCodeControls
                     .ConfigureAwait(true);
                 _lastInputResult = result;
             }
-            catch (Exception ex)
-            {
-#if DEBUG
-                _debugFn?.Invoke(ex.ToString());
-#endif
-                throw;
-            }
             finally
             {
                 _handlingInput = false;
@@ -808,7 +897,10 @@ namespace RoslynCodeControls
         }
 
         /// <inheritdoc />
-        public override JoinableTaskFactory JTF => _myJoinableTaskFactory;
+        public override JoinableTaskFactory JTF
+        {
+            get { return _myJoinableTaskFactory; }
+        }
 
         public override JoinableTaskFactory JTF2
         {
@@ -892,7 +984,7 @@ public override bool PerformingUpdate
             ((RoslynCodeControl) d).OnDrawingBrushViewboxChanged((Rect) e.OldValue, (Rect) e.NewValue);
         }
 
-        protected virtual void OnDrawingBrushViewboxChanged(Rect oldValue, Rect newValue)
+        private void OnDrawingBrushViewboxChanged(Rect oldValue, Rect newValue)
         {
         }
 
@@ -1113,21 +1205,13 @@ public override bool PerformingUpdate
         }
 
 
-        protected virtual void OnSyntaxTreeUpdated(SyntaxTree newValue)
+        private void OnSyntaxTreeUpdated(SyntaxTree newValue)
         {
             if (!UpdatingSourceText || newValue == null) return;
 #if SYNCSOURCETEXT
             _text = newValue.GetText();
             SourceText = _text.ToString();
 #endif
-        }
-
-        /// <inheritdoc />
-        protected override void OnSourceTextChanged1(string newValue, string eOldValue)
-        {
-            base.OnSourceTextChanged1(newValue, eOldValue);
-
-            // if (newValue != null && !ChangingText) await UpdateTextSourceAsync();
         }
 
         /// <summary>
@@ -1162,14 +1246,15 @@ public override bool PerformingUpdate
 
         #region thread
 
-        public static Thread StartSecondaryThread(ManualResetEvent mevent=default(ManualResetEvent), Action<object> cb=null)
+        public static Thread StartSecondaryThread(ManualResetEvent mEvent = default,
+            Action<object> cb = null)
         {
             var t = new ParameterizedThreadStart(SecondaryThreadStart);
             var newWindowThread = SecondaryThread = new Thread(t);
             newWindowThread.SetApartmentState(ApartmentState.STA);
             newWindowThread.Name = "SecondaryThread";
             newWindowThread.IsBackground = true;
-            newWindowThread.Start(mevent);
+            newWindowThread.Start(mEvent);
             return newWindowThread;
         }
 
@@ -1181,12 +1266,12 @@ public override bool PerformingUpdate
             var mr = (ManualResetEvent) o;
 
             var d = Dispatcher.CurrentDispatcher;
-           
+
             StaticSecondaryDispatcher = d;
-           
-            mr.Set();
+
+            if (mr != null) mr.Set();
             Dispatcher.Run();
-            Debug.WriteLine("exiting seocnardy thread");
+            Debug.WriteLine("Exiting Secondary Thread");
             StaticSecondaryDispatcher = null;
             SecondaryThread = null;
         }
@@ -1198,27 +1283,6 @@ public override bool PerformingUpdate
         public TranslateTransform Translate { get; set; }
 
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public LineInfo2 InsertionLine
-        {
-            get { return InsertionLineNode?.Value; }
-        }
-
-        public override LinkedListNode<LineInfo2> InsertionLineNode { get; set; }
-        // {
-        // get { return _insertionLineNode; }
-        // set
-        // {
-        // if (Equals(value, _insertionLineNode)) return;
-        // _insertionLineNode = value;
-        // OnPropertyChanged();
-        // OnPropertyChanged(nameof(InsertionLine));
-        // }
-        // }
-
-
         public async Task<UpdateComplete> DoInputAsync(InputRequest inputRequest)
         {
             if (IsFaulted) throw new CodeControlFaultException("Unknown Fault", Exception1);
@@ -1226,13 +1290,30 @@ public override bool PerformingUpdate
             var insertionPoint = InsertionPoint;
             var complete = await DoUpdateTextAsync(insertionPoint, inputRequest).ConfigureAwait(true);
 #if true
+            DebugFn("About to update roslyn properties");
             if (CustomTextSource != null)
             {
                 ChangingText = true;
                 SyntaxNode = CustomTextSource.Node;
                 SyntaxTree = CustomTextSource.Tree;
+                var doc = Document.WithSyntaxRoot(SyntaxNode);
+                var sm = await doc.GetSemanticModelAsync();
+                if (sm != null)
+                {
+                    Compilation = sm.Compilation;
+                }
+
+                Document = doc;
+                SemanticModel = sm;
                 ChangingText = false;
+                DebugFn("Finished updating roslyn properties.");
             }
+            else
+            {
+                DebugFn("Text source is null");
+            }
+
+            InsertionPoint = complete.NewInsertionPoint;
 #endif
 
             return complete;
@@ -1240,34 +1321,6 @@ public override bool PerformingUpdate
 
 
         private async Task<UpdateComplete> DoUpdateTextAsync(int insertionPoint, InputRequest inputRequest)
-        {
-            DebugFn($"DoUpdateTextAsync [{insertionPoint}] {inputRequest}");
-
-            var insLine = InsertionLine;
-            var insertionLineOffset = insLine?.Offset ?? 0;
-            var originY = insLine?.Origin.Y ?? 0;
-            var originX = insLine?.Origin.X ?? 0;
-            var insertionLineLineNumber = insLine?.LineNumber ?? 0;
-            inputRequest.SequenceId = SequenceId++;
-            var renderRequestInput = new RenderRequestInput(this,
-                insertionLineLineNumber,
-                insertionLineOffset,
-                originY, originX,
-                Formatter,
-                OutputWidth,
-                PixelsPerDip,
-                CustomTextSource,
-                MaxY, MaxX, FontSize, _typefaceName, FontWeight);
-            var renderRequest = new RenderRequest(inputRequest, insertionPoint, renderRequestInput, insLine);
-            await RenderChannel.Writer.WriteAsync(renderRequest);
-            var updateComplete = await UpdateCompleteChannel.Reader.ReadAsync();
-#if DEBUG
-            DebugFn($"{nameof(DoUpdateTextAsync)} Update complete: {updateComplete}");
-#endif
-            return updateComplete;
-        }
-
-        public async Task<UpdateComplete> DoUpdateText2Async(int insertionPoint, InputRequest inputRequest)
         {
             DebugFn($"DoUpdateTextAsync [{insertionPoint}] {inputRequest}");
 
@@ -1320,8 +1373,8 @@ public override bool PerformingUpdate
             FontRendering currentRendering, TextChange? change, LineInfo2 curLineInfo)
         {
             var begin = DateTime.Now;
-#if DEBUG
             Action<string> debugFn = renderRequestInput.RoslynCodeControl.DebugFn;
+#if DEBUG
             debugFn(nameof(RedrawLine));
 #endif
             var lineNo = renderRequestInput.LineNo;
@@ -1337,8 +1390,8 @@ public override bool PerformingUpdate
             if (runCount == 0)
             {
 #if DEBUG
-                debugFn("Runcount is 0");
-		#endif
+                debugFn("Run count is 0");
+#endif
             }
             else
             {
@@ -1357,12 +1410,13 @@ public override bool PerformingUpdate
             {
 #if DEBUG
                 debugFn("got a text line " + myTextLine.Length);
-#endif                
+#endif
                 var textStorePosition = renderRequestInput.Offset;
+                // ReSharper disable once PossibleNullReferenceException
                 var nRuns = source.Runs.Count - runCount;
 
                 CommonText.HandleLine(allCharInfos, lineOriginPoint, myTextLine, source, runCount,
-                    nRuns, lineNo, textStorePosition, runsInfos,debugFn, change, curLineInfo);
+                    nRuns, lineNo, textStorePosition, runsInfos, debugFn, change, curLineInfo);
 
                 myTextLine.Draw(dc, lineOriginPoint, InvertAxes.None);
 
@@ -1386,7 +1440,7 @@ public override bool PerformingUpdate
             dc.Close();
 #if DEBUG
             debugFn("Complete");
-	    #endif
+#endif
             return new RedrawLineResult(lineInfo2, dg, lineOriginPoint.X + width, lineOriginPoint.Y + height,
                 allCharInfos, runsInfos, newLineInfo, begin);
         }
@@ -1394,11 +1448,14 @@ public override bool PerformingUpdate
         private static void PostUpdate(PostUpdateInput @in, int newIp)
         {
             var roslynCodeControl1 = @in.RoslynCodeControl;
-            roslynCodeControl1.DebugFn($"PostUpdate");
+            roslynCodeControl1.DebugFn("entering PostUpdate routine");
 
             var res = @in.RedrawLineResult;
             var inDg = res.DrawingGroup;
-            roslynCodeControl1.DebugFn($"{inDg.Bounds}");
+
+            if ( inDg.Bounds.IsEmpty && res.LineInfo.Length > 2) throw new InvalidOperationException("Drawing group has empty bounds");
+            roslynCodeControl1.DebugFn($"Drawing Group bounds is {inDg.Bounds}");
+            roslynCodeControl1.DebugFn($"Line info is {res.LineInfo}");
             var inMaxX = res.LineMaxX;
             var inMaxY = res.LineMaxY;
 
@@ -1465,7 +1522,7 @@ public override bool PerformingUpdate
 
             roslynCodeControl1.Rectangle.Width = width;
             roslynCodeControl1.Rectangle.Height = height;
-            roslynCodeControl1.DebugFn("zzz");
+            
             LinkedListNode<LineInfo2> llNode = null;
             var setInsertionLineNode = false;
             if (@in.RedrawLineResult.IsNewLineInfo)
@@ -1503,6 +1560,7 @@ public override bool PerformingUpdate
                 if (!@in.RedrawLineResult.IsNewLineInfo)
                     llNode = roslynCodeControl1.FindLine(res.LineInfo.LineNumber, roslynCodeControl1.InsertionLineNode);
                 // ReSharper disable once PossibleNullReferenceException
+                // ReSharper disable once PossibleNullReferenceException
                 llNode = llNode.List.AddAfter(llNode,
                     new LineInfo2(res.LineInfo.LineNumber + 1, null, nextLineOffset,
                         new Point(res.LineInfo.Origin.X, res.LineInfo.Origin.Y + res.LineInfo.Height), 0, 0));
@@ -1511,11 +1569,9 @@ public override bool PerformingUpdate
 
             if (setInsertionLineNode)
                 roslynCodeControl1.InsertionLineNode = llNode;
-            roslynCodeControl1.InsertionPoint = newIp;
+            
             roslynCodeControl1.DebugFn("return");
-
         }
-
 
 
         /// <summary>
@@ -1553,10 +1609,7 @@ public override bool PerformingUpdate
         }
 #endif
 
-
-        // public CustomTextSource4Proxy CustomTextSourceProxy { get; set; }
-
-        protected virtual void OnFilenameChanged(string oldValue, string newValue)
+        private void OnFilenameChanged(string oldValue, string newValue)
         {
             if (newValue == null)
                 return;
@@ -1586,7 +1639,7 @@ public override bool PerformingUpdate
                     if (InsertionLine != null) charInfoNode = InsertionLine.FirstCharInfo;
                 }
 
-                var f = charInfoNode == null ? true : charInfoNode.Value.Index < newValue;
+                var f = charInfoNode == null || charInfoNode.Value.Index < newValue;
                 LinkedListNode<CharInfo> prevCharInfoNode = null;
                 while (charInfoNode != null &&
                        (f ? charInfoNode.Value.Index < newValue : charInfoNode.Value.Index > newValue))
@@ -1609,7 +1662,7 @@ public override bool PerformingUpdate
                     }
                     else
                     {
-
+                        // ReSharper disable once PossibleNullReferenceException
                         var ciYOrigin = InsertionLine.Origin.Y - DrawingBrush.Viewbox.Top;
                         _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
                         var ciAdvanceWidth = -1 * DrawingBrush.Viewbox.Left;
@@ -1641,11 +1694,11 @@ public override bool PerformingUpdate
                     }
                 }
 
-                DebugFn($"no position");
+                DebugFn("no position");
             }
             catch
             {
-
+                // ignored
             }
 #if false
             DebugFn($"{nameof(UpdateCaretPosition)} ( {oldValue} , {newValue} )");
@@ -1733,8 +1786,8 @@ public override bool PerformingUpdate
         private Grid _grid;
         private string _typefaceName;
         private JoinableTaskFactory _jtf2;
-        private bool _enableMouse = true;
-        private bool _doBinding = false;
+        private readonly bool _enableMouse = true;
+        private readonly bool _doBinding = false;
         private Task _renderChannelReaderTask;
         private UpdateComplete _lastInputResult;
         private JoinableTask _postUpdateReaderJoinableTask;
@@ -1743,6 +1796,7 @@ public override bool PerformingUpdate
         private JoinableTaskContext _joinableTaskContext;
         private JoinableTaskCollection _taskCollection;
         private TypeInfo _typeInfo;
+        private AdhocWorkspace _workspace;
 
         #region Mouse
 
@@ -1750,10 +1804,7 @@ public override bool PerformingUpdate
 #if MOUSE
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            if (!_enableMouse)
-            {
-                return;
-            }
+            if (!_enableMouse) return;
             DrawingContext dc = null;
             try
             {
@@ -2114,7 +2165,7 @@ public override bool PerformingUpdate
         {
             if (!_enableMouse)
                 return;
-            if(IsSelecting)
+            if (IsSelecting)
             {
                 IsSelecting = false;
                 _endNode = HoverSyntaxNode;
@@ -2149,11 +2200,22 @@ public override bool PerformingUpdate
         }
 #endif
 
-#endregion
+        #endregion
 
         public bool SelectionEnabled { get; set; }
 
         public bool IsSelecting { get; set; }
+
+        public AdhocWorkspace Workspace
+        {
+            get { return _workspace; }
+            set
+            {
+                if (Equals(value, _workspace)) return;
+                _workspace = value;
+                OnPropertyChanged();
+            }
+        }
 
         private static void OnNodeUpdated(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -2164,7 +2226,7 @@ public override bool PerformingUpdate
         /// <summary>
         /// 
         /// </summary>
-        protected virtual void OnNodeUpdated()
+        private void OnNodeUpdated()
         {
             if (ChangingText || UpdatingSourceText) return;
 #if DEBUG
@@ -2204,7 +2266,7 @@ public override bool PerformingUpdate
         public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        private void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -2215,10 +2277,7 @@ public override bool PerformingUpdate
             RenderChannel.Writer.Complete();
             UpdateCompleteChannel.Writer.Complete();
             UpdateChannel.Writer.Complete();
-            foreach (var joinableTask in _taskCollection)
-            {
-                DebugFn("Task " + joinableTask.ToString());
-            }
+            foreach (var joinableTask in _taskCollection) DebugFn("Task " + joinableTask.ToString());
             await _taskCollection.JoinTillEmptyAsync();
             DebugFn("return from shutdown");
         }

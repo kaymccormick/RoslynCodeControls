@@ -7,15 +7,24 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="icon-print-6.jpg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.0-beta1.final">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Threading" Version="16.6.13" />
+    <PackageReference Include="ModernWPF" Version="2.0.0-alpha97" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\RoslynCodeControls\RoslynCodeControls.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="icon-print-6.jpg" />
   </ItemGroup>
 
 </Project>

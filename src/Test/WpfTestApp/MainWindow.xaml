@@ -5,8 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfTestApp"
         xmlns:roslynCodeControls="clr-namespace:RoslynCodeControls;assembly=RoslynCodeControls"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        xmlns:modernWpf="http://modernwpf"
+        mc:Ignorable="d" FontSize="24"
+        Title="MainWindow" Height="1000" Width="800">
     <Window.Resources>
         <local:CharConverter x:Key="CharConverter" />
         <local:CharFontSizeConverter x:Key="CharFontSizeConverter" />
@@ -623,7 +624,9 @@
         </Style>
         <local:VisibilityToBooleanConverter x:Key="B" />
     </Window.Resources>
-    
+    <Window.CommandBindings>
+        <CommandBinding  Command="Print" Executed="OnPrintExecuted"/>
+    </Window.CommandBindings>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -631,7 +634,7 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Menu Grid.Row="0">
+        <Menu Grid.Row="0" FontSize="24.0">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open File" Click="OpenFile"/>
 
@@ -644,7 +647,12 @@
             </MenuItem>
         </Menu>
         <ToolBarTray Grid.Row="1">
-            <ToolBar Band="1" BandIndex="1" x:Name="CharacterMovementToolbar">
+            <ToolBar Band="1" BandIndex="1" x:Name="FileOpsToolbar">
+                <Button Command="Print">
+                    <Image Source="pack://application:,,,/icon-print-6.jpg" MaxWidth="16"/>
+                </Button>
+            </ToolBar>
+                <ToolBar Band="1" BandIndex="2" x:Name="CharacterMovementToolbar">
                 <ToolBar.ContextMenu>
                     <ContextMenu>
                         <MenuItem CommandTarget="{x:Reference mainWindow}" Header="Hide" Command="{x:Static local:MainWindow.HideToolBar}"/></ContextMenu>
@@ -684,7 +692,7 @@
                 </Button>
 
             </ToolBar>
-            <ToolBar Band="1" BandIndex="2" x:Name="FontsToolbar">
+            <ToolBar Band="1" BandIndex="3" x:Name="FontsToolbar">
                 <TextBlock Text="Font:" Margin="0,0,5,0" VerticalAlignment="Center"></TextBlock>
                 <ComboBox x:Name="FontComboBox" SelectionChanged="FontComboBox_OnSelectionChanged" VerticalAlignment="Center"
                     ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Fonts}"
@@ -703,11 +711,24 @@
                           />
             </ToolBar>
         </ToolBarTray>
-        <Border Grid.Row="2">
-            <roslynCodeControls:EnhancedCodeControl EnableToolBars="False"  FontSize="20" xml:space="preserve"
-                                                  x:Name="CodeControl" />
+	        <ScrollViewer Margin="0,40,0,0" x:Name="StatusScrollViewer"  x:FieldModifier="public" Background="Transparent" Grid.Row="2" Grid.Column="0" Grid.RowSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Panel.ZIndex="10"  Visibility="Hidden">
+            <TextBlock FontWeight="Black"  TextWrapping="Wrap" x:Name="status" Visibility="Visible" x:FieldModifier="public"   HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity=".6" >
+                <TextBlock.Background>
+                    <SolidColorBrush Color="Beige" Opacity=".5"></SolidColorBrush>
+                </TextBlock.Background></TextBlock>
+        </ScrollViewer>
+        <Border Grid.Row="2" Padding="15">
+             <roslynCodeControls:EnhancedCodeControl CornerRadius="3"   BorderBrush="CornflowerBlue"  BorderThickness="5" EnableToolBars="False"  FontSize="20" xml:space="preserve"
+                                                    
+                                                    x:Name="CodeControl" />
+            
         </Border>
-        <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="18" DataContext="{Binding ElementName=CodeControl}">
+	        <StatusBar Grid.Row="3">
+            <Ellipse Margin="5" Width="20" Height="20" x:Name="Ellipse" Fill="Red"/>
+            <TextBlock Text="{Binding ElementName=Code,Path=CodeControl.CodeControl.InsertionPoint}"/>
+            <Ellipse Margin="5" Width="20" Height="20" x:Name="Ellipse2" Fill="Gray"/>
+        </StatusBar>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="18" DataContext="{Binding ElementName=CodeControl}" Visibility="Collapsed">
             <TextBlock Text="{Binding Status}" Width="100"/>
             <TextBlock Margin="5,0,0,0" Text="{Binding ElementName=CodeControl,Path=InsertionPoint}" />
             <StackPanel Margin="5,0,0,0" Orientation="Horizontal" DataContext="{Binding ElementName=CodeControl,Path=InsertionCharInfo}">

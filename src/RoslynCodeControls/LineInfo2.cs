@@ -89,5 +89,11 @@ namespace RoslynCodeControls
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        /// <inheritdoc />
+        public override string ToString()
+        {
+            return $"{nameof(LineNumber)}: {LineNumber}, {nameof(Offset)}: {Offset}, {nameof(Origin)}: {Origin}, {nameof(Height)}: {Height}, {nameof(Length)}: {Length}";
+        }
     }
 }

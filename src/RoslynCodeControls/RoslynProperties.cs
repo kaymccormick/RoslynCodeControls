@@ -21,7 +21,7 @@ namespace RoslynCodeControls
         public static readonly DependencyProperty SyntaxTreeProperty = DependencyProperty.RegisterAttached(
             "SyntaxTree", typeof(SyntaxTree), typeof(RoslynProperties),
             new FrameworkPropertyMetadata(default(SyntaxTree), FrameworkPropertyMetadataOptions.None,
-                SyntaxTreeUpdated));
+            SyntaxTreeUpdated));
 
         public static readonly DependencyProperty CompilationProperty = DependencyProperty.RegisterAttached(
             "Compilation", typeof(Compilation), typeof(RoslynProperties),
@@ -45,19 +45,20 @@ namespace RoslynCodeControls
             return (SyntaxNode) d.GetValue(SyntaxNodeProperty);
         }
 
-        public static void set_SyntaxNode(DependencyObject d, SyntaxNode syntaxNode)
+        public static void SetSyntaxNode(DependencyObject d, SyntaxNode syntaxNode)
         {
             d.SetValue(SyntaxNodeProperty, syntaxNode);
         }
 
         private static void SyntaxTreeUpdated(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
+            return;
             Debug.WriteLine("Syntax tree updated");
             Debug.WriteLine("Resetting model and compilation to null");
-            set_SemanticModel(d, null);
-            set_Compilation(d, null);
+            SetSemanticModel(d, null);
+            SetCompilation(d, null);
             Debug.WriteLine("setting node to syntax root");
-            set_SyntaxNode(d, ((SyntaxTree) e.NewValue)?.GetRoot());
+            SetSyntaxNode(d, ((SyntaxTree) e.NewValue)?.GetRoot());
         }
 
         private static Compilation get_Compilation(DependencyObject d)
@@ -65,7 +66,7 @@ namespace RoslynCodeControls
             return (Compilation) d.GetValue(CompilationProperty);
         }
 
-        private static void set_Compilation(DependencyObject d, Compilation compilation)
+        private static void SetCompilation(DependencyObject d, Compilation compilation)
         {
             d.SetValue(CompilationProperty, compilation);
         }
@@ -75,7 +76,7 @@ namespace RoslynCodeControls
             return (SemanticModel) d.GetValue(SemanticModelProperty);
         }
 
-        private static void set_SemanticModel(DependencyObject d, SemanticModel model)
+        private static void SetSemanticModel(DependencyObject d, SemanticModel model)
         {
             d.SetValue(SemanticModelProperty, model);
         }
@@ -92,6 +93,7 @@ namespace RoslynCodeControls
 
         private static async void OnDocumentChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
+            return;
             var newValue = (Document) e.NewValue;
             if (newValue != null && newValue.SupportsSyntaxTree)
             {
@@ -102,7 +104,7 @@ namespace RoslynCodeControls
             if (newValue != null && newValue.SupportsSemanticModel)
             {
                 var model = await newValue.GetSemanticModelAsync().ConfigureAwait(true);
-                set_SemanticModel(d, model);
+                SetSemanticModel(d, model);
             }
         }
     }

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.VisualStudio.Threading;
 using RoslynCodeControls;
@@ -28,9 +29,27 @@ namespace WpfTestApp
         /// <inheritdoc />
         protected override void OnStartup(StartupEventArgs e)
         {
-            if(e.Args.Any())
+            var args = e.Args.ToList();
+            if(args.Any())
             {
-                _file = e.Args.First();
+                string cmd = string.Empty;
+                if (args.First().StartsWith("-"))
+                {
+                    cmd = args.First();
+                    args = args.Skip(1).ToList();
+                }
+
+                if (args.Any())
+                {
+                    _file = args.First();
+                
+                }
+
+                if (!string.IsNullOrEmpty(cmd) && Equals(cmd, "-print"))
+                {
+                    StartupCommand = ApplicationCommands.Print;
+                }
+                
             }
             _mevent = new ManualResetEvent(false);
             t2 = RoslynCodeControls.RoslynCodeControl.StartSecondaryThread(_mevent, null);
@@ -39,6 +58,8 @@ namespace WpfTestApp
             base.OnStartup(e);
         }
 
+        public ICommand StartupCommand { get; set; }
+
         private async Task Z()
         {
             await _mevent.ToTask();
@@ -46,6 +67,7 @@ namespace WpfTestApp
             var jtf2 = new JoinableTaskFactory(new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
                 new DispatcherSynchronizationContext(d)));
             MainWindow w = new MainWindow();
+            w.StartupCommad = StartupCommand;
             w.Filename = _file;
             w.JTF2 = jtf2;
             w.Show();

@@ -45,8 +45,10 @@ _debugFn = debugOut ?? ((s) => { });
 
         private void DebubgFn0(string s)
         {
-            Debug.WriteLine(s);
-            ProtoLogger.Instance.LogAction(s);
+            var t = Thread.CurrentThread;
+            var newMsg = $"{t.Name} {t.ManagedThreadId}: {Task.CurrentId}: {s}";
+            Debug.WriteLine(newMsg);
+            ProtoLogger.Instance.LogAction(newMsg);
         }
 
         public static readonly RoutedEvent RenderCompleteEvent = EventManager.RegisterRoutedEvent("RenderComplete",
@@ -286,13 +288,12 @@ _debugFn = debugOut ?? ((s) => { });
         /// <inheritdoc />
         public async Task UpdateFormattedTextAsync()
         {
-            CustomTextSource4 ret;
             var codeView = (ICodeView) this;
             _debugFn?.Invoke("Entering updateformattedtext " + codeView.PerformingUpdate);
             if (codeView.PerformingUpdate)
             {
                 _debugFn?.Invoke("Already performing update");
-                ret = null;
+                
             }
             else
             {
@@ -327,21 +328,10 @@ _debugFn = debugOut ?? ((s) => { });
                 await JTF2.SwitchToMainThreadAsync();
 
                 SecondaryThreadTasks();
-                // var dispatcherOperation = ((IFace1) this).SecondaryDispatcher.InvokeAsync(async () =>
-                // {
-                var rr = codeView.InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
-                var src = await rr;
-                // return src;
-                // }
-                // );
-
+                var source = await codeView.InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
                 await JTF.SwitchToMainThreadAsync();
-                if (!JTF.Context.IsOnMainThread)
-                    if (JTF.Context.IsMainThreadBlocked())
-                    {
-                    }
 
-                codeView.CustomTextSource = src;
+                codeView.CustomTextSource = source;
                 _debugFn?.Invoke("Return from await inner update");
 
                 codeView.PerformingUpdate = false;
@@ -353,7 +343,7 @@ _debugFn = debugOut ?? ((s) => { });
             }
         }
 
-        protected virtual async Task SecondaryThreadTasks()
+        protected virtual void SecondaryThreadTasks()
         {
         }
 
@@ -421,9 +411,10 @@ _debugFn = debugOut ?? ((s) => { });
 
         public virtual LinkedList<LineInfo2> LineInfos2 { get; } = new LinkedList<LineInfo2>();
 
-
-        /// <inheritdoc />
-        public virtual LineInfo2 InsertionLine { get; } = null;
+        public virtual LineInfo2 InsertionLine
+        {
+            get { return InsertionLineNode?.Value; }
+        }
 
         public virtual Rectangle Rectangle { get; set; }
 

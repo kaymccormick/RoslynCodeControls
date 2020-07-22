@@ -8,11 +8,8 @@ using System.Security.Permissions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Windows.Xps.Packaging;
 using Microsoft.VisualStudio.Threading;
@@ -24,7 +21,7 @@ namespace XUnitTestProject1
 {
     class MyCompanyEventSource : EventSource
     {
-        public static MyCompanyEventSource Log = new MyCompanyEventSource();
+        public static readonly MyCompanyEventSource Log = new MyCompanyEventSource();
 
         public void Startup() { WriteEvent(1); }
         public void Timing(double timing) { WriteEvent(2, timing); }
@@ -55,8 +52,6 @@ namespace XUnitTestProject1
             c.JTF2 = _f.JTF2;
             c.SourceText = "";
 
-            // DoInput1Async()
-            
             var jt = c.JTF.RunAsync(DoInput1Async);
             var continueWith = jt.JoinAsync().ContinueWith(async t =>
             {

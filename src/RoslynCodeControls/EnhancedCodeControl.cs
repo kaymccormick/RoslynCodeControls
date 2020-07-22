@@ -85,13 +85,17 @@ namespace RoslynCodeControls
             return base.ArrangeOverride(arrangeBounds);
         }
 
-        protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+        public CornerRadius CornerRadius
         {
-            base.OnPropertyChanged(e);
+            get { return (CornerRadius) GetValue(CornerRadiusProperty); }
+            set { SetValue(CornerRadiusProperty, value); }
         }
 
+
+        public static readonly DependencyProperty CornerRadiusProperty = Border.CornerRadiusProperty;
         static EnhancedCodeControl()
         {
+            Border.CornerRadiusProperty.AddOwner(typeof(EnhancedCodeControl));
             DefaultStyleKeyProperty.OverrideMetadata(typeof(EnhancedCodeControl),
                 new FrameworkPropertyMetadata(typeof(EnhancedCodeControl)));
             // CompilationProperty.AddOwner(typeof(EnhancedCodeControl));
@@ -186,6 +190,7 @@ namespace RoslynCodeControls
         private ComboBox _fontCombo;
         private ComboBox _fontSizeCombo;
         private JoinableTaskFactory _jtf2;
+        private AdhocWorkspace _workspace;
         public static readonly DependencyProperty EnableToolBarsProperty = DependencyProperty.Register("EnableToolBars", typeof(bool), typeof(EnhancedCodeControl), new PropertyMetadata(default(bool)));
 
         public RoslynCodeControl CodeControl
@@ -240,6 +245,18 @@ namespace RoslynCodeControls
             set { SetValue(EnableToolBarsProperty, value); }
         }
 
+        public AdhocWorkspace Workspace
+        {
+            get { return _workspace; }
+            set
+            {
+                if (Equals(value, _workspace)) return;
+                _workspace = value;
+                CodeControl.Workspace = value;
+                OnPropertyChanged();
+            }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
@@ -248,9 +265,9 @@ namespace RoslynCodeControls
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public async Task UpdateFormattedTextAsync()
+        public Task UpdateFormattedTextAsync()
         {
-            await CodeControl.UpdateFormattedTextAsync();
+            return CodeControl.UpdateFormattedTextAsync();
         }
     }
 }

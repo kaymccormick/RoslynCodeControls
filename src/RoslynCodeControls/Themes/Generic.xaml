@@ -12,6 +12,7 @@
                     <Border Background="{TemplateBinding Background}"
                             DataContext="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}}"
                             BorderBrush="{TemplateBinding BorderBrush}"
+                           
                             BorderThickness="{TemplateBinding BorderThickness}"
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                         <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" x:Name="Grid">
@@ -73,10 +74,10 @@
                                                HorizontalAlignment="Left" IsHitTestVisible="False">
                                         <Rectangle.Fill>
                                             <DrawingBrush x:Name="DrawingBrush2" AlignmentX="Left" AlignmentY="Top"
-                                                          Viewbox="{Binding ElementName=TextDest,Path=Bounds}"
+                                                          Viewbox="{Binding RelativeSource={RelativeSource TemplatedParent},Path=TextDestination.Bounds}"
                                                           ViewboxUnits="Absolute"
                                                           TileMode="None"
-                                                          Viewport="{Binding ElementName=TextDest,Path=Bounds}"
+                                                          Viewport="{Binding RelativeSource={RelativeSource TemplatedParent},Path=TextDestination.Bounds}"
                                                           ViewportUnits="Absolute"
                                                           Stretch="None">
                                                 <DrawingBrush.Transform>
@@ -218,6 +219,7 @@
                 <ControlTemplate TargetType="{x:Type local:EnhancedCodeControl}">
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
                             BorderThickness="{TemplateBinding BorderThickness}">
                         <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" x:Name="Grid"
                               DataContext="{Binding ElementName=CodeControl}">
@@ -238,8 +240,6 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="5*" />
-                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Menu Grid.Row="0" Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
@@ -250,7 +250,7 @@
                                               IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
                                 </MenuItem>
                             </Menu>
-                            <ToolBarTray Grid.Row="1"  Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
+                            <ToolBarTray Grid.Column="0" Grid.Row="1"  Visibility="{Binding RelativeSource={RelativeSource TemplatedParent},Path=EnableToolBars,Converter={StaticResource B2}}">
                                 <ToolBar Band="1" BandIndex="1" x:Name="CharacterMovementToolbar">
                                     <Button FontSize="24" Command="MoveLeftByCharacter"
                                             CommandTarget="{x:Reference CodeControl}">
