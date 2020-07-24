@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Collections.Generic;
+using System.Windows;
 using System.Windows.Media.TextFormatting;
 
 namespace RoslynCodeControls
@@ -14,11 +15,13 @@ namespace RoslynCodeControls
         }
 
         public Rect Rect { get; }
+        public LinkedListNode<CharInfo> StartCharInfo { get; }
 
-        public TextRunInfo(TextRun textRun, Rect rect)
+        public TextRunInfo(TextRun textRun, Rect rect, LinkedListNode<CharInfo> startCharInfo)
         {
             TextRun = textRun;
             Rect = rect;
+            StartCharInfo = startCharInfo;
         }
     }
 }

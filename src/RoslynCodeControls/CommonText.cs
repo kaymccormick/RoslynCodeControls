@@ -8,12 +8,11 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using System.Windows.Threading;
-using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
-using Microsoft.VisualStudio.Threading;
 using TextLine = System.Windows.Media.TextFormatting.TextLine;
+// ReSharper disable ConvertToUsingDeclaration
 
 namespace RoslynCodeControls
 {
@@ -98,7 +97,7 @@ namespace RoslynCodeControls
         /// <returns></returns>
         public static CustomTextSource4 CreateAndInitTextSource(double pixelsPerDip,
             Typeface tf, SyntaxTree st, SyntaxNode node, Compilation compilation, double fontSize,
-            Action<string> pDebugFn)
+            RoslynCodeBase.DebugDelegate pDebugFn)
 
         {
             if (st == null)
@@ -131,7 +130,7 @@ namespace RoslynCodeControls
         public static async Task<CustomTextSource4> InnerUpdateAsync(MainUpdateParameters mainUpdateParameters,
             Func<CustomTextSource4> makeSource)
         {
-            mainUpdateParameters.DebugFn?.Invoke($"{nameof(InnerUpdateAsync)}");
+            mainUpdateParameters.DebugFn?.Invoke($"{nameof(InnerUpdateAsync)}", 5);
             var tf = CreateTypeface(new FontFamily(mainUpdateParameters.FaceName), FontStyles.Normal,
                 FontStretches.Normal,
                 mainUpdateParameters.FontWeight);
@@ -244,174 +243,76 @@ namespace RoslynCodeControls
 
         public static void HandleLine(LinkedList<CharInfo> allCharInfos, Point linePosition, TextLine myTextLine,
             CustomTextSource4 customTextSource4, int runCount, int nRuns, int lineNo, int textStorePosition,
-            List<TextRunInfo> runsInfos, Action<string> debugFn=null, TextChange? change = null,
+            List<TextRunInfo> runsInfos, RoslynCodeBase.DebugDelegate debugFn=null, TextChange? change = null,
             LineInfo2 curLineInfo = null)
         {
             var curPos = linePosition;
             // var positions = new List<Rect>();
             var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
 
-            var textRuns = customTextSource4.Runs.Skip(runCount).Take(nRuns);
+            var runs = customTextSource4.Runs;
+            
+            debugFn?.Invoke($"Runs is count is {runs.Count}", 1);
+            var textRuns = runs.Skip(runCount).Take(nRuns).ToList();
+            debugFn?.Invoke($"{runCount} {nRuns} TextRuns enumerator count is {textRuns.Count}", 1);
 
             using (var enum1 = textRuns.GetEnumerator())
             {
-                enum1.MoveNext();
+                var moveNext = enum1.MoveNext();
                 var lineCharIndex = 0;
                 var xOrigin = linePosition.X;
                 var curCi = allCharInfos.First;
                 //var charInfos = new List<CharInfo>(myTextLine.Length);
-                if (indexedGlyphRuns != null)
-                    foreach (var glyphRunC in indexedGlyphRuns)
+                if (indexedGlyphRuns == null) return;
+                foreach (var glyphRunC in indexedGlyphRuns)
+                {
+                    var gl = glyphRunC.GlyphRun;
+                    var advanceSum = gl.AdvanceWidths.Sum();
+                    var startCi = curCi;
+                    for (var i = 0; i < gl.Characters.Count; i++)
                     {
-                        var gl = glyphRunC.GlyphRun;
-                        var advanceSum = gl.AdvanceWidths.Sum();
-
-                        for (var i = 0; i < gl.Characters.Count; i++)
+                        var i0 = gl.ClusterMap?[i] ?? i;
+                        var glAdvanceWidth = gl.AdvanceWidths[i0];
+                        var glCharacter = gl.Characters[i];
+                        var glCaretStop = gl.CaretStops?[i0];
+                        if (curCi != null && curLineInfo != null)
                         {
-                            var i0 = gl.ClusterMap?[i] ?? i;
-                            var glAdvanceWidth = gl.AdvanceWidths[i0];
-                            var glCharacter = gl.Characters[i];
-                            var glCaretStop = gl.CaretStops?[i0];
-                            if (curCi != null && curLineInfo != null)
+                            if (lineCharIndex + curLineInfo.Offset >= change.Value.Span.Start)
                             {
-                                if (lineCharIndex + curLineInfo.Offset >= change.Value.Span.Start)
-                                {
-                                    curCi.Value.RunIndex = i;
-                                    curCi.Value.Character = glCharacter;
-                                    curCi.Value.AdvanceWidth = glAdvanceWidth;
-                                    curCi.Value.XOrigin = xOrigin;
-                                    if(Math.Abs(curCi.Value.YOrigin - linePosition.Y) > 0.5)
-                                        curCi.Value.YOrigin = linePosition.Y;
-                                }
-                                if(curCi.Value.RunIndex != i)
-                                    curCi.Value.RunIndex = i;
-                                curCi = curCi.Next;
+                                curCi.Value.RunIndex = i;
+                                curCi.Value.Character = glCharacter;
+                                curCi.Value.AdvanceWidth = glAdvanceWidth;
+                                curCi.Value.XOrigin = xOrigin;
+                                if(Math.Abs(curCi.Value.YOrigin - linePosition.Y) > 0.5)
+                                    curCi.Value.YOrigin = linePosition.Y;
                             }
-                            else
-                            {
-                                var ci = new CharInfo(lineNo, textStorePosition + lineCharIndex, lineCharIndex, i,
-                                    glCharacter, glAdvanceWidth,
-                                    glCaretStop, xOrigin, linePosition.Y);
-                                allCharInfos.AddLast(ci);
-                            }
-
-                            lineCharIndex++;
-                            xOrigin += glAdvanceWidth;
+                            if(curCi.Value.RunIndex != i)
+                                curCi.Value.RunIndex = i;
+                            curCi = curCi.Next;
                         }
-
-                        var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
-                        var enum1Current = enum1.Current;
-                        var textRunInfo = new TextRunInfo(enum1Current, item);
-                        debugFn?.Invoke(textRunInfo.ToString());
-                        runsInfos?.Add(textRunInfo);
-
-                        curPos.X += advanceSum;
-                        enum1.MoveNext();
-                    }
-            }
-#if DEBUGTEXTSOURCE
-                    if (positions.Count != nRuns - 1)
-                    {
-                        Debug.WriteLine("number of line positions does not match number of runs");
-                        var z = string.Join("",
-                            indexedGlyphRuns.SelectMany(iz => iz.GlyphRun.Characters));
-                        
-                        foreach (var textRun in textRuns)
+                        else
                         {
-                            if (textRun is CustomTextCharacters c1)
-                            {
-                                var tt = c1.Text;
-                            } else
-                            {
-
-                            }
-                        }
-                        Debug.WriteLine(z);
-                    }
-#endif
-
-        }
-
-        public static Point HandleTextLine(ref int textStorePosition, out TextLineBreak prev, ref LineInfo prevLine,
-            ref int lineNo, Point linePosition, double paragraphWidth, CustomTextSource4 customTextSource4,
-            int runCount,
-            TextLine myTextLine, LinkedList<CharInfo> allCharInfos, [NotNull] List<TextRunInfo> runsInfos, DrawingContext myDc,
-            out LineInfo lineInfo, bool drawOnSecondaryThread = true, Dispatcher dispatcher = null, JoinableTaskFactory joinableTaskFactory = null)
-        {
-            Debug.WriteLine("HandleTextLine");
-            var nRuns = customTextSource4.Runs.Count - runCount;
-#if DEBUGTEXTSOURCE
-                    Debug.WriteLine("num runs for line is "  + nRuns);
-#endif
-            // if (myTextLine.HasOverflowed) Debug.WriteLine("overflowed");
-
-            // if (myTextLine.Width > paragraphWidth) Debug.WriteLine("overflowed2");
-            lineInfo = new LineInfo
-            {
-                Offset = textStorePosition,
-                Length = myTextLine.Length,
-                PrevLine = prevLine,
-                LineNumber = lineNo,
-                Height = myTextLine.Height
-            };
-
-            if (prevLine != null) prevLine.NextLine = lineInfo;
-
-            prevLine = lineInfo;
-            lineInfo.Size = new Size(myTextLine.WidthIncludingTrailingWhitespace, myTextLine.Height);
-            lineInfo.Origin = new Point(linePosition.X, linePosition.Y);
-            myTextLine.GetTextRunSpans();
-
-            var llNode = allCharInfos.Last;
-            var fakeHead = false;
-            if (llNode == null)
-            {
-                fakeHead = true;
-                llNode = allCharInfos.AddLast((CharInfo) null);
-            }
-
-            var curPos = linePosition;
-            var positions = new List<Rect>();
-            var indexedGlyphRuns = myTextLine.GetIndexedGlyphRuns();
-
-            var textRuns = customTextSource4.Runs.Skip(runCount).Take(nRuns);
-            using (var enum1 = textRuns.GetEnumerator())
-            {
-                enum1.MoveNext();
-                var lineCharIndex = 0;
-                var xOrigin = linePosition.X;
-                //var charInfos = new List<CharInfo>(myTextLine.Length);
-                if (indexedGlyphRuns != null)
-                    foreach (var glyphRunC in indexedGlyphRuns)
-                    {
-                        var gl = glyphRunC.GlyphRun;
-                        var advanceSum = gl.AdvanceWidths.Sum();
-
-                        for (var i = 0; i < gl.Characters.Count; i++)
-                        {
-                            var i0 = gl.ClusterMap?[i] ?? i;
-                            var glAdvanceWidth = gl.AdvanceWidths[i0];
-                            var glCharacter = gl.Characters[i];
-                            var glCaretStop = gl.CaretStops?[i0];
                             var ci = new CharInfo(lineNo, textStorePosition + lineCharIndex, lineCharIndex, i,
                                 glCharacter, glAdvanceWidth,
                                 glCaretStop, xOrigin, linePosition.Y);
-                            lineCharIndex++;
-                            xOrigin += glAdvanceWidth;
-                            //charInfos.Add(ci);
-                            allCharInfos.AddAfter(llNode, ci);
+                            allCharInfos.AddLast(ci);
                         }
 
-                        var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
-                        if (runsInfos != null)
-                        {
-                            runsInfos.Add(new TextRunInfo(enum1.Current, item));
-                            
-                        }
-                        positions.Add(item);
-                        curPos.X += advanceSum;
-                        enum1.MoveNext();
+                        lineCharIndex++;
+                        xOrigin += glAdvanceWidth;
                     }
+
+                    var item = new Rect(curPos, new Size(advanceSum, myTextLine.Height));
+                    if(!moveNext)
+                        throw new CodeControlException("enumerator empty");
+                    var enum1Current = enum1.Current;
+                    var textRunInfo = new TextRunInfo(enum1Current, item, startCi);
+                    debugFn?.Invoke(textRunInfo.ToString(), 2);
+                    runsInfos?.Add(textRunInfo);
+
+                    curPos.X += advanceSum;
+                    ///moveNext = enum1.MoveNext();
+                }
             }
 #if DEBUGTEXTSOURCE
                     if (positions.Count != nRuns - 1)
@@ -434,33 +335,8 @@ namespace RoslynCodeControls
                     }
 #endif
 
-            //OldHandleTextLine(linePosition, myTextLine, lineInfo, lineChars, cell, cellColumn, prevCell, characterOffset, location, spans, regionOffset);
-            var j = new JoinableTaskFactory(new JoinableTaskContext());
-            if (fakeHead) allCharInfos.RemoveFirst();
-            if (drawOnSecondaryThread)
-            {
-                myTextLine.Draw(myDc, linePosition, InvertAxes.None);
-            }
-            else
-            {
-                // for (var i = 0; i < 3; i++)
-                    // CustomTextSource4.DoEvents();
-                // ReSharper disable once PossibleNullReferenceException
-                // await joinableTaskFactory.SwitchToMainThreadAsync();
-                myTextLine.Draw(myDc, linePosition, InvertAxes.None);
-                // await j.SwitchToMainThreadAsync();
-            }
-
-            linePosition.Y += myTextLine.Height;
-            lineNo++;
-
-            prev = null;
-
-            // Update the index position in the text store.
-            textStorePosition += myTextLine.Length;
-            return linePosition;
         }
-       
+
         private static Typeface CreateTypeface(FontFamily fontFamily, FontStyle fontStyle, FontStretch fontStretch,
             FontWeight fontWeight)
         {

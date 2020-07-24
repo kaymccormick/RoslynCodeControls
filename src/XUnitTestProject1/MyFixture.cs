@@ -19,6 +19,11 @@ namespace XUnitTestProject1
         private JoinableTaskCollection _coll;
         private Dispatcher _d;
 
+        public MyFixture(in int debugLevel)
+        {
+            DebugLevel = debugLevel;
+        }
+
         /// <inheritdoc />
         public async Task InitializeAsync()
         {
@@ -37,14 +42,17 @@ namespace XUnitTestProject1
             JTF2 = jtf2;
         }
 
-        public void Debugfn(string msg)
+        public void Debugfn(string msg, int debugLevel=10)
         {
+            if (DebugLevel < debugLevel) return;
 #if DEBUG
             var newMsg = Thread.CurrentThread.ManagedThreadId + ": " + Task.CurrentId + ": " + msg;
             Debug.WriteLine(newMsg);
             _outputHelper.WriteLine(newMsg);
 #endif
         }
+
+        public int DebugLevel { get; }
 
         public JoinableTaskFactory JTF2 { get; set; }
 

@@ -8,10 +8,12 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.VisualStudio.Threading;
@@ -20,16 +22,17 @@ namespace RoslynCodeControls
 {
     public class RoslynCodeBase : Control, ICodeView, IDocumentPaginatorSource
     {
+        public delegate void DebugDelegate(string msg, int debugLevel=0);
         public RoslynCodeBase() : this(null)
         {
         }
 
         /// <param name="debugOut"></param>
         /// <inheritdoc />
-        public RoslynCodeBase(Action<string> debugOut = null)
+        public RoslynCodeBase([CanBeNull] DebugDelegate debugOut = null)
         {
 #if DEBUG
-            _debugFn = debugOut ?? (DebubgFn0);
+            _debugFn = debugOut ?? DebugFn0;
 
 #else
 _debugFn = debugOut ?? ((s) => { });
@@ -43,13 +46,16 @@ _debugFn = debugOut ?? ((s) => { });
             OutputWidth = 6.5 * 96;
         }
 
-        private void DebubgFn0(string s)
+        private void DebugFn0(string s, int debugLevel)
         {
+            if (DebugLevel < debugLevel) return;
             var t = Thread.CurrentThread;
             var newMsg = $"{t.Name} {t.ManagedThreadId}: {Task.CurrentId}: {s}";
             Debug.WriteLine(newMsg);
             ProtoLogger.Instance.LogAction(newMsg);
         }
+
+        public int DebugLevel { get; set; }
 
         public static readonly RoutedEvent RenderCompleteEvent = EventManager.RegisterRoutedEvent("RenderComplete",
             RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(RoslynCodeControl));
@@ -258,12 +264,13 @@ _debugFn = debugOut ?? ((s) => { });
         public static readonly DependencyProperty SourceTextProperty = RoslynProperties.SourceTextProperty;
 
         public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
-        protected Action<string> _debugFn;
+        protected DebugDelegate _debugFn;
+        private Rectangle _rectangle;
 
-        protected virtual void DebugFn(string msg)
+        protected virtual void DebugFn(string msg, int debugLevel=10)
         {
 #if DEBUG
-            _debugFn?.Invoke(msg);
+            _debugFn?.Invoke(msg, debugLevel);
 #endif
         }
 
@@ -289,7 +296,7 @@ _debugFn = debugOut ?? ((s) => { });
         public async Task UpdateFormattedTextAsync()
         {
             var codeView = (ICodeView) this;
-            _debugFn?.Invoke("Entering updateformattedtext " + codeView.PerformingUpdate);
+            _debugFn?.Invoke($"Entering {nameof(UpdateFormattedTextAsync)} {codeView.PerformingUpdate}");
             if (codeView.PerformingUpdate)
             {
                 _debugFn?.Invoke("Already performing update");
@@ -416,7 +423,21 @@ _debugFn = debugOut ?? ((s) => { });
             get { return InsertionLineNode?.Value; }
         }
 
-        public virtual Rectangle Rectangle { get; set; }
+        public virtual Rectangle Rectangle
+        {
+            get { return _rectangle; }
+            set
+            {
+                if (Equals(_rectangle, value)) return;
+                if (_rectangle != null) _rectangle.MouseMove -= RectangleOnMouseMove;
+                _rectangle = value;
+                if (_rectangle != null) _rectangle.MouseMove += RectangleOnMouseMove;
+            }
+        }
+
+        protected virtual void RectangleOnMouseMove(object sender, MouseEventArgs e)
+        {
+        }
 
         public virtual DrawingGroup TextDestination { get; set; }
         public string DocumentTitle { get; set; }

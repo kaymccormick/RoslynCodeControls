@@ -5,16 +5,10 @@ using Microsoft.CodeAnalysis;
 
 namespace RoslynCodeControls
 {
-    public class ParametersBase
-    {
-        public double PixelsPerDip { get; set; }
-        public double EmSize0 { get; set; }
-    }
-
     public class TextSourceInitializationParameters : ParametersBase
     {
         public TextSourceInitializationParameters(double pixelsPerDip, double emSize0,
-            SyntaxTree tree, SyntaxNode node0, Compilation compilation, Typeface tf, Action<string> debugFn)
+            SyntaxTree tree, SyntaxNode node0, Compilation compilation, Typeface tf, RoslynCodeBase.DebugDelegate debugFn) :base(debugFn)
         {
             
             PixelsPerDip = pixelsPerDip;
@@ -23,7 +17,7 @@ namespace RoslynCodeControls
             Node0 = node0;
             Compilation = compilation;
             Tf = tf;
-            DebugFn = debugFn;
+            
         }
 
         public RoslynCodeControl RoslynCodeControl { get; private set; }
@@ -31,6 +25,6 @@ namespace RoslynCodeControls
         public SyntaxNode Node0 { get; private set; }
         public Compilation Compilation { get; private set; }
         public Typeface Tf { get; private set; }
-        public Action<string> DebugFn { get; }
+        
     }
 }

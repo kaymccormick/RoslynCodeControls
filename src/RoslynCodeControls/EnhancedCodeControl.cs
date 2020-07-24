@@ -191,6 +191,7 @@ namespace RoslynCodeControls
         private ComboBox _fontSizeCombo;
         private JoinableTaskFactory _jtf2;
         private AdhocWorkspace _workspace;
+        private int _debugLevel;
         public static readonly DependencyProperty EnableToolBarsProperty = DependencyProperty.Register("EnableToolBars", typeof(bool), typeof(EnhancedCodeControl), new PropertyMetadata(default(bool)));
 
         public RoslynCodeControl CodeControl
@@ -254,6 +255,16 @@ namespace RoslynCodeControls
                 _workspace = value;
                 CodeControl.Workspace = value;
                 OnPropertyChanged();
+            }
+        }
+
+        public int DebugLevel
+        {
+            get { return _debugLevel; }
+            set
+            {
+                _debugLevel = value;
+                CodeControl.DebugLevel = value;
             }
         }
 

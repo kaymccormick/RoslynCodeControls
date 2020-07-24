@@ -155,6 +155,7 @@ namespace WpfTestApp
         private async Task SetupCodeControlAsync()
         {
             // CodeControl.Workspace = _workspace;
+            CodeControl.DebugLevel = 2;
             CodeControl.JTF2 = JTF2;
             CodeControl.Document = Document;
             var tree = await Document.GetSyntaxTreeAsync();

@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -30,6 +29,7 @@ using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.Threading;
 using CSharpExtensions = Microsoft.CodeAnalysis.CSharp.CSharpExtensions;
 using TextChange = Microsoft.CodeAnalysis.Text.TextChange;
+
 // ReSharper disable UnusedParameter.Local
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -51,9 +51,8 @@ namespace RoslynCodeControls
         {
         }
 
-        public RoslynCodeControl(Action<string> debugOut = null) : base(debugOut)
+        public RoslynCodeControl(DebugDelegate debugOut = null) : base(debugOut)
         {
-
             _typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
             _textDestination = new DrawingGroup();
             _myDrawingBrush = new DrawingBrush()
@@ -98,8 +97,10 @@ namespace RoslynCodeControls
 
             _postUpdateReaderJoinableTask = _myJoinableTaskFactory.RunAsync(StartPostUpdateReaderAsync);
 
+            var taskScheduler = TaskScheduler.FromCurrentSynchronizationContext();
+            ControlTaskScheduler = taskScheduler;
             _postUpdateReaderFaultContinuation = _postUpdateReaderJoinableTask.Task.ContinueWith(FaultHandler, null,
-                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.FromCurrentSynchronizationContext());
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, taskScheduler);
 
             _x1 = new ObjectAnimationUsingKeyFrames
             {
@@ -235,16 +236,6 @@ namespace RoslynCodeControls
 
 
         public LinkedListNode<CharInfo> InsertionCharInfoNode { get; set; }
-        // {
-        // get { return _insertionCharInfoNode; }
-        // set
-        // {
-        // if (Equals(value, _insertionCharInfoNode)) return;
-        // _insertionCharInfoNode = value;
-        // OnPropertyChanged();
-        // }
-        // }
-
 
         // ReSharper disable once UnusedMember.Local
         private static object CoerceInsertionPoint(DependencyObject d, object basevalue)
@@ -360,12 +351,7 @@ namespace RoslynCodeControls
         }
 
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <summary>
-        /// 
-        /// </summary>
+    
         public RegionInfo HoverRegionInfo
         {
             get { return (RegionInfo) GetValue(HoverRegionInfoProperty); }
@@ -381,12 +367,6 @@ namespace RoslynCodeControls
             set { SetValue(HoverOffsetProperty, value); }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <summary>
-        /// 
-        /// </summary>
         public ISymbol HoverSymbol
         {
             get { return (ISymbol) GetValue(HoverSymbolProperty); }
@@ -435,14 +415,6 @@ namespace RoslynCodeControls
             set { SetValue(HoverRowProperty, value); }
         }
 
-        private async void SourceOnPropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == "Text")
-            {
-                var textSourceText = CustomTextSource.Text.ToString();
-                await Dispatcher.InvokeAsync(() => { TextSourceText = textSourceText; });
-            }
-        }
 
         public string TextSourceText
         {
@@ -512,6 +484,7 @@ namespace RoslynCodeControls
                 RenderRequest inp;
                 try
                 {
+                    DebugFn("reading render channel");
                     inp = await RenderChannel.Reader.ReadAsync();
                 }
                 catch (ChannelClosedException)
@@ -519,12 +492,21 @@ namespace RoslynCodeControls
                     break;
                 }
 
-                await HandleRenderRequestAsync(inp);
+                try
+                {
+                    await HandleRenderRequestAsync(inp).ContinueWith(HandleFault, CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted, ControlTaskScheduler);
+                }
+                catch (TaskCanceledException)
+                {
+                }
             }
 
             DebugFn("exiting render channel");
             // ReSharper disable once FunctionNeverReturns
         }
+
+        public TaskScheduler ControlTaskScheduler { get; }
 
         #endregion
 
@@ -556,7 +538,8 @@ namespace RoslynCodeControls
                     throw new CodeControlFaultException("Text source input method failed", ex);
                 }
 
-            var redrawLine = RedrawLine(inn, renderRequest.Input.CustomTextSource4.CurrentRendering, change,
+            var redrawLine = RedrawLine(inn,
+                renderRequest.Input.CustomTextSource4.CurrentRendering, change,
                 renderRequest.LineInfo);
 
             redrawLine.DrawingGroup.Freeze();
@@ -581,6 +564,7 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         protected override void SecondaryThreadTasks()
         {
+            DebugFn("SecondaryThreadTasks");
             _renderChannelReaderTask = RenderChannelReaderAsync().ContinueWith(t =>
             {
                 if (!t.IsFaulted) return;
@@ -589,7 +573,7 @@ namespace RoslynCodeControls
                 {
                     await JTF.SwitchToMainThreadAsync();
                     FaultedTask = t;
-                    IsFaulted = true;   
+                    IsFaulted = true;
                     Exception1 = t.Exception;
                 });
             });
@@ -715,7 +699,7 @@ namespace RoslynCodeControls
             if (!obj.IsFaulted)
                 return;
             var ex = obj.Exception;
-            Popup errPopup = new Popup();
+            var errPopup = new Popup();
             var errPopupChild = new Border
             {
                 Padding = new Thickness(25),
@@ -733,21 +717,24 @@ namespace RoslynCodeControls
                 }
             };
             errPopup.Child = errPopupChild;
-            
+
             errPopup.PlacementTarget = this;
             errPopup.Placement = PlacementMode.Center;
             errPopup.StaysOpen = true;
             errPopup.IsOpen = true;
-            BooleanKeyFrameCollection kf = new BooleanKeyFrameCollection {new DiscreteBooleanKeyFrame(true, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3))), new DiscreteBooleanKeyFrame(false)};
-            BooleanAnimationUsingKeyFrames tl = new BooleanAnimationUsingKeyFrames(){KeyFrames = kf,FillBehavior = FillBehavior.HoldEnd};
+            var kf = new BooleanKeyFrameCollection
+            {
+                new DiscreteBooleanKeyFrame(true, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3))),
+                new DiscreteBooleanKeyFrame(false)
+            };
+            var tl = new BooleanAnimationUsingKeyFrames() {KeyFrames = kf, FillBehavior = FillBehavior.HoldEnd};
             errPopup.BeginAnimation(Popup.IsOpenProperty, tl);
-
         }
 
         private async Task DoCompletionAsync()
         {
             var completionService = CompletionService.GetService(Document);
-      
+
             var results = await completionService.GetCompletionsAsync(Document, InsertionPoint);
             var listBx = false;
 
@@ -755,7 +742,7 @@ namespace RoslynCodeControls
             CompletionComboBox.IsDropDownOpen = true;
             CompletionComboBox.IsEditable = true;
             CompletionComboBox.Width = 100;
-            
+
             CompletionPopup.StaysOpen = true;
             CompletionPopup.PlacementTarget = _textCaret;
             CompletionPopup.PlacementRectangle = new Rect(3, -1 * _textCaret.lineHeight, 100, _textCaret.lineHeight);
@@ -809,7 +796,7 @@ namespace RoslynCodeControls
                 rPopup.IsOpen = true;
 #endif
         }
-        
+
 
         public override DrawingGroup TextDestination
         {
@@ -838,7 +825,7 @@ namespace RoslynCodeControls
             Debug2Container = (UIElement) GetTemplateChild("debug2container");
             Debug3Container = (UIElement) GetTemplateChild("debug3container");
 #endif
-            CompletionPopup = (Popup)GetTemplateChild("CompletionPopup");
+            CompletionPopup = (Popup) GetTemplateChild("CompletionPopup");
             CompletionComboBox = (ComboBox) GetTemplateChild("CompletionComboBox");
             _scrollViewer = (ScrollViewer) GetTemplateChild("ScrollViewer");
             if (_scrollViewer != null)
@@ -959,7 +946,7 @@ public override bool PerformingUpdate
         }
 #endif
 
-#endregion
+        #endregion
 
         static RoslynCodeControl()
         {
@@ -1010,7 +997,7 @@ public override bool PerformingUpdate
         }
 
 
-#region Input handling
+        #region Input handling
 
         public void MoveLeftByCharacter()
         {
@@ -1052,9 +1039,6 @@ public override bool PerformingUpdate
                     {
                         InsertionPoint = upCi.Index + 1;
                         InsertionCharInfo = upCi;
-                    }
-                    else
-                    {
                     }
                 }
             }
@@ -1176,7 +1160,7 @@ public override bool PerformingUpdate
             Status = CodeControlStatus.Idle;
         }
 
-#endregion
+        #endregion
 
         private static void SetupCommands(RoslynCodeControl control1, UIElement control)
         {
@@ -1254,7 +1238,7 @@ public override bool PerformingUpdate
         }
 
 
-#region Debug Elements
+        #region Debug Elements
 
 #if DEBUG
         public UIElement Debug3Container { get; set; }
@@ -1263,9 +1247,9 @@ public override bool PerformingUpdate
         public UIElement Debug2Container { get; set; }
 #endif
 
-#endregion
+        #endregion
 
-#region thread
+        #region thread
 
         public static Thread StartSecondaryThread(ManualResetEvent mEvent = default,
             Action<object> cb = null)
@@ -1299,7 +1283,7 @@ public override bool PerformingUpdate
 
         public static Dispatcher StaticSecondaryDispatcher { get; set; }
 
-#endregion
+        #endregion
 
         public TranslateTransform Translate { get; set; }
 
@@ -1319,10 +1303,7 @@ public override bool PerformingUpdate
                 SyntaxTree = CustomTextSource.Tree;
                 var doc = Document.WithSyntaxRoot(SyntaxNode);
                 var sm = await doc.GetSemanticModelAsync();
-                if (sm != null)
-                {
-                    Compilation = sm.Compilation;
-                }
+                if (sm != null) Compilation = sm.Compilation;
 
                 Document = doc;
                 SemanticModel = sm;
@@ -1341,7 +1322,7 @@ public override bool PerformingUpdate
         }
 
 
-        private async Task<UpdateComplete> DoUpdateTextAsync(int insertionPoint, InputRequest inputRequest)
+        public async Task<UpdateComplete> DoUpdateTextAsync(int insertionPoint, InputRequest inputRequest)
         {
             DebugFn($"DoUpdateTextAsync [{insertionPoint}] {inputRequest}");
 
@@ -1372,7 +1353,7 @@ public override bool PerformingUpdate
         public int SequenceId { get; set; } = 1;
 
 
-#region Focus
+        #region Focus
 
         /// <inheritdoc />
         protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
@@ -1388,35 +1369,37 @@ public override bool PerformingUpdate
             _textCaret.BeginAnimation(VisibilityProperty, null);
         }
 
-#endregion
+        #endregion
 
         public static RedrawLineResult RedrawLine(RenderRequestInput renderRequestInput,
             FontRendering currentRendering, TextChange? change, LineInfo2 curLineInfo)
         {
+            var (roslynCodeControl, lineNo, offset, y, x, textFormatter, paragraphWidth, pixelsPerDip, source,
+                maxY, maxX, fontFamilyName, fontSize, fontWeight) = renderRequestInput;
             var begin = DateTime.Now;
-            Action<string> debugFn = renderRequestInput.RoslynCodeControl.DebugFn;
+            DebugDelegate debugFn = roslynCodeControl.DebugFn;
 #if DEBUG
             debugFn(nameof(RedrawLine));
 #endif
-            var lineNo = renderRequestInput.LineNo;
-            var lineOriginPoint = new Point(renderRequestInput.X, renderRequestInput.Y);
+            
+            var lineOriginPoint = new Point(x, y);
 
             double width, height;
             var dg = new DrawingGroup();
             var dc = dg.Open();
             LineInfo2 lineInfo2;
             var runsInfos = new List<TextRunInfo>();
-            var source = renderRequestInput.CustomTextSource4;
-            var runCount = source.Runs?.Count(ri => true) ?? 0;
+            var rb = CustomTextSource4.RunsBefore(offset, source.Runs);
+            var rbi = CustomTextSource4.RunInfosBefore(offset, source.RunInfos);
+            var runCount = rb.Count();
+            
             if (runCount == 0)
             {
+            }
 #if DEBUG
-                debugFn("Run count is 0");
+            debugFn("Run count is 0", 2);
 #endif
-            }
-            else
-            {
-            }
+
 
             LinkedList<CharInfo> allCharInfos;
             allCharInfos = change.HasValue && curLineInfo?.FirstCharInfo != null
@@ -1424,21 +1407,25 @@ public override bool PerformingUpdate
                 : new LinkedList<CharInfo>();
             var newLineInfo = false;
 
-            using (var myTextLine = renderRequestInput.TextFormatter.FormatLine(source,
-                renderRequestInput.Offset, renderRequestInput.ParagraphWidth,
+            using (var myTextLine = textFormatter.FormatLine(source,
+                offset, paragraphWidth,
                 new GenericTextParagraphProperties(currentRendering,
-                    renderRequestInput.PixelsPerDip), null))
+                    pixelsPerDip), null))
             {
 #if DEBUG
-                debugFn("got a text line " + myTextLine.Length);
+                debugFn($"got a text line of length {myTextLine.Length}", 4);
 #endif
-                var textStorePosition = renderRequestInput.Offset;
+                var textStorePosition = offset;
                 // ReSharper disable once PossibleNullReferenceException
                 var nRuns = source.Runs.Count - runCount;
+                debugFn($"nRuns is {nRuns}");
+                var nRunInfos = rbi.Count();
+
 
                 CommonText.HandleLine(allCharInfos, lineOriginPoint, myTextLine, source, runCount,
                     nRuns, lineNo, textStorePosition, runsInfos, debugFn, change, curLineInfo);
 
+                source.RunInfos = source.RunInfos.Take(nRunInfos).Concat(runsInfos).ToList();
                 myTextLine.Draw(dc, lineOriginPoint, InvertAxes.None);
 
                 width = myTextLine.Width;
@@ -1452,7 +1439,7 @@ public override bool PerformingUpdate
                 }
                 else
                 {
-                    lineInfo2 = new LineInfo2(renderRequestInput.LineNo, allCharInfos.First, textStorePosition,
+                    lineInfo2 = new LineInfo2(lineNo, allCharInfos.First, textStorePosition,
                         lineOriginPoint, myTextLine.Height, myTextLine.Length);
                     newLineInfo = true;
                 }
@@ -1474,7 +1461,8 @@ public override bool PerformingUpdate
             var res = @in.RedrawLineResult;
             var inDg = res.DrawingGroup;
 
-            if ( inDg.Bounds.IsEmpty && res.LineInfo.Length > 2) throw new InvalidOperationException("Drawing group has empty bounds");
+            if (inDg.Bounds.IsEmpty && res.LineInfo.Length > 2)
+                throw new InvalidOperationException("Drawing group has empty bounds");
             roslynCodeControl1.DebugFn($"Drawing Group bounds is {inDg.Bounds}");
             roslynCodeControl1.DebugFn($"Line info is {res.LineInfo}");
             var inMaxX = res.LineMaxX;
@@ -1543,7 +1531,7 @@ public override bool PerformingUpdate
 
             roslynCodeControl1.Rectangle.Width = width;
             roslynCodeControl1.Rectangle.Height = height;
-            
+
             LinkedListNode<LineInfo2> llNode = null;
             var setInsertionLineNode = false;
             if (@in.RedrawLineResult.IsNewLineInfo)
@@ -1590,7 +1578,7 @@ public override bool PerformingUpdate
 
             if (setInsertionLineNode)
                 roslynCodeControl1.InsertionLineNode = llNode;
-            
+
             roslynCodeControl1.DebugFn("return");
         }
 
@@ -1699,20 +1687,18 @@ public override bool PerformingUpdate
                         return;
                     }
                 }
-                else
-                {
-                    if (prevCharInfoNode != null)
-                    {
-                        var ci = prevCharInfoNode.Value;
-                        var ciYOrigin = ci.YOrigin - DrawingBrush.Viewbox.Top;
-                        _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
-                        var ciAdvanceWidth = ci.XOrigin + ci.AdvanceWidth - DrawingBrush.Viewbox.Left;
-                        _textCaret.SetValue(Canvas.LeftProperty,
-                            ciAdvanceWidth);
 
-                        DebugFn($"Caret3 - {ciAdvanceWidth}x{ciYOrigin}");
-                        return;
-                    }
+                if (prevCharInfoNode != null)
+                {
+                    var ci = prevCharInfoNode.Value;
+                    var ciYOrigin = ci.YOrigin - DrawingBrush.Viewbox.Top;
+                    _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
+                    var ciAdvanceWidth = ci.XOrigin + ci.AdvanceWidth - DrawingBrush.Viewbox.Left;
+                    _textCaret.SetValue(Canvas.LeftProperty,
+                        ciAdvanceWidth);
+
+                    DebugFn($"Caret3 - {ciAdvanceWidth}x{ciYOrigin}");
+                    return;
                 }
 
                 DebugFn("no position");
@@ -1818,11 +1804,12 @@ public override bool PerformingUpdate
         private JoinableTaskCollection _taskCollection;
         private TypeInfo _typeInfo;
         private AdhocWorkspace _workspace;
+        private Drawing _selectionGeometry;
 
-#region Mouse
+        #region Mouse
 
         /// <inheritdoc />
-#if MOUSE
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
             if (!_enableMouse) return;
@@ -1830,344 +1817,223 @@ public override bool PerformingUpdate
             try
             {
                 var point = e.GetPosition(Rectangle);
-                if (CustomTextSource?.RunInfos != null)
+                var b = VisualTreeHelper.GetContentBounds(Rectangle);
+                DebugFn(b.ToString());
+                DebugFn(point.ToString());
+                if (!b.Contains(point)) return;
+                if (CustomTextSource?.RunInfos == null) return;
+                var origPoint = point;
+                point.Offset(DrawingBrushViewbox.X, DrawingBrushViewbox.Y);
+                var runInfo = CustomTextSource.RunInfos.Where(zz1 =>
                 {
-                    var runInfo = CustomTextSource.RunInfos.Where(zz1 => zz1.Rect.Contains(point)).ToList();
-                    if (runInfo.Any())
+                    DebugFn($"{zz1.Rect} - {origPoint} {point}");
+                    return zz1.Rect.Contains(point);
+                }).ToList();
+                if (!runInfo.Any())
+                {
+                    SetNoneHover();
+                }
+#if DEBUG
+                _debugFn?.Invoke(runInfo.Count().ToString());
+#endif
+                var first = runInfo.First();
+#if DEBUG
+                _debugFn?.Invoke(first.Rect.ToString());
+#endif
+                if (first.TextRun == null) return;
+#if DEBUG
+                _debugFn?.Invoke(first.TextRun.ToString() ?? "");
+#endif
+                if (first.TextRun is CustomTextCharacters c0)
+                {
+#if DEBUG
+                    _debugFn?.Invoke(c0.Text);
+#endif
+                }
+
+                // fake out hover region info
+                var hoverRegionInfo = new RegionInfo(first.TextRun, first.Rect, first.StartCharInfo);
+                var ci = hoverRegionInfo.FirstCharInfo;
+                CharInfo civ = null;
+                while (ci != null)
+                {
+                    var r = new Rect(ci.Value.XOrigin, ci.Value.YOrigin, ci.Value.AdvanceWidth, first.Rect.Height);
+                    
+                    if (r.Contains(point))
                     {
-#if DEBUG
-                        _debugFn?.Invoke(runInfo.Count().ToString());
-#endif
-                        var first = runInfo.First();
-#if DEBUG
-                        _debugFn?.Invoke(first.Rect.ToString());
-#endif
-                        if (first.TextRun == null) return;
-#if DEBUG
-                        _debugFn?.Invoke(first.TextRun.ToString() ?? "");
-#endif
-                        if (first.TextRun is CustomTextCharacters c0)
+                        civ = ci.Value;
+                        break;
+                    }
+                    ci = ci.Next;
+                }
+                HoverRegionInfo = hoverRegionInfo;
+                int? newHoverOffset = null;
+                if (civ != null)
+                {
+                    newHoverOffset = civ.Index;
+                }
+                SyntaxNode newHoverSyntaxNode = null;
+                SyntaxToken? newHoverSyntaxToken = null;
+                if (first.TextRun is SyntaxTokenTextCharacters stc)
+                {
+                    newHoverSyntaxNode = stc.Node;
+                    newHoverSyntaxToken = stc.Token;
+                }
+                
+                if (newHoverSyntaxNode != HoverSyntaxNode)
+                {
+                    if (ToolTip is ToolTip tt) tt.IsOpen = false;
+                    if (newHoverSyntaxNode != null)
+                    {
+                        ISymbol sym = null;
+                        IOperation operation = null;
+                        if (SemanticModel != null)
+                            try
+                            {
+                                sym = SemanticModel?.GetDeclaredSymbol(newHoverSyntaxNode);
+                                operation = SemanticModel.GetOperation(newHoverSyntaxNode);
+                                    
+                            }
+                            catch
+                            {
+                                // ignored
+                            }
+
+                        if (sym != null)
                         {
+                            HoverSymbol = sym;
 #if DEBUG
-                            _debugFn?.Invoke(c0.Text);
+                            _debugFn?.Invoke(sym.Kind.ToString());
 #endif
                         }
 
-                        // fake out hover region info
-                        HoverRegionInfo = new RegionInfo(first.TextRun, first.Rect, new List<CharacterCell>());
-                    }
-                }
-
-                return;
-#if false
-                var q = LineInfos.SkipWhile(z => z.Origin.Y < point.Y);
-                if (q.Any())
-                {
-                    var line = q.First();
-                    // DebugFn(line.LineNumber.ToString());
-                    if (line.Regions != null)
-                    {
-                        var qq = line.Regions.SkipWhile(zz0 => !zz0.BoundingRect.Contains(point));
-                        if (qq.Any())
+                        var node = newHoverSyntaxNode;
+                        var nodes = new Stack<SyntaxNodeDepth>();
+                        var depth = 0;
+                        while (node != null)
                         {
-                            var region = qq.First();
-#if DEBUG
-                            _debugFn?.Invoke(region.SyntaxToken?.ToString());
-#endif
+                            node = node.Parent;
+                            depth++;
                         }
-                    }
-                }
 
-                var zz = LineInfos.Where(z => z.Regions != null).SelectMany(z => z.Regions)
-                    .Where(x => x.BoundingRect.Contains(point)).ToList();
-                if (zz.Count > 1)
-#if DEBUG
-                    _debugFn?.Invoke("Multiple regions matched");
-#endif
-                //    throw new AppInvalidOperationException();
-
-                // Retrieve the coordinate of the mouse position.
-
-
-                // Perform the hit test against a given portion of the visual object tree.
-                // var drawingVisual = new DrawingVisual();
-                // var drawingVisualDrawing = new DrawingGroup();
-                // var dc = drawingVisual.RenderOpen();
-
-                // foreach (var g in GeoTuples)
-                // {
-                // dc.DrawGeometry(Brushes.Black, null, g);
-                // }
-
-                // foreach (var g in GeoTuples)
-                // if (g.Item1.Rect.Contains(point))
-                // DebugFn(g.Item2.SyntaxNode?.Kind().ToString() ?? "");
-                // DebugFn(((RectangleGeometry)g).Rect);
-
-                //
-
-                // dc.Close();
-
-
-                // var result = VisualTreeHelper.HitTest(drawingVisual, point);
-
-                // if (result != null)
-                // {
-                // Perform action on hit visual object.
-                // }
-
-                if (!zz.Any())
-                {
-                    HoverColumn = 0;
-                    HoverSyntaxNode = null;
-                    HoverOffset = 0;
-                    HoverRegionInfo = null;
-                    HoverRow = 0;
-                    HoverSymbol = null;
-                    HoverToken = null;
-                }
-
-                foreach (var tuple in zz)
-                {
-                    HoverRegionInfo = tuple;
-                    // var dc1 = RegionDG.Open();
-                    // dc1.DrawRectangle(null, new Pen(Brushes.Red, 2), tuple.BoundingRect);
-                    // dc1.Close();
-
-                    // _dg2.Children.Add(new GeometryDrawing(null, 
-                    // if (tuple.Trivia.HasValue) DebugFn(tuple
-                    // ~.ToString());
-
-                    if (tuple.SyntaxNode != HoverSyntaxNode)
-                    {
-                        if (ToolTip is ToolTip tt) tt.IsOpen = false;
-                        HoverSyntaxNode = tuple.SyntaxNode;
-                        if (tuple.SyntaxNode != null)
+                        depth--;
+                        node = newHoverSyntaxNode;
+                        while (node != null)
                         {
-                            ISymbol sym = null;
-                            IOperation operation = null;
-                            if (SemanticModel != null)
-                                try
-                                {
-                                    sym = SemanticModel?.GetDeclaredSymbol(tuple.SyntaxNode);
-                                    operation = SemanticModel.GetOperation(tuple.SyntaxNode);
-                                    // var zzz = tuple.SyntaxNode.AncestorsAndSelf().OfType<ForEachStatementSyntax>()
-                                    // .FirstOrDefault();
-                                    // if (zzz != null)
-                                    // {
-                                    // var info = Model.GetForEachStatementInfo(zzz);
-                                    // DebugFn(info.ElementType?.ToDisplayString());
-                                    // }
-
-                                    // switch ((CSharpSyntaxNode) tuple.SyntaxNode)
-                                    // {
-                                    // case AssignmentExpressionSyntax assignmentExpressionSyntax:
-                                    // break;
-                                    // case ForEachStatementSyntax forEachStatementSyntax:
-                                    // var info = Model.GetForEachStatementInfo(forEachStatementSyntax);
-                                    // DebugFn(info.ElementType.ToDisplayString());
-                                    // break;
-                                    // case ForEachVariableStatementSyntax forEachVariableStatementSyntax:
-                                    // break;
-                                    // case MethodDeclarationSyntax methodDeclarationSyntax:
-
-                                    // break;
-                                    // case TryStatementSyntax tryStatementSyntax:
-                                    // break;
-                                    // case StatementSyntax statementSyntax:
-                                    // break;
-                                    // default:
-                                    // break;
-                                    // }
-                                }
-                                catch
-                                {
-                                    // ignored
-                                }
-
-                            if (sym != null)
-                            {
-                                HoverSymbol = sym;
-#if DEBUG
-                                _debugFn?.Invoke(sym.Kind.ToString());
-#endif
-                            }
-
-                            var node = tuple.SyntaxNode;
-                            var nodes = new Stack<SyntaxNodeDepth>();
-                            var depth = 0;
-                            while (node != null)
-                            {
-                                node = node.Parent;
-                                depth++;
-                            }
-
+                            nodes.Push(new SyntaxNodeDepth {SyntaxNode = node, Depth = depth});
+                            node = node.Parent;
                             depth--;
-                            node = tuple.SyntaxNode;
-                            while (node != null)
-                            {
-                                nodes.Push(new SyntaxNodeDepth {SyntaxNode = node, Depth = depth});
-                                node = node.Parent;
-                                depth--;
-                            }
-
-
-                            var content = new CodeToolTipContent()
-                                {Symbol = sym, SyntaxNode = tuple.SyntaxNode, Nodes = nodes, Operation = operation};
-                            var template =
-                                TryFindResource(new DataTemplateKey(typeof(CodeToolTipContent))) as DataTemplate;
-                            var toolTip = new ToolTip {Content = content, ContentTemplate = template};
-                            ToolTip = toolTip;
-                            toolTip.IsOpen = true;
                         }
+
+
+                        var content = new CodeToolTipContent()
+                            {Symbol = sym, SyntaxNode = newHoverSyntaxNode, Nodes = nodes, Operation = operation};
+                        var template =
+                            TryFindResource(new DataTemplateKey(typeof(CodeToolTipContent))) as DataTemplate;
+                        var toolTip = new ToolTip {Content = content, ContentTemplate = template};
+                        ToolTip = toolTip;
+                        toolTip.IsOpen = true;
                     }
-
-                    if (tuple.SyntaxNode != null)
-                    {
-                    }
-
-                    HoverToken = tuple.SyntaxToken;
-
-                    var cellIndex = tuple.Characters.FindIndex(zx => zx.Bounds.Contains(point));
-                    if (cellIndex != -1)
-                    {
-                        var cell = tuple.Characters[cellIndex];
-
-                        var first = cell;
-                        var item2 = first.Point;
-
-                        var item2Y = (int) item2.Y;
-                        // if (item2Y >= _chars.Count)
-                        // {
-                        // DebugFn("out of bounds");
-                        // }
-                        // else
-                        // {
-                        // var chars = _chars[item2Y];
-                        // DebugFn("y is " + item2Y, DebugCategory.MouseEvents);
-                        // var item2X = (int) item2.X;
-                        // if (item2X >= chars.Count)
-                        // {
-                        //DebugFn("out of bounds");
-                        // }
-                        // else
-                        // {
-                        // var ch = chars[item2X];
-                        // DebugFn("Cell is " + item2 + " " + ch, DebugCategory.MouseEvents);
-                        var newOffset = tuple.Offset + cellIndex;
-                        HoverOffset = newOffset;
-                        HoverColumn = (int) item2.X;
-                        HoverRow = (int) item2.Y;
-                        if (SelectionEnabled && IsSelecting)
-                        {
-                            if (_selectionGeometry != null) TextDestination.Children.Remove(_selectionGeometry);
-#if DEBUG
-                            _debugFn?.Invoke("Calculating selection");
-#endif
-
-                            var group = new DrawingGroup();
-
-                            int begin;
-                            int end;
-                            if (_startOffset < newOffset)
-                            {
-                                begin = _startOffset;
-                                end = newOffset;
-                            }
-                            else
-                            {
-                                begin = newOffset;
-                                end = _startOffset;
-                            }
-
-                            var green = new SolidColorBrush(Colors.Green) {Opacity = .2};
-                            var blue = new SolidColorBrush(Colors.Blue) {Opacity = .2};
-                            var red = new SolidColorBrush(Colors.Red) {Opacity = .2};
-                            foreach (var regionInfo in LineInfos.SelectMany(z => z.Regions).Where(info =>
-                                info.Offset <= begin && info.Offset + info.Length > begin ||
-                                info.Offset >= begin && info.Offset + info.Length <= end))
-                            {
-#if DEBUG
-                                _debugFn?.Invoke($"Region offset {regionInfo.Offset} : Length {regionInfo.Length}");
-#endif
-
-                                if (regionInfo.Offset <= begin)
-                                {
-                                    var takeNum = begin - regionInfo.Offset;
-#if DEBUG
-                                    _debugFn?.Invoke("Taking " + takeNum);
-#endif
-                                    foreach (var tuple1 in regionInfo.Characters.Take(takeNum))
-                                    {
-#if DEBUG
-                                        _debugFn?.Invoke("Adding " + tuple1);
-#endif
-                                        @group.Children.Add(new GeometryDrawing(red, null,
-                                            new RectangleGeometry(tuple1.Bounds)));
-                                    }
-
-                                    continue;
-                                }
-
-                                if (regionInfo.Offset + regionInfo.Length > end)
-                                {
-                                    foreach (var tuple1 in regionInfo.Characters.Take(end - regionInfo.Offset))
-                                        @group.Children.Add(new GeometryDrawing(blue, null,
-                                            new RectangleGeometry(tuple1.Bounds)));
-
-                                    continue;
-                                }
-
-                                var geo = new RectangleGeometry(regionInfo.BoundingRect);
-                                @group.Children.Add(new GeometryDrawing(green, null, geo));
-                            }
-
-
-                            _selectionGeometry = @group;
-                            // _dg2.Children.Add(_selectionGeometry);
-                            // _myDrawingBrush.Drawing = TextDestination;
-                            _selectionEnd = newOffset;
-                            // InvalidateVisual();
-                        }
-                    }
-
-                    var textRunProperties = tuple.TextRun.Properties;
-                    if (!(textRunProperties is GenericTextRunProperties)) continue;
-                    if (_rect != tuple.BoundingRect)
-                    {
-                        _rect = tuple.BoundingRect;
-                        // if (_geometryDrawing != null) TextDestination.Children.Remove(_geometryDrawing);
-
-
-                        var solidColorBrush = new SolidColorBrush(Colors.CadetBlue) {Opacity = .6};
-
-
-                        // _dg2.Children.Add(_geometryDrawing);
-                        // InvalidateVisual();
-                    }
-
-                    //DebugFn(pp.Text);
                 }
 
-                if (SelectionEnabled && e.LeftButton == MouseButtonState.Pressed)
-                    if (!IsSelecting)
-                    {
-                        var xy = e.GetPosition(_scrollViewer);
-                        if (xy.X < _scrollViewer.ViewportWidth && xy.X >= 0 && xy.Y >= 0 &&
-                            xy.Y <= _scrollViewer.ViewportHeight)
-                        {
-                            _startOffset = HoverOffset;
-                            _startRow = HoverRow;
-                            _startColumn = HoverColumn;
-                            _startNode = HoverSyntaxNode;
+                HoverToken = newHoverSyntaxToken;
+                HoverSyntaxNode = newHoverSyntaxNode;
+                HoverOffset = newHoverOffset.Value;
 
-
-                            IsSelecting = true;
-                            e.Handled = true;
-                            Rectangle.CaptureMouse();
-                        }
-                    }
+                if (SelectionEnabled && IsSelecting)
+                {
+                    if (_selectionGeometry != null) TextDestination.Children.Remove(_selectionGeometry);
+#if DEBUG
+                    _debugFn?.Invoke("Calculating selection");
 #endif
+
+                    var group = new DrawingGroup();
+
+                    int begin;
+                    int end;
+                    if (_startOffset < newHoverOffset)
+                    {
+                        begin = _startOffset;
+                        end = newHoverOffset.Value;
+                    }
+                    else
+                    {
+                        begin = newHoverOffset.Value;
+                        end = _startOffset;
+                    }
+
+                    var green = new SolidColorBrush(Colors.Green) {Opacity = .2};
+                    var blue = new SolidColorBrush(Colors.Blue) {Opacity = .2};
+                    var red = new SolidColorBrush(Colors.Red) {Opacity = .2};
+
+#if false
+                        foreach (var regionInfo in LineInfos.SelectMany(z => z.Regions).Where(info =>
+
+                        info.Offset <= begin && info.Offset + info.Length > begin ||
+                            info.Offset >= begin && info.Offset + info.Length <= end))
+                        {
+#if DEBUG
+                            _debugFn?.Invoke($"Region offset {regionInfo.Offset} : Length {regionInfo.Length}");
+#endif
+
+                            if (regionInfo.Offset <= begin)
+                            {
+                                var takeNum = begin - regionInfo.Offset;
+#if DEBUG
+                                _debugFn?.Invoke("Taking " + takeNum);
+#endif
+                                foreach (var tuple1 in regionInfo.Characters.Take(takeNum))
+                                {
+#if DEBUG
+                                    _debugFn?.Invoke("Adding " + tuple1);
+#endif
+                                    @group.Children.Add(new GeometryDrawing(red, null,
+                                        new RectangleGeometry(tuple1.Bounds)));
+                                }
+
+                                continue;
+                            }
+
+                            if (regionInfo.Offset + regionInfo.Length > end)
+                            {
+                                foreach (var tuple1 in regionInfo.Characters.Take(end - regionInfo.Offset))
+                                    @group.Children.Add(new GeometryDrawing(blue, null,
+                                        new RectangleGeometry(tuple1.Bounds)));
+
+                                continue;
+                            }
+
+                            var geo = new RectangleGeometry(regionInfo.BoundingRect);
+                            @group.Children.Add(new GeometryDrawing(green, null, geo));
+                        }
+#endif
+                    DebugFn($@"{@group.Bounds}", 0);
+                    _selectionGeometry = @group;
+                    // _dg2.Children.Add(_selectionGeometry);
+                    // _myDrawingBrush.Drawing = TextDestination;
+                    _selectionEnd = newHoverOffset.Value;
+                    // InvalidateVisual();
+                }
+
+
+                HoverSyntaxNode = newHoverSyntaxNode;
+
+
+                if (!SelectionEnabled || e.LeftButton != MouseButtonState.Pressed) return;
+                if (IsSelecting) return;
+                var xy = e.GetPosition(_scrollViewer);
+                if (!(xy.X < _scrollViewer.ViewportWidth) || !(xy.X >= 0) || !(xy.Y >= 0) ||
+                    !(xy.Y <= _scrollViewer.ViewportHeight)) return;
+             
+                _startOffset = HoverOffset;
+                _startRow = HoverRow;
+                _startColumn = HoverColumn;
+                _startNode = HoverSyntaxNode;
+
+                IsSelecting = true;
+                e.Handled = true;
+                Rectangle.CaptureMouse();
+
             }
             catch (Exception ex)
             {
@@ -2179,6 +2045,17 @@ public override bool PerformingUpdate
             {
                 dc?.Close();
             }
+        }
+
+        private void SetNoneHover()
+        {
+            HoverColumn = 0;
+            HoverSyntaxNode = null;
+            HoverOffset = 0;
+            HoverRegionInfo = null;
+            HoverRow = 0;
+            HoverSymbol = null;
+            HoverToken = null;
         }
 
         /// <inheritdoc />
@@ -2219,9 +2096,9 @@ public override bool PerformingUpdate
         {
             InsertionPoint = HoverOffset;
         }
-#endif
 
-#endregion
+
+        #endregion
 
         public bool SelectionEnabled { get; set; }
 
@@ -2292,7 +2169,18 @@ public override bool PerformingUpdate
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public async Task Shutdown()
+        public void Shutdown()
+        {
+            PostUpdateChannel.Writer.Complete();
+            RenderChannel.Writer.Complete();
+            UpdateCompleteChannel.Writer.Complete();
+            UpdateChannel.Writer.Complete();
+            foreach (var joinableTask in _taskCollection) DebugFn("Task " + joinableTask.ToString());
+            JTF.Run(_taskCollection.JoinTillEmptyAsync);
+            DebugFn("return from shutdown");
+        }
+
+        public async Task ShutdownAsync()
         {
             PostUpdateChannel.Writer.Complete();
             RenderChannel.Writer.Complete();
@@ -2301,31 +2189,6 @@ public override bool PerformingUpdate
             foreach (var joinableTask in _taskCollection) DebugFn("Task " + joinableTask.ToString());
             await _taskCollection.JoinTillEmptyAsync();
             DebugFn("return from shutdown");
-        }
-    }
-
-    public class CodeControlFaultException : Exception
-    {
-        /// <inheritdoc />
-        public CodeControlFaultException()
-        {
-        }
-
-        /// <inheritdoc />
-        protected CodeControlFaultException([NotNull] SerializationInfo info, StreamingContext context) : base(info,
-            context)
-        {
-        }
-
-        /// <inheritdoc />
-        public CodeControlFaultException([CanBeNull] string message) : base(message)
-        {
-        }
-
-        /// <inheritdoc />
-        public CodeControlFaultException([CanBeNull] string message, [CanBeNull] Exception innerException) : base(
-            message, innerException)
-        {
         }
     }
 }

@@ -17,6 +17,7 @@ using CSharpExtensions = Microsoft.CodeAnalysis.CSharp.CSharpExtensions;
 using SyntaxFacts = Microsoft.CodeAnalysis.CSharp.SyntaxFacts;
 using SyntaxKind = Microsoft.CodeAnalysis.CSharp.SyntaxKind;
 using TextChange = Microsoft.CodeAnalysis.Text.TextChange;
+// ReSharper disable ConvertSwitchStatementToSwitchExpression
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Local
@@ -38,7 +39,7 @@ namespace RoslynCodeControls
         /// <param name="pDebugFn"></param>
         /// <param name="synchContext"></param>
         public CustomTextSource4(double pixelsPerDip, FontRendering fontRendering,
-            GenericTextRunProperties genericTextRunProperties, Action<string> debugFn)
+            GenericTextRunProperties genericTextRunProperties, RoslynCodeBase.DebugDelegate debugFn)
         {
             CurrentRendering = fontRendering;
             PixelsPerDip = pixelsPerDip;
@@ -70,7 +71,7 @@ namespace RoslynCodeControls
         private IEnumerable<SyntaxInfo> GetSyntaxInfos(int lineInfoOffset = 0)
         {
 #if DEBUG
-            _debugFn?.Invoke($"{nameof(GetSyntaxInfos)} [{lineInfoOffset}]");
+            _debugFn?.Invoke($"{nameof(GetSyntaxInfos)} [{lineInfoOffset}]", 5);
 #endif
             SyntaxToken token1;
             if (lineInfoOffset != 0)
@@ -191,22 +192,19 @@ namespace RoslynCodeControls
         public override TextRun GetTextRun(int textSourceCharacterIndex)
         {
             var result = _GetTextRun(textSourceCharacterIndex);
-            _debugFn?.Invoke("Got " + result);
+            _debugFn?.Invoke("Got " + result, 5);
             return result;
         }
 
         public TextRun _GetTextRun(int textSourceCharacterIndex)
         {
-            // try
-
-            // {
             _charIndex = textSourceCharacterIndex;
-            _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})");
+            _debugFn?.Invoke($"GetTextRun(textSourceCharacterIndex = {textSourceCharacterIndex})", 5);
 
             if (textSourceCharacterIndex == 0)
             {
 #if DEBUG
-                _debugFn?.Invoke($"Clearing runs because at beginning of text source");
+                _debugFn?.Invoke($"Clearing runs because at beginning of text source", 4);
 #endif
                 Runs.Clear();
                 SyntaxInfos = GetSyntaxInfos().GetEnumerator();
@@ -219,34 +217,9 @@ namespace RoslynCodeControls
             }
             else
             {
-                foreach (var textRun in Runs) _debugFn?.Invoke("    " + textRun.ToString());
+                foreach (var textRun in Runs) _debugFn?.Invoke("    " + textRun.ToString(), 4);
 
-                Runs = Runs.Where(r =>
-                {
-                    switch (r)
-                    {
-                        case CustomTextEndOfLine customTextEndOfLine:
-                            return customTextEndOfLine.Index.Value + customTextEndOfLine.Length <
-                                   textSourceCharacterIndex;
-                        case CustomTextEndOfParagraph customTextEndOfParagraph:
-                            return customTextEndOfParagraph.Index.Value + customTextEndOfParagraph.Length <
-                                   textSourceCharacterIndex;
-
-                        case SyntaxTokenTextCharacters syntaxTokenTextCharacters:
-                            return syntaxTokenTextCharacters.Index.Value + syntaxTokenTextCharacters.Length <
-                                   textSourceCharacterIndex;
-
-                        case SyntaxTriviaTextCharacters syntaxTriviaTextCharacters:
-                            return syntaxTriviaTextCharacters.Index.Value + syntaxTriviaTextCharacters.Length <
-                                   textSourceCharacterIndex;
-                        case CustomTextCharacters customTextCharacters:
-                            return customTextCharacters.Index.Value + customTextCharacters.Length <
-                                   textSourceCharacterIndex;
-                            ;
-                    }
-
-                    return false;
-                }).ToList();
+                Runs = RunsBefore(textSourceCharacterIndex, Runs).ToList();
             }
 
             var si = SyntaxInfos.Current;
@@ -279,8 +252,7 @@ namespace RoslynCodeControls
                     Runs.Add(endOfParagraph);
                     return endOfParagraph;
                 }
-
-                // _prev = si;
+                
                 si = SyntaxInfos.Current;
             }
 
@@ -296,8 +268,6 @@ namespace RoslynCodeControls
                 Runs.Add(customTextCharacters);
                 return customTextCharacters;
             }
-
-            // _prev = si;
 
             if (si.SyntaxTrivia.HasValue)
             {
@@ -316,7 +286,8 @@ namespace RoslynCodeControls
                 Runs.Add(syntaxTriviaTextCharacters);
                 return syntaxTriviaTextCharacters;
             }
-            else if (si.SyntaxToken.HasValue)
+
+            if (si.SyntaxToken.HasValue)
             {
                 if (CSharpExtensions.Kind(si.SyntaxToken.Value) == SyntaxKind.XmlTextLiteralNewLineToken)
                 {
@@ -335,14 +306,7 @@ namespace RoslynCodeControls
             var textEndOfParagraph = new CustomTextEndOfParagraph(2) {Index = textSourceCharacterIndex};
             Runs.Add(textEndOfParagraph);
             return textEndOfParagraph;
-            // }
-            // catch (Exception ex)
-            // {
-            // _debugFn?.Invoke(ex.ToString());
-            // var textEndOfParagraph = new CustomTextEndOfParagraph(2) { Index = textSourceCharacterIndex };
-            // Runs.Add(textEndOfParagraph);
-            // return textEndOfParagraph;
-            // }
+           
 #if false
             Debug.WriteLine($"index: {textSourceCharacterIndex}");
 
@@ -524,6 +488,36 @@ namespace RoslynCodeControls
 #endif
         }
 
+            public static IEnumerable<TextRun> RunsBefore(int textSourceCharacterIndex, IEnumerable<TextRun> textRuns)
+        {
+            return textRuns.Where(r =>
+            {
+                switch (r)
+                {
+                    case CustomTextEndOfLine customTextEndOfLine:
+                        return customTextEndOfLine.Index.Value + customTextEndOfLine.Length <=
+                               textSourceCharacterIndex;
+                    case CustomTextEndOfParagraph customTextEndOfParagraph:
+                        return customTextEndOfParagraph.Index.Value + customTextEndOfParagraph.Length <
+                               textSourceCharacterIndex;
+
+                    case SyntaxTokenTextCharacters syntaxTokenTextCharacters:
+                        return syntaxTokenTextCharacters.Index.Value + syntaxTokenTextCharacters.Length <=
+                               textSourceCharacterIndex;
+
+                    case SyntaxTriviaTextCharacters syntaxTriviaTextCharacters:
+                        return syntaxTriviaTextCharacters.Index.Value + syntaxTriviaTextCharacters.Length <=
+                               textSourceCharacterIndex;
+                    case CustomTextCharacters customTextCharacters:
+                        return customTextCharacters.Index.Value + customTextCharacters.Length <
+                               textSourceCharacterIndex;
+                        ;
+                }
+
+                return false;
+            });
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -534,11 +528,7 @@ namespace RoslynCodeControls
             int textSourceCharacterIndexLimit)
         {
             throw new NotImplementedException();
-            // CharacterBufferRange cbr = new CharacterBufferRange(_text, 0, textSourceCharacterIndexLimit);
-            // return new TextSpan<CultureSpecificCharacterBufferRange>(
-            // textSourceCharacterIndexLimit,
-            // new CultureSpecificCharacterBufferRange(CultureInfo.CurrentUICulture, cbr)
-            // );
+            
         }
 
         /// <summary>
@@ -590,15 +580,7 @@ namespace RoslynCodeControls
         /// 
         /// </summary>
         public SyntaxNode Node { get; set; }
-        // {
-        // get { return _node; }
-        // set
-        // {
-        // if (Equals(value, _node)) return;
-        // _node = value;
-        // OnPropertyChanged();
-        // }
-        // }
+     
 
 
         /// <summary>
@@ -634,16 +616,14 @@ namespace RoslynCodeControls
 
                     var nodeKind = "";
                     var tkind = "";
-                    if (arg is SyntaxToken stk)
+                    if (!(arg is SyntaxToken stk)) return textRunProperties;
+                    var syntaxKind = CSharpExtensions.Kind(stk.Parent);
+                    nodeKind = syntaxKind.ToString();
+                    kind = CSharpExtensions.Kind(stk).ToString();
+                    if (SyntaxFacts.IsTrivia(syntaxKind))
                     {
-                        var syntaxKind = CSharpExtensions.Kind(stk.Parent);
-                        nodeKind = syntaxKind.ToString();
-                        kind = CSharpExtensions.Kind(stk).ToString();
-                        if (SyntaxFacts.IsTrivia(syntaxKind))
-                        {
-                            var pt = stk.Parent.ParentTrivia;
-                            tkind = CSharpExtensions.Kind(pt).ToString();
-                        }
+                        var pt = stk.Parent.ParentTrivia;
+                        tkind = CSharpExtensions.Kind(pt).ToString();
                     }
 
                     // Debug.WriteLine(
@@ -703,108 +683,93 @@ namespace RoslynCodeControls
                     break;
             }
 
-            // if (token.ContainsDiagnostics)
-            // {
-            // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
-            // var s = token.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
-            // pp.SetBackgroundBrush(sevB[(int) s]);
-            // }
+            if (token.Parent == null) return new GenericTextRunProperties(CurrentRendering, PixelsPerDip);
+           
+            var syntaxKind = CSharpExtensions.Kind(token.Parent);
+            var zz = token.Parent.FirstAncestorOrSelf<SyntaxNode>(
+                z => SyntaxFacts.IsTrivia(CSharpExtensions.Kind((SyntaxNode) z)), false);
 
-            if (token.Parent != null)
+            if (zz != null)
             {
-                // if (token.Parent.ContainsDiagnostics)
-                // {
-                // var sevB = new Brush[4] {null, Brushes.LightBlue, Brushes.BlueViolet, Brushes.Red};
-                // var s = token.Parent.GetDiagnostics().Max(diagnostic => diagnostic.Severity);
-                // pp.SetBackgroundBrush(sevB[(int) s]);
-                // }
+                var pt = zz.ParentTrivia;
+                var syntaxKind1 = CSharpExtensions.Kind(pt);
 
-                var syntaxKind = CSharpExtensions.Kind(token.Parent);
-                var zz = token.Parent.FirstAncestorOrSelf<SyntaxNode>(
-                    z => SyntaxFacts.IsTrivia(CSharpExtensions.Kind((SyntaxNode) z)), false);
 
-                if (zz != null)
+                // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
+                switch (syntaxKind1)
                 {
-                    var pt = zz.ParentTrivia;
-                    var syntaxKind1 = CSharpExtensions.Kind(pt);
+                    case SyntaxKind.EndOfLineTrivia:
+                        break;
+                    case SyntaxKind.WhitespaceTrivia:
+                        break;
+                    case SyntaxKind.SingleLineCommentTrivia:
+                    case SyntaxKind.MultiLineCommentTrivia:
+                    case SyntaxKind.SingleLineDocumentationCommentTrivia:
+                    case SyntaxKind.MultiLineDocumentationCommentTrivia:
+                    case SyntaxKind.DisabledTextTrivia:
 
+                        return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.SlateGray);
+                        break;
+                    case SyntaxKind.DocumentationCommentExteriorTrivia:
+                        return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
+                        break;
+                    case SyntaxKind.PreprocessingMessageTrivia:
+                        break;
+                    case SyntaxKind.IfDirectiveTrivia:
 
-                    // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
-                    switch (syntaxKind1)
-                    {
-                        case SyntaxKind.EndOfLineTrivia:
-                            break;
-                        case SyntaxKind.WhitespaceTrivia:
-                            break;
-                        case SyntaxKind.SingleLineCommentTrivia:
-                        case SyntaxKind.MultiLineCommentTrivia:
-                        case SyntaxKind.SingleLineDocumentationCommentTrivia:
-                        case SyntaxKind.MultiLineDocumentationCommentTrivia:
-                        case SyntaxKind.DisabledTextTrivia:
-
-                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.SlateGray);
-                            break;
-                        case SyntaxKind.DocumentationCommentExteriorTrivia:
-                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
-                            break;
-                        case SyntaxKind.PreprocessingMessageTrivia:
-                            break;
-                        case SyntaxKind.IfDirectiveTrivia:
-
-                        case SyntaxKind.ElifDirectiveTrivia:
-                        case SyntaxKind.ElseDirectiveTrivia:
-                        case SyntaxKind.EndIfDirectiveTrivia:
-                        case SyntaxKind.RegionDirectiveTrivia:
-                        case SyntaxKind.EndRegionDirectiveTrivia:
-                        case SyntaxKind.DefineDirectiveTrivia:
-                        case SyntaxKind.UndefDirectiveTrivia:
-                        case SyntaxKind.ErrorDirectiveTrivia:
-                        case SyntaxKind.WarningDirectiveTrivia:
-                        case SyntaxKind.LineDirectiveTrivia:
-                            return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.BurlyWood);
-                        case SyntaxKind.PragmaWarningDirectiveTrivia:
-                            break;
-                        case SyntaxKind.PragmaChecksumDirectiveTrivia:
-                            break;
-                        case SyntaxKind.ReferenceDirectiveTrivia:
-                            break;
-                        case SyntaxKind.BadDirectiveTrivia:
-                            break;
-                        case SyntaxKind.SkippedTokensTrivia:
-                            break;
-                        case SyntaxKind.ConflictMarkerTrivia:
-                            break;
-                        case SyntaxKind.NullableDirectiveTrivia:
-                            break;
-                    }
+                    case SyntaxKind.ElifDirectiveTrivia:
+                    case SyntaxKind.ElseDirectiveTrivia:
+                    case SyntaxKind.EndIfDirectiveTrivia:
+                    case SyntaxKind.RegionDirectiveTrivia:
+                    case SyntaxKind.EndRegionDirectiveTrivia:
+                    case SyntaxKind.DefineDirectiveTrivia:
+                    case SyntaxKind.UndefDirectiveTrivia:
+                    case SyntaxKind.ErrorDirectiveTrivia:
+                    case SyntaxKind.WarningDirectiveTrivia:
+                    case SyntaxKind.LineDirectiveTrivia:
+                        return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.BurlyWood);
+                    case SyntaxKind.PragmaWarningDirectiveTrivia:
+                        break;
+                    case SyntaxKind.PragmaChecksumDirectiveTrivia:
+                        break;
+                    case SyntaxKind.ReferenceDirectiveTrivia:
+                        break;
+                    case SyntaxKind.BadDirectiveTrivia:
+                        break;
+                    case SyntaxKind.SkippedTokensTrivia:
+                        break;
+                    case SyntaxKind.ConflictMarkerTrivia:
+                        break;
+                    case SyntaxKind.NullableDirectiveTrivia:
+                        break;
                 }
+            }
 
-                if (SyntaxFacts.IsPredefinedType(kind))
-                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Gold);
-                // pp.SetForegroundBrush(Brushes.Gold);
-                else if (SyntaxFacts.IsKeywordKind(kind))
-                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.CornflowerBlue);
-                // pp.SetForegroundBrush(Brushes.CornflowerBlue);
-                // return pp;
-                else if (SyntaxFacts.IsLiteralExpression(kind))
-                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Brown,
-                        FontStyles.Italic);
+            if (SyntaxFacts.IsPredefinedType(kind))
+                return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Gold);
+            // pp.SetForegroundBrush(Brushes.Gold);
+            else if (SyntaxFacts.IsKeywordKind(kind))
+                return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.CornflowerBlue);
+            // pp.SetForegroundBrush(Brushes.CornflowerBlue);
+            // return pp;
+            else if (SyntaxFacts.IsLiteralExpression(kind))
+                return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Brown,
+                    FontStyles.Italic);
 
 #if DEBUGTEXTSOURCE
 Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 #endif
-                // if (SyntaxFacts.IsName(syntaxKind))
-                // pp.SetForegroundBrush(Brushes.Pink);
-                // if (SyntaxFacts.IsTypeSyntax(syntaxKind)) pp.SetForegroundBrush(Brushes.Crimson);
+            // if (SyntaxFacts.IsName(syntaxKind))
+            // pp.SetForegroundBrush(Brushes.Pink);
+            // if (SyntaxFacts.IsTypeSyntax(syntaxKind)) pp.SetForegroundBrush(Brushes.Crimson);
 
-                if (syntaxKind == SyntaxKind.MethodDeclaration)
-                {
-                    if (SyntaxFacts.IsAccessibilityModifier(kind))
-                        return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
+            if (syntaxKind == SyntaxKind.MethodDeclaration)
+            {
+                if (SyntaxFacts.IsAccessibilityModifier(kind))
+                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
 
-                    else if (SyntaxFacts.IsKeywordKind(kind))
-                        return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, null, FontStyles.Italic);
-                }
+                else if (SyntaxFacts.IsKeywordKind(kind))
+                    return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, null, FontStyles.Italic);
             }
 
             // pp.SyntaxToken = trivia;
@@ -829,7 +794,6 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 
             return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Fuchsia);
 
-
             // pp.SetBackgroundBrush(Brushes.Black);
             // return pp;
         }
@@ -847,7 +811,7 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
 
         private IEnumerator<SyntaxInfo> _syntaxInfos;
         private GenericTextRunProperties _baseProps;
-        private readonly Action<string> _debugFn;
+        private readonly RoslynCodeBase.DebugDelegate _debugFn;
 
         private int _charIndex;
 
@@ -1049,29 +1013,12 @@ var chL = newTree.GetChangedSpans(Tree);
         }
 
         public SourceText Text { get; set; }
-        // {
-        // get { return _text; }
-        // private set
-        // {
-        // if (Equals(value, _text)) return;
-        // _text = value;
-        // OnPropertyChanged();
-        // }
-        // }
+    
 
         public List<TextRunInfo> RunInfos { get; set; }
 
         public List<TextRun> Runs { get; set; } = new List<TextRun>();
-        // {
-        // get { return _runs; }
-        // set
-        // {
-        // if (Equals(value, _runs)) return;
-        // _runs = value;
-        // OnPropertyChanged();
-        // }
-        // }
-
+        
         public FontRendering CurrentRendering { get; set; }
 
 
@@ -1088,6 +1035,12 @@ var chL = newTree.GetChangedSpans(Tree);
             var tree = SyntaxFactory.ParseSyntaxTree(code);
             Node = tree.GetRoot();
             Tree = tree;
+        }
+
+        public static IEnumerable<TextRunInfo> RunInfosBefore(in int offset, List<TextRunInfo> sourceRuns)
+        {
+
+            return sourceRuns.Take(RunsBefore(offset, sourceRuns.Select(zz => zz.TextRun)).Count()).ToList();
         }
     }
 }

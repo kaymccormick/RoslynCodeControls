@@ -7,6 +7,24 @@ namespace RoslynCodeControls
     public readonly struct RenderRequestInput 
         // : ITimestampedRequest
     {
+        public void Deconstruct(out RoslynCodeControl roslynCodeControl, out int lineNo, out int offset, out double y, out double x, out TextFormatter textFormatter, out double paragraphWidth, out double pixelsPerDip, out CustomTextSource4 customTextSource4, out double maxY, out double maxX, out string fontFamilyName, out double fontSize, out FontWeight fontWeight)
+        {
+            roslynCodeControl = RoslynCodeControl;
+            lineNo = LineNo;
+            offset = Offset;
+            y = Y;
+            x = X;
+            textFormatter = TextFormatter;
+            paragraphWidth = ParagraphWidth;
+            pixelsPerDip = PixelsPerDip;
+            customTextSource4 = CustomTextSource4;
+            maxY = MaxY;
+            maxX = MaxX;
+            fontFamilyName = FontFamilyName;
+            fontSize = FontSize;
+            fontWeight = FontWeight;
+        }
+
         public RenderRequestInput(RoslynCodeControl roslynCodeControl, int lineNo, int offset, double y, double x, TextFormatter textFormatter, double paragraphWidth,
             double pixelsPerDip, CustomTextSource4 customTextSource4, double maxY, double maxX, double fontSize,
             string fontFamilyName, FontWeight fontWeight)

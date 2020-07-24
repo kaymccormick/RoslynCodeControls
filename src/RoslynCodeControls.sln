@@ -11,8 +11,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XUnitTestProject1", "XUnitT
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WpfTestApp", "Test\WpfTestApp\WpfTestApp.csproj", "{2B38E407-38D0-4B1E-A275-1A096BD8CCD1}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTestProject1", "UnitTestProject1\UnitTestProject1.csproj", "{48A55C35-4AA8-46F1-BB45-53401CF1816E}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WpfTerminalControlLib", "..\..\WpfPowerShellHost\src\WpfTerminalControlLib\WpfTerminalControlLib.csproj", "{33F9A21B-BB45-48D3-81D6-965E4723D599}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WpfPowershellTerminal", "..\..\WpfPowerShellHost\src\WpfPowershellTerminal\WpfPowershellTerminal.csproj", "{6C03D2A7-22B1-443B-9B6A-2F91F3AE1494}"
@@ -39,10 +37,6 @@ Global
 		{2B38E407-38D0-4B1E-A275-1A096BD8CCD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2B38E407-38D0-4B1E-A275-1A096BD8CCD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2B38E407-38D0-4B1E-A275-1A096BD8CCD1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{48A55C35-4AA8-46F1-BB45-53401CF1816E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{48A55C35-4AA8-46F1-BB45-53401CF1816E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{48A55C35-4AA8-46F1-BB45-53401CF1816E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{48A55C35-4AA8-46F1-BB45-53401CF1816E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{33F9A21B-BB45-48D3-81D6-965E4723D599}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{33F9A21B-BB45-48D3-81D6-965E4723D599}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33F9A21B-BB45-48D3-81D6-965E4723D599}.Release|Any CPU.ActiveCfg = Release|Any CPU

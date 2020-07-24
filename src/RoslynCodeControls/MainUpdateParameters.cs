@@ -6,21 +6,13 @@ using System.Windows.Media.TextFormatting;
 
 namespace RoslynCodeControls
 {
-    public interface IFontDetails
-    {
-        double PixelsPerDip { get; }
-        double FontSize { get; }
-        string FaceName { get; }
-        FontWeight FontWeight { get; }
-    }
-
-    public class MainUpdateParameters : IMainUpdateParameters, IFontDetails
+    public class MainUpdateParameters : IMainUpdateParameters, IFontDetails, IDebugParam
     {
         public MainUpdateParameters(int textStorePosition, int lineNo,
             Point linePosition, TextFormatter textFormatter, double paragraphWidth, double pixelsPerDip, double emSize0,
             string faceName, ChannelWriter<UpdateInfo> channelWriter, FontWeight fontWeight,
             DocumentPaginator paginator, TextSourceInitializationParameters textSourceInitializationParameters,
-            Action<string> debugFn=null,
+            RoslynCodeBase.DebugDelegate debugFn=null,
             Size? pageSize = null, bool paginate = false)
         {
             TextStorePosition = textStorePosition;
@@ -40,20 +32,25 @@ namespace RoslynCodeControls
             Paginate = paginate;
         }
 
-        public int TextStorePosition { get; set; }
-        public int LineNo { get; set; }
-        public Point LinePosition { get; set; }
-        public TextFormatter TextFormatter { get; private set; }
-        public double ParagraphWidth { get; private set; }
-        public double PixelsPerDip { get; private set; }
-        public double FontSize { get; private set; }
-        public string FaceName { get; private set; }
-        public ChannelWriter<UpdateInfo> ChannelWriter { get; private set; }
-        public FontWeight FontWeight { get; private set; }
-        public DocumentPaginator Paginator { get; private set; }
+        public int TextStorePosition { get; }
+        public int LineNo { get;  }
+        public Point LinePosition { get;  }
+        public TextFormatter TextFormatter { get;  }
+        public double ParagraphWidth { get;  }
+        public double PixelsPerDip { get;  }
+        public double FontSize { get;  }
+        public string FaceName { get;  }
+        public ChannelWriter<UpdateInfo> ChannelWriter { get;  }
+        public FontWeight FontWeight { get;  }
+        public DocumentPaginator Paginator { get;  }
         public TextSourceInitializationParameters TextSourceInitializationParameters { get; private set; }
-        public Action<string> DebugFn { get; }
-        public Size? PageSize { get; private set; }
-        public bool Paginate { get; private set; }
+        public RoslynCodeBase.DebugDelegate DebugFn { get; }
+        public Size? PageSize { get;  }
+        public bool Paginate { get; }
+    }
+
+    public interface IDebugParam
+    {
+        RoslynCodeBase.DebugDelegate DebugFn { get; }
     }
 }

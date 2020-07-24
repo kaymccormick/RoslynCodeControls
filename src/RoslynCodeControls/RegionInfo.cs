@@ -118,6 +118,8 @@ namespace RoslynCodeControls
             }
         }
 
+        public LinkedListNode<CharInfo> FirstCharInfo { get; }
+
         /// <summary>
         /// 
         /// </summary>
@@ -132,36 +134,13 @@ namespace RoslynCodeControls
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public List<CharacterCell> Characters       
-        {
-            get { return _characters; }
-            set
-            {
-                if (Equals(value, _characters)) return;
-                _characters = value;
-                OnPropertyChanged();
-            }
-        }
 
         /// <summary>
         /// 
         /// </summary>
         public string Key { get; set; }
-        /// <summary>
-        /// 
-        /// </summary>
-        public LineInfo Line { get; set; }
-        /// <summary>
-        /// 
-        /// </summary>
-        public RegionInfo NextRegion { get; set; }
-        /// <summary>
-        /// 
-        /// </summary>
-        public RegionInfo PrevRegion { get; set; }
+
+     
 
         public SyntaxToken? AttachedToken { get; set; }
         public SyntaxNode AttachedNode { get; set; }
@@ -174,11 +153,12 @@ namespace RoslynCodeControls
         /// <param name="textRun"></param>
         /// <param name="boundingRect"></param>
         /// <param name="characters"></param>
-        public RegionInfo(TextRun textRun, Rect boundingRect, List<CharacterCell> characters)
+        public RegionInfo(TextRun textRun, Rect boundingRect, LinkedListNode<CharInfo> firstCharInfo)
         {
             TextRun = textRun;
+            FirstCharInfo = firstCharInfo;
             BoundingRect = new Rect((int)boundingRect.X, (int)boundingRect.Y, (int)boundingRect.Width, (int)boundingRect.Height);
-            Characters = characters;
+            
         }
 
         /// <summary>

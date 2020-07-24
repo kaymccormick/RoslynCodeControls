@@ -56,7 +56,7 @@ namespace UnitTestProject1
                         
 
                     }
-                    await c.Shutdown();
+                    await c.ShutdownAsync();
 
                     c.Dispatcher.InvokeShutdown();
                     c.SecondaryDispatcher.InvokeShutdown();

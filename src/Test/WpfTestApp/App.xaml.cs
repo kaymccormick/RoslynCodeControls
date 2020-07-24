@@ -59,6 +59,11 @@ namespace WpfTestApp
                 }
                 
             }
+
+            // Window w = new Window();
+            // w.Content = new NugetSearch();
+            // w.ShowDialog();
+
             _mevent = new ManualResetEvent(false);
             t2 = RoslynCodeControls.RoslynCodeControl.StartSecondaryThread(_mevent, null);
             JoinableTaskFactory f = new JoinableTaskFactory(new JoinableTaskContext());

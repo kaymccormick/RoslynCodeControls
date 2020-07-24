@@ -37,6 +37,7 @@ namespace XUnitTestProject1
 
     public class UnitTest1 : IAsyncLifetime
     {
+        private int debugLevel = 2;
         private MyFixture _f;
         private readonly ITestOutputHelper _outputHelper;
         
@@ -53,10 +54,18 @@ namespace XUnitTestProject1
 
         public async Task InitializeAsync()
         {
-            _f = new MyFixture {OutputHelper = _outputHelper};
+            _f = new MyFixture(debugLevel) {OutputHelper = _outputHelper};
             await _f.InitializeAsync();
-            _codeControl = new RoslynCodeControl(_f.Debugfn);
-            _codeControl.JTF2 = _f.JTF2;
+            _codeControl = new RoslynCodeControl(_f.Debugfn) {JTF2 = _f.JTF2};
+            JTF = _codeControl.JTF;
+        }
+
+        public JoinableTaskFactory JTF { get; set; }
+
+        public RoslynCodeControl CodeControl
+        {
+            get { return _codeControl; }
+            set { _codeControl = value; }
         }
 
         /// <inheritdoc />
@@ -65,6 +74,98 @@ namespace XUnitTestProject1
             await _f.DisposeAsync();
             _f = null;
         }
+
+        [WpfFact]
+        public void TestDoInputAsync1()
+        {
+            NewMethod("a");
+        }
+
+        [WpfFact]
+        public void TestDoInputAsync2()
+        {
+            NewMethod("ab");
+        }
+
+        private void NewMethod(string input)
+        {
+            var insertionPoint = 0;
+            
+            
+            Func<RoslynCodeControl,string,TestContext, Task> a = async (rcc,  inputChar,context) =>
+            {
+                var ir = new InputRequest(InputRequestKind.TextInput, inputChar);
+                var done = await rcc.DoUpdateTextAsync(insertionPoint, ir);
+                Assert.Equal(inputChar, done.InputRequest.Text);
+
+                Assert.Single(rcc.LineInfos2);
+                var il = rcc.InsertionLine;
+                Assert.Equal(il, rcc.LineInfos2.First.Value);
+                Assert.Equal(0, il.Offset);
+                Assert.Equal(context.Length + 3, il.Length);
+                Assert.Equal(0, il.LineNumber);
+                Assert.Equal(new Point(0, 0), il.Origin);
+                var ci = il.FirstCharInfo;
+
+
+                _f.Debugfn(done.ToString());
+            };
+
+            var jt = JTF.RunAsync(async () =>
+            {
+                await CodeControl.UpdateFormattedTextAsync();
+                var context = new TestContext();
+                foreach (var ch in input)
+                {
+                    await a(CodeControl, ch.ToString(), context);
+                    context.Length++;
+                }
+            });
+
+            var continueWith = jt.JoinAsync().ContinueWith(ContinuationFunction);
+            continueWith.ContinueWith(t =>
+            {
+                CodeControl.Shutdown();
+                return t.Result;
+            });
+
+            //, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
+
+            while (!continueWith.IsCompleted)
+            {
+                DoEvents();
+                Thread.Sleep(500);
+                _f.Debugfn("loop");
+            }
+
+
+#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
+            Assert.True(continueWith.Result);
+#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
+
+            var s = CodeControl.CustomTextSource;
+            Assert.Collection(s.Runs, run => { Assert.IsType<SyntaxTokenTextCharacters>(run); },
+                run => { Assert.IsType<CustomTextEndOfParagraph>(run); });
+            Assert.Collection(s.RunInfos, runInfo => { Assert.IsType<SyntaxTokenTextCharacters>(runInfo.TextRun); });
+        }
+
+        private bool ContinuationFunction(Task t)
+        {
+            if (t.IsFaulted)
+            {
+                _f.Debugfn("Task faulted");
+                return false;
+            }
+
+            if (_codeControl.IsFaulted) _f.OutputHelper.WriteLine("faulted");
+            return true;
+        }
+
+        private void Run(Func<RoslynCodeControl, Task> func)
+        {
+            JTF.Run(() => func(CodeControl));
+        }
+
         
 
         [WpfTheory]
@@ -153,7 +254,7 @@ namespace XUnitTestProject1
             var continueWith = jt.JoinAsync().ContinueWith(async t =>
             {
                 if (_codeControl.IsFaulted) _f.OutputHelper.WriteLine("faulted");
-                await _codeControl.Shutdown();
+                await _codeControl.ShutdownAsync();
 
                 _f.OutputHelper.WriteLine("shut down secondary");
                 _codeControl.SecondaryDispatcher.InvokeShutdown();
@@ -377,5 +478,10 @@ namespace XUnitTestProject1
 
             return null;
         }
+    }
+
+    internal class TestContext
+    {
+        public int Length { get; set; }
     }
 }
