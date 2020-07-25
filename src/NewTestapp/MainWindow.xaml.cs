@@ -1,21 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Printing;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Xps.Packaging;
 using JetBrains.Annotations;
@@ -118,9 +110,7 @@ namespace NewTestapp
                 Info = info;
                 pageBrush = new VisualBrush(p.Visual);
                 pageBrush.AlignmentX=AlignmentX.Left;
-                pageBrush.AlignmentY = AlignmentY.Top;
-                var dpi1 = VisualTreeHelper.GetDpi(p.Visual);
-                var dpi2 = VisualTreeHelper.GetDpi(this);
+                pageBrush.AlignmentY = AlignmentY.Top; 
                 pageBrush.Stretch = Stretch.None;
                 var b1 = VisualTreeHelper.GetContentBounds(p.Visual);
                 rect.Width = b1.Width;
@@ -149,16 +139,15 @@ namespace NewTestapp
                 FontSize = 14.0,
                 FontFamily = new FontFamily("Lucida Console")
             };
-            ;
             await cb.UpdateFormattedTextAsync();
             
             DirectoryInfo d = new DirectoryInfo(@"C:\temp\code");
 
             LocalPrintServer s = new LocalPrintServer();
-            var pdfQueues = s.GetPrintQueues().Where(queue => queue.FullName.ToLowerInvariant().Contains("pdf") && !queue.IsInError && !queue.IsOffline).ToList();
-            PrintDialog pd1  = new PrintDialog();
+            // var pdfQueues = s.GetPrintQueues().Where(queue => queue.FullName.ToLowerInvariant().Contains("pdf") && !queue.IsInError && !queue.IsOffline).ToList();
+            // PrintDialog pd1  = new PrintDialog();
             //pd1.ShowDialog();
-            _dp = (RoslynPaginator)new RoslynPaginator(cb);
+            _dp = new RoslynPaginator(cb);
             PageCount = _dp.PageCount;
             // pd1.PrintDocument(_dp, "code");
             
@@ -453,7 +442,7 @@ namespace NewTestapp
             NewMethod(CurPage);
         }
 
-        public event PropertyChangedEventHandler? PropertyChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)

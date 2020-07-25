@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -29,7 +25,7 @@ namespace NewTestapp
                 _file = e.Args.First();
             }
             _mevent = new ManualResetEvent(false);
-            t2 = RoslynCodeControls.RoslynCodeControl.StartSecondaryThread(_mevent,null);
+            t2 = RoslynCodeControl.StartSecondaryThread(_mevent);
             JoinableTaskFactory f = new JoinableTaskFactory(new JoinableTaskContext());
             f.RunAsync(Z);
             base.OnStartup(e);
@@ -40,6 +36,7 @@ namespace NewTestapp
             await _mevent.ToTask();
             var d = Dispatcher.FromThread(t2);
             var jtf2 = new JoinableTaskFactory(new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
+                // ReSharper disable once AssignNullToNotNullAttribute
                 new DispatcherSynchronizationContext(d)));
             MainWindow w = new MainWindow();
             w.Filename = _file;

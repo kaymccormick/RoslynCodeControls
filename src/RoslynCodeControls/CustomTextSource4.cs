@@ -36,8 +36,7 @@ namespace RoslynCodeControls
         /// <param name="pixelsPerDip"></param>
         /// <param name="fontRendering"></param>
         /// <param name="genericTextRunProperties"></param>
-        /// <param name="pDebugFn"></param>
-        /// <param name="synchContext"></param>
+        /// <param name="debugFn"></param>
         public CustomTextSource4(double pixelsPerDip, FontRendering fontRendering,
             GenericTextRunProperties genericTextRunProperties, RoslynCodeBase.DebugDelegate debugFn)
         {
@@ -84,6 +83,7 @@ namespace RoslynCodeControls
                             foreach (var syntaxTrivia in child.GetLeadingTrivia())
                                 yield return new SyntaxInfo(syntaxTrivia, Node);
 
+                    // ReSharper disable once PossibleNullReferenceException
                     token1 = child.IsToken ? child.AsToken() : child.AsNode().GetFirstToken();
                 }
                 else
@@ -109,7 +109,9 @@ namespace RoslynCodeControls
                 yield return new SyntaxInfo(token1);
                 if (token1.HasTrailingTrivia)
                     foreach (var syntaxTrivia in token1.TrailingTrivia)
+                        // ReSharper disable once ConditionIsAlwaysTrueOrFalse
                         if (false && syntaxTrivia.IsPartOfStructuredTrivia())
+                            // ReSharper disable once HeuristicUnreachableCode
                         {
                             var syntaxNode = syntaxTrivia.GetStructure();
                             var n = syntaxTrivia.Token.Parent;
@@ -179,8 +181,6 @@ namespace RoslynCodeControls
                         yield return new SyntaxInfo(syntaxTrivia, token1, TriviaPosition.Leading);
                 // }
             }
-
-            yield break;
         }
 
         /// <summary>
@@ -217,7 +217,9 @@ namespace RoslynCodeControls
             }
             else
             {
+#if DEBUGRUNS
                 foreach (var textRun in Runs) _debugFn?.Invoke("    " + textRun.ToString(), 4);
+#endif
 
                 Runs = RunsBefore(textSourceCharacterIndex, Runs).ToList();
             }
@@ -240,7 +242,14 @@ namespace RoslynCodeControls
                         var len = Length - textSourceCharacterIndex;
                         var buf = new char[len];
                         Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
-                        if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
+                        if (len == 2 && buf[0] == '\r' && buf[1] == '\n')
+                        {
+
+                            var eol = new CustomTextEndOfLine(2){Index=textSourceCharacterIndex};
+                            Runs.Add(eol);
+                            return eol; 
+                        }
+
                         var t = string.Join("", buf);
                         var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
                             {Index = textSourceCharacterIndex};
@@ -261,8 +270,33 @@ namespace RoslynCodeControls
                 var len = si.Span1.Start - textSourceCharacterIndex;
                 var buf = new char[len];
                 Text.CopyTo(textSourceCharacterIndex, buf, 0, len);
-                if (len == 2 && buf[0] == '\r' && buf[1] == '\n') return new CustomTextEndOfLine(2);
+                if (len == 2 && buf[0] == '\r' && buf[1] == '\n')
+                {
+
+                    var eol = new CustomTextEndOfLine(2) { Index = textSourceCharacterIndex };
+
+                    Runs.Add(eol);
+                    return eol;
+                }
+
                 var t = string.Join("", buf);
+                var nl = t.IndexOf("\r\n", StringComparison.Ordinal);
+                if (nl != -1)
+                {
+                    t = t.Substring(0, nl);
+                    if (t == "")
+                    {
+                        var eol = new CustomTextEndOfLine(2) { Index = textSourceCharacterIndex };
+                        Runs.Add(eol);
+                        return eol;
+                    }
+                    var ctc = new CustomTextCharacters(t, 
+                            MakeProperties(SyntaxKind.None, t))
+                        { Index = textSourceCharacterIndex };
+                    Runs.Add(ctc);
+                    return ctc;
+
+                }
                 var customTextCharacters = new CustomTextCharacters(t, MakeProperties(SyntaxKind.None, t))
                     {Index = textSourceCharacterIndex};
                 Runs.Add(customTextCharacters);
@@ -495,23 +529,29 @@ namespace RoslynCodeControls
                 switch (r)
                 {
                     case CustomTextEndOfLine customTextEndOfLine:
+                        // ReSharper disable once PossibleInvalidOperationException
                         return customTextEndOfLine.Index.Value + customTextEndOfLine.Length <=
                                textSourceCharacterIndex;
                     case CustomTextEndOfParagraph customTextEndOfParagraph:
-                        return customTextEndOfParagraph.Index.Value + customTextEndOfParagraph.Length <
+                        // ReSharper disable once PossibleInvalidOperationException
+                        return customTextEndOfParagraph.Index.Value + customTextEndOfParagraph.Length <=
                                textSourceCharacterIndex;
 
                     case SyntaxTokenTextCharacters syntaxTokenTextCharacters:
+                        // ReSharper disable once PossibleInvalidOperationException
                         return syntaxTokenTextCharacters.Index.Value + syntaxTokenTextCharacters.Length <=
                                textSourceCharacterIndex;
 
                     case SyntaxTriviaTextCharacters syntaxTriviaTextCharacters:
+                        // ReSharper disable once PossibleInvalidOperationException
                         return syntaxTriviaTextCharacters.Index.Value + syntaxTriviaTextCharacters.Length <=
                                textSourceCharacterIndex;
                     case CustomTextCharacters customTextCharacters:
+                        // ReSharper disable once PossibleInvalidOperationException
                         return customTextCharacters.Index.Value + customTextCharacters.Length <
                                textSourceCharacterIndex;
-                        ;
+                    default:
+                        throw new InvalidOperationException();
                 }
 
                 return false;
@@ -572,7 +612,6 @@ namespace RoslynCodeControls
 
 
             return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.YellowGreen);
-            ;
         }
 
 
@@ -591,7 +630,7 @@ namespace RoslynCodeControls
         /// <returns></returns>
         public TextRunProperties MakeProperties(object arg, string text)
         {
-            TextRunProperties textRunProperties = null;
+            TextRunProperties textRunProperties;
             if (arg == (object) SyntaxKind.None)
                 textRunProperties = PropsFor(text);
             else
@@ -680,14 +719,13 @@ namespace RoslynCodeControls
                 case SyntaxKind.GreaterThanToken:
                     return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Red);
                     // pp.SetForegroundBrush(Brushes.Red);
-                    break;
             }
 
             if (token.Parent == null) return new GenericTextRunProperties(CurrentRendering, PixelsPerDip);
            
             var syntaxKind = CSharpExtensions.Kind(token.Parent);
             var zz = token.Parent.FirstAncestorOrSelf<SyntaxNode>(
-                z => SyntaxFacts.IsTrivia(CSharpExtensions.Kind((SyntaxNode) z)), false);
+                z => SyntaxFacts.IsTrivia(CSharpExtensions.Kind(z)), false);
 
             if (zz != null)
             {
@@ -709,10 +747,8 @@ namespace RoslynCodeControls
                     case SyntaxKind.DisabledTextTrivia:
 
                         return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.SlateGray);
-                        break;
                     case SyntaxKind.DocumentationCommentExteriorTrivia:
                         return new GenericTextRunProperties(CurrentRendering, PixelsPerDip, Brushes.Aqua);
-                        break;
                     case SyntaxKind.PreprocessingMessageTrivia:
                         break;
                     case SyntaxKind.IfDirectiveTrivia:

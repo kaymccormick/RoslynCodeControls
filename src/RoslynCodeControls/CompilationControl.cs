@@ -41,6 +41,7 @@ namespace RoslynCodeControls
             /// </summary>
             public static readonly DependencyProperty CompilationProperty = RoslynProperties.CompilationProperty;
 
+            // ReSharper disable once UnusedMember.Local
             private static void PropertyChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
             {
                 var c = (CompilationControl) d;

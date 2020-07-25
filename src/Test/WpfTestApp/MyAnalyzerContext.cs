@@ -21,25 +21,25 @@ namespace WpfTestApp
         /// <inheritdoc />
         public override void RegisterSymbolStartAction(Action<SymbolStartAnalysisContext> action, SymbolKind symbolKind)
         {
-            
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />
         public override void RegisterOperationBlockStartAction(Action<OperationBlockStartAnalysisContext> action)
         {
-         
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />
         public override void RegisterOperationBlockAction(Action<OperationBlockAnalysisContext> action)
         {
-         
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />
         public override void RegisterOperationAction(Action<OperationAnalysisContext> action, ImmutableArray<OperationKind> operationKinds)
         {
-            
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />
@@ -63,36 +63,45 @@ namespace WpfTestApp
         public override void RegisterCompilationStartAction(Action<CompilationStartAnalysisContext> action)
         {
             Debug.WriteLine(nameof(RegisterCompilationStartAction));
+            CompilationStartActions.Add(action);
+
         }
+
+        public List<Action<CompilationStartAnalysisContext>> CompilationStartActions { get; set; } = new List<Action<CompilationStartAnalysisContext>>();
 
         /// <inheritdoc />
         public override void RegisterCompilationAction(Action<CompilationAnalysisContext> action)
         {
             Debug.WriteLine(nameof(RegisterCompilationAction));
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />nameof(
         public override void RegisterSemanticModelAction(Action<SemanticModelAnalysisContext> action)
         {
             Debug.WriteLine(nameof(RegisterSemanticModelAction));
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />
         public override void RegisterSymbolAction(Action<SymbolAnalysisContext> action, ImmutableArray<SymbolKind> symbolKinds)
         {
             Debug.WriteLine(nameof(RegisterSymbolAction));
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />
         public override void RegisterCodeBlockStartAction<TLanguageKindEnum>(Action<CodeBlockStartAnalysisContext<TLanguageKindEnum>> action)
         {
             Debug.WriteLine(nameof(RegisterCodeBlockStartAction));
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />
         public override void RegisterCodeBlockAction(Action<CodeBlockAnalysisContext> action)
         {
             Debug.WriteLine(nameof(RegisterCodeBlockAction));
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />

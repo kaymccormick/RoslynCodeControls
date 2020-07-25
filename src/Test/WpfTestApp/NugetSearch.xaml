@@ -18,7 +18,7 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <TextBox x:Name="SearchTerm" Width="150" />
+        <TextBox x:Name="SearchTerm" Width="150" PreviewKeyDown="SearchTerm_OnPreviewKeyDown"/>
         <Button Content="SearchAsync" Grid.Column="1" Click="DoSearch" />
         <ListView x:Name="Results" Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Stretch">
             <ListView.View>

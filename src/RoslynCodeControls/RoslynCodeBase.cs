@@ -115,9 +115,9 @@ _debugFn = debugOut ?? ((s,i) => { });
             UpdatingSourceText = false;
         }
 
-        public bool UpdatingSourceText { get; set; }
+        protected bool UpdatingSourceText { get; set; }
 
-        public bool ChangingText { get; set; }
+        protected bool ChangingText { get; set; }
 
         public virtual Rect DrawingBrushViewbox { get; set; }
 
@@ -218,7 +218,7 @@ _debugFn = debugOut ?? ((s,i) => { });
                 () => CreateCustomTextSource4(textSourceInitializationParameters));
         }
 
-        protected static CustomTextSource4 CreateCustomTextSource4(
+        private static CustomTextSource4 CreateCustomTextSource4(
             TextSourceInitializationParameters p)
         {
             var customTextSource4 =

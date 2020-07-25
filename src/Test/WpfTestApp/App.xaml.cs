@@ -80,7 +80,7 @@ namespace WpfTestApp
             var jtf2 = new JoinableTaskFactory(new JoinableTaskContext(RoslynCodeControl.SecondaryThread,
                 new DispatcherSynchronizationContext(d)));
             MainWindow w = new MainWindow();
-            w.StartupCommmad = StartupCommand;
+            w.StartupCommand = StartupCommand;
             w.Filename = _file;
             w.JTF2 = jtf2;
             w.Show();

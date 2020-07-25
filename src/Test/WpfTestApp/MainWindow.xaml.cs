@@ -2,13 +2,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
+using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -16,6 +17,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Markup.Localizer;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
@@ -61,11 +63,11 @@ namespace WpfTestApp
         {
         }
 
-        public static double[] CommonFontSizes
+        public static IEnumerable<double> CommonFontSizes
         {
             get
             {
-                return new double[]
+                return new[]
                 {
                     3.0d, 4.0d, 5.0d, 6.0d, 6.5d, 7.0d, 7.5d, 8.0d, 8.5d, 9.0d,
                     9.5d, 10.0d, 10.5d, 11.0d, 11.5d, 12.0d, 12.5d, 13.0d, 13.5d, 14.0d,
@@ -98,7 +100,7 @@ namespace WpfTestApp
         public static readonly DependencyProperty DefaultHideToolBarCommandProperty = DependencyProperty.Register(
             "DefaultHideToolBarCommand", typeof(ICommand), typeof(MainWindow), new PropertyMetadata(HideToolBar));
 
-        private AdhocWorkspace _workspace;
+        public AdhocWorkspace _workspace;
 
         public ICommand DefaultHideToolBarCommand
         {
@@ -110,36 +112,61 @@ namespace WpfTestApp
 
         public MainWindow()
         {
-            var tmp = System.IO.Path.GetTempFileName();
+            var a1 = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.DefinedTypes.Where(t => t.Name == "DefaultAnalyzerAssemblyLoader"));
+            if (a1.Any())
+            {
+                foreach (var typeInfo in a1)
+                {
+                    Debug.WriteLine(typeInfo.ToString());
+                    Debug.WriteLine(typeInfo.Assembly.ToString());
+                    var loader = Activator.CreateInstance(typeInfo);
+                    AnalyzerLoader = (IAnalyzerAssemblyLoader) loader;
+                    // foreach (var constructorInfo in typeInfo.GetConstructors())
+                    // {
+                    //     Debug.WriteLine(constructorInfo.GetParameters().Length);
+                    // }
+                    break;
+                }
+            }
+            ViewModel = new AppViewModel();
+            Diagnostics = _diagnosticsList;
+            var tmp = Path.GetTempFileName();
             File.Delete(tmp);
             Directory.CreateDirectory(tmp);
             WorkDir = tmp;
             AnalyzersDir = Path.Combine(WorkDir, "analyzers");
             Directory.CreateDirectory(AnalyzersDir);
+            Debug.WriteLine($"Analyzers dir is {AnalyzersDir}");
             InitializeComponent();
             CoerceValue(FontsProperty);
             Loaded += OnLoaded;
-            LoadAnalyzers(@"C:\temp\roslyn.analyzers.dll");
+            // LoadAnalyzers(@"C:\temp\roslyn.analyzers.dll");
 
             CommandBindings.Add(new CommandBinding(HideToolBar, OnExecutedHideToolBar));
         }
 
-        public string AnalyzersDir { get; set; }
+        public IAnalyzerAssemblyLoader AnalyzerLoader { get; set; }
 
-        public string WorkDir { get; set; }
+        private string AnalyzersDir { get; set; }
 
-        private void LoadAnalyzers(string dllFile)
+        private string WorkDir { get; set; }
+
+        public void LoadAnalyzers(ICollection<MyAnalyzerContext> myAnalyzerContexts, string dllFile)
         {
+            Project = Project.WithAnalyzerReferences(Project.AnalyzerReferences.Concat(new[]
+                {new AnalyzerFileReference(dllFile, AnalyzerLoader)}));
+            return;
             var analyzersAssembly  = Assembly.LoadFrom(dllFile);
             var analyzerTypes = analyzersAssembly.ExportedTypes.Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) &&  t.GetCustomAttribute<DiagnosticAnalyzerAttribute>() != null).ToList();
             foreach (var analyzerType in analyzerTypes)
             {
-                Debug.WriteLine(analyzerType);
+                // Debug.WriteLine(analyzerType);
                 var  z= (DiagnosticAnalyzer)Activator.CreateInstance(analyzerType);
+                if (z == null) continue;
                 var c = new MyAnalyzerContext(z);
                 z.Initialize(c);
-                AnalyzerContexts.Add(c);
-
+                myAnalyzerContexts.Add(c);
             }
         }
 
@@ -147,51 +174,32 @@ namespace WpfTestApp
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            JTF.RunAsync(M1);
+            JTF.RunAsync(OnLoadedAsync);
         }
 
-        private async Task M1()
+        private async Task OnLoadedAsync()
         {
             Thread.CurrentThread.Name = "App thread";
             _host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
 
-            await LoadFileOrProjectAsync();
-#if false
-            var project = _workspace.AddProject("Default project", LanguageNames.CSharp);
-            var documentId = DocumentId.CreateNewId(project.Id);
-            Document doocument;
-            if (Filename != null)
-            {
-                var documentInfo = DocumentInfo.Create(documentId,
-                    "default.cs",
-                    null, SourceCodeKind.Regular, new FileTextLoader(Filename, Encoding.UTF8), Filename);
-                doocument = _workspace.AddDocument(documentInfo);
-            }
-            else
-            {
-                var documentInfo = DocumentInfo.Create(documentId,
-                    "default.cs");
-                doocument = _workspace.AddDocument(documentInfo);
-            }
-#endif
+            await ViewModel.LoadFileOrProjectAsync(this, this.Filename);
             await SetupCodeControlAsync();
 
-            StartupCommmad?.Execute(null);
+            StartupCommand?.Execute(null);
         }
 
         private async Task SetupCodeControlAsync()
         {
-            // CodeControl.Workspace = _workspace;
             CodeControl.DebugLevel = 2;
             CodeControl.JTF2 = JTF2;
             CodeControl.Document = Document;
             var tree = await Document.GetSyntaxTreeAsync();
             CodeControl.SyntaxTree = tree;
-            var semanticModelAsync = await Document.GetSemanticModelAsync();
-            CodeControl.SemanticModel = semanticModelAsync;
-            if (semanticModelAsync != null) CodeControl.Compilation = semanticModelAsync.Compilation;
+            var model = await Document.GetSemanticModelAsync();
+            CodeControl.SemanticModel = model;
+            if (model != null) CodeControl.Compilation = model.Compilation;
 
-            CodeControl.AddHandler(RoslynCodeControl.ContentChangedEvent, new RoslynCodeControl.ContentChangedRoutedEventHandler(CodeControlContentnChanged));
+            CodeControl.AddHandler(RoslynCodeControl.ContentChangedEvent, new RoslynCodeControl.ContentChangedRoutedEventHandler(CodeControlContentChanged));
             CodeControl.AddHandler(RoslynCodeBase.RenderStartEvent, new RoutedEventHandler((sender, args) =>
             {
                 StartTime = DateTime.Now;
@@ -204,74 +212,34 @@ namespace WpfTestApp
             }));
             await CodeControl.UpdateFormattedTextAsync();
 
-            var d = RunAnalyzers(CodeControl, AnalyzerContexts, tree, semanticModelAsync);
-            Diagnostics = d;
+            var d = ViewModel.RunAnalyzers(CodeControl, AnalyzerContexts, tree, model);
+            _diagnosticsList.Clear();
+            foreach (var diagnostic in d)
+            {
+                _diagnosticsList.Add(diagnostic);
+                
+            }
         }
 
-        private static List<Diagnostic> RunAnalyzers(EnhancedCodeControl enhancedCodeControl, List<MyAnalyzerContext> myAnalyzerContexts, SyntaxTree tree, SemanticModel model)
+        private void CodeControlContentChanged(object sender, ContentChangedRoutedEventArgs e)
         {
-            List<Diagnostic> reported = new List<Diagnostic>();
-            foreach (var action in myAnalyzerContexts.SelectMany(z => z.SyntaxTreeActions))
-            {
-                SyntaxTreeAnalysisContext ct = new SyntaxTreeAnalysisContext(enhancedCodeControl.SyntaxTree,
-                    new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
-                    diagnostic =>
-                    {
-                        Debug.WriteLine(diagnostic.GetMessage());
-                        reported.Add(diagnostic);
-                    }, diagnostic => true, CancellationToken.None);
-                action(ct);
-            }
-
-
-            foreach (var (item1, item2, item3) in myAnalyzerContexts.SelectMany(z => z.SyntaxNodeActions))
-            {
-                if (item2 != typeof(SyntaxKind)) continue;
-                Debug.WriteLine(item2);
-                foreach (SyntaxKind o in item3)
-                {
-                    var nodes = tree.GetRoot().DescendantNodesAndSelf().Where(n => n.Kind() == o);
-                    foreach (var syntaxNode in nodes)
-                    {
-                        var ctx = new SyntaxNodeAnalysisContext(syntaxNode, model,
-                            new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
-                            diagnostic =>
-                            {
-                                reported.Add(diagnostic);
-                                var diagnosticLocation = diagnostic.Location.SourceSpan.ToString();
-                                var message =
-                                    $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
-                                Debug.WriteLine(
-                                    message);
-                            },
-                            tru => true,
-                            CancellationToken.None);
-                        item1(ctx);
-                    }
-
-                    Debug.WriteLine(o);
-                }
-            }
-
-            return reported;
-        }
-
-        private void CodeControlContentnChanged(object sender, ContentChangedRoutedEventArgs e)
-        {
-            
             var c = (RoslynCodeControl)e.OriginalSource;
             var tree = c.SyntaxTree;
             var model = c.SemanticModel;
-            var reported = RunAnalyzers(CodeControl, AnalyzerContexts, tree, model);
-            Diagnostics = reported;
+            var d = ViewModel.RunAnalyzers(CodeControl, AnalyzerContexts, tree, model);
+            _diagnosticsList.Clear();
+            foreach (var diagnostic in d)
+            {
+                _diagnosticsList.Add(diagnostic);
 
+            }
         }
 
         private DateTime StartTime { get; set; }
 
         private JoinableTaskFactory JTF { get; set; } = new JoinableTaskFactory(new JoinableTaskContext());
         public string Filename { get; set; }
-        public ICommand StartupCommmad { get; set; }
+        public ICommand StartupCommand { get; set; }
 
         private async void FontComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -294,8 +262,7 @@ namespace WpfTestApp
             var d = new OpenFileDialog {Filter = "CSharp Source|*.cs"};
             if (!d.ShowDialog().GetValueOrDefault()) return;
             Filename = d.FileName;
-            // CodeControl.Filename = d.FileName;
-            JTF.RunAsync(LoadFileOrProjectAsync);
+            JTF.RunAsync(() => ViewModel.LoadFileOrProjectAsync(this, this.Filename));
         }
 
         private void PrintFile(object sender, RoutedEventArgs e)
@@ -335,8 +302,9 @@ namespace WpfTestApp
             "Project", typeof(Project), typeof(MainWindow), new PropertyMetadata(default(Project), OnProjectChanged));
 
         private Task _task;
-        private MefHostServices _host;
+        public MefHostServices _host;
         public static readonly DependencyProperty DiagnosticsProperty = DependencyProperty.Register("Diagnostics", typeof(IEnumerable), typeof(MainWindow), new PropertyMetadata(default(IEnumerable)));
+        private readonly ObservableCollection<Diagnostic> _diagnosticsList = new ObservableCollection<Diagnostic>();
 
         public Project Project
         {
@@ -365,97 +333,6 @@ namespace WpfTestApp
         {
         }
 
-        private async Task LoadFileOrProjectAsync()
-        {
-            if (Filename != null && Filename.EndsWith(".csproj"))
-            {
-                await LoadProjectAsync(Filename);
-                return;
-            }
-
-            var w = _workspace = new AdhocWorkspace(_host);
-            w.AddSolution(SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create()));
-            var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Create(),
-                "Code Project", "code", LanguageNames.CSharp);
-            var w2 = w.CurrentSolution.AddProject(projectInfo);
-            w.TryApplyChanges(w2);
-
-            DocumentInfo documentInfo = null;
-            if (Filename != null)
-                documentInfo = DocumentInfo.Create(DocumentId.CreateNewId(projectInfo.Id), "Default",
-                    null, SourceCodeKind.Regular, new FileTextLoader(Filename, Encoding.UTF8), Filename);
-            else
-                documentInfo = DocumentInfo.Create(DocumentId.CreateNewId(projectInfo.Id), "Default",
-                    null, SourceCodeKind.Regular);
-
-            w2 = w.CurrentSolution.AddDocument(documentInfo);
-            w.TryApplyChanges(w2);
-
-            Project = w.CurrentSolution.GetProject(projectInfo.Id);
-            Document = w.CurrentSolution.GetDocument(documentInfo.Id);
-        }
-
-      
-        private async Task LoadProjectAsync(string s)
-        {
-            // StatusScrollViewer.Visibility = Visibility.Visible;
-            // status.Visibility = Visibility.Visible;
-
-            var ww = MSBuildWorkspace.Create();
-            var project = await ww.OpenProjectAsync(s, new Progress1(this)).ConfigureAwait(true);
-            Project = project;
-
-            foreach (var d in project.Documents)
-            {
-                var tree = await d.GetSyntaxTreeAsync();
-                var model = await d.GetSemanticModelAsync();
-                foreach (var (item1, item2, item3) in AnalyzerContexts.SelectMany(z => z.SyntaxNodeActions))
-                {
-                    if (item2 == typeof(SyntaxKind))
-                    {
-                        Debug.WriteLine(item2);
-                        foreach (SyntaxKind o in item3)
-                        {
-                            var nodes = tree.GetRoot().DescendantNodesAndSelf().Where(n => n.Kind() == o);
-                            foreach (var syntaxNode in nodes)
-                            {
-                                var ctx = new SyntaxNodeAnalysisContext(syntaxNode, model,
-                                    new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
-                                    diagnostic =>
-                                    {
-
-                                        var diagnosticLocation = diagnostic.Location.SourceSpan.ToString();
-                                        var message =
-                                            $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
-
-
-
-                                        status.Text += message + "\r\n\r\n";
-
-                                        StatusScrollViewer.ScrollToBottom();
-
-                                    },
-                                    tru => true,
-                                    CancellationToken.None);
-                                try
-                                {
-                                    item1(ctx);
-                                }
-                                catch
-                                {
-
-                                }
-                            }
-
-                            Debug.WriteLine(o);
-                        }
-                    }
-                }
-            }
-            StatusScrollViewer.Visibility = Visibility.Hidden;
-            status.Visibility = Visibility.Hidden;
-
-        }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -465,16 +342,23 @@ namespace WpfTestApp
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private void OnDocumentOpen(object sender, ExecutedRoutedEventArgs e)
+        private void OnOpen(object sender, ExecutedRoutedEventArgs e)
         {
-            if (e.Parameter is Document d)
+            switch (e.Parameter)
             {
-                Document = d;
-                JTF.RunAsync(SetupCodeControlAsync);
+                case Document d:
+                    Document = d;
+                    JTF.RunAsync(SetupCodeControlAsync);
+                    return;
+                case Project p:
+                    Project = p;
+                    return;
             }
         }
 
-        private void PowershellExecuted(object sender, RoutedEventArgs e)
+    
+
+    private void PowershellExecuted(object sender, RoutedEventArgs e)
         {
 #if POWERSHELL
 
@@ -516,17 +400,232 @@ namespace WpfTestApp
             AddAnalyzerDlls(nugetSearch.SavedFiles);
         }
 
-        private void AddAnalyzerDlls(List<string> files)
+        private void AddAnalyzerDlls(IEnumerable<string> files)
         {
             foreach (var file in files)
             {
-                LoadAnalyzers(file);
+	    AnalyzerDlls.Add(file);
+                LoadAnalyzers(AnalyzerContexts, file);
             }
+        }
+
+        public List<string> AnalyzerDlls  { get; set; } = new List<string>();
+
+        private void Compile(object sender, RoutedEventArgs e)
+        {
+            JTF.RunAsync(() => ViewModel.CompileAsync(Project, this));
+        }
+    }
+    internal class DefaultAnalyzerAssemblyLoader : AnalyzerAssemblyLoader
+    {
+        private AssemblyLoadContext _loadContext;
+
+        protected override Assembly LoadFromPathImpl(string fullPath)
+        {
+            //.NET Native doesn't support AssemblyLoadContext.GetLoadContext. 
+            // Initializing the _loadContext in the .ctor would cause
+            // .NET Native builds to fail because the .ctor is called. 
+            // However, LoadFromPathImpl is never called in .NET Native, so 
+            // we do a lazy initialization here to make .NET Native builds happy.
+            if (_loadContext == null)
+            {
+                AssemblyLoadContext loadContext = AssemblyLoadContext.GetLoadContext(typeof(DefaultAnalyzerAssemblyLoader).GetTypeInfo().Assembly);
+
+                if (System.Threading.Interlocked.CompareExchange(ref _loadContext, loadContext, null) == null)
+                {
+                    _loadContext.Resolving += (context, name) =>
+                    {
+                        Debug.Assert(ReferenceEquals(context, _loadContext));
+                        return Load(name.FullName);
+                    };
+                }
+            }
+
+            return LoadImpl(fullPath);
+        }
+
+        protected virtual Assembly LoadImpl(string fullPath) => _loadContext.LoadFromAssemblyPath(fullPath);
+    }
+    internal abstract class AnalyzerAssemblyLoader : IAnalyzerAssemblyLoader
+    {
+        private readonly object _guard = new object();
+
+        // lock _guard to read/write
+        private readonly Dictionary<string, Assembly> _loadedAssembliesByPath = new Dictionary<string, Assembly>();
+        private readonly Dictionary<string, AssemblyIdentity> _loadedAssemblyIdentitiesByPath = new Dictionary<string, AssemblyIdentity>();
+        private readonly Dictionary<AssemblyIdentity, Assembly> _loadedAssembliesByIdentity = new Dictionary<AssemblyIdentity, Assembly>();
+
+        // maps file name to a full path (lock _guard to read/write):
+        private readonly Dictionary<string, HashSet<string>> _knownAssemblyPathsBySimpleName = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+        protected abstract Assembly LoadFromPathImpl(string fullPath);
+
+        #region Public API
+
+        public void AddDependencyLocation(string fullPath)
+        {
+            // CompilerPathUtilities.RequireAbsolutePath(fullPath, nameof(fullPath));
+            string simpleName = Path.GetFileNameWithoutExtension(fullPath);
+
+            lock (_guard)
+            {
+                if (!_knownAssemblyPathsBySimpleName.TryGetValue(simpleName, out var paths))
+                {
+                    paths = new HashSet<string>();
+                    _knownAssemblyPathsBySimpleName.Add(simpleName, paths);
+                }
+
+                paths.Add(fullPath);
+            }
+        }
+
+        public Assembly LoadFromPath(string fullPath)
+        {
+            // CompilerPathUtilities.RequireAbsolutePath(fullPath, nameof(fullPath));
+            return LoadFromPathUnchecked(fullPath);
+        }
+
+        #endregion
+
+        private Assembly LoadFromPathUnchecked(string fullPath)
+        {
+            return LoadFromPathUncheckedCore(fullPath);
+        }
+
+        private Assembly LoadFromPathUncheckedCore(string fullPath, AssemblyIdentity identity = null)
+        {
+            // Debug.Assert(PathUtilities.IsAbsolute(fullPath));
+
+            // Check if we have already loaded an assembly with the same identity or from the given path.
+            Assembly loadedAssembly = null;
+            lock (_guard)
+            {
+                if (_loadedAssembliesByPath.TryGetValue(fullPath, out var existingAssembly))
+                {
+                    loadedAssembly = existingAssembly;
+                }
+                else
+                {
+                    identity ??= GetOrAddAssemblyIdentity(fullPath);
+                    if (identity != null && _loadedAssembliesByIdentity.TryGetValue(identity, out existingAssembly))
+                    {
+                        loadedAssembly = existingAssembly;
+                    }
+                }
+            }
+
+            // Otherwise, load the assembly.
+            if (loadedAssembly == null)
+            {
+                loadedAssembly = LoadFromPathImpl(fullPath);
+            }
+
+            // Add the loaded assembly to both path and identity cache.
+            return AddToCache(loadedAssembly, fullPath, identity);
+        }
+
+        private Assembly AddToCache(Assembly assembly, string fullPath, AssemblyIdentity identity)
+        {
+            // Debug.Assert(PathUtilities.IsAbsolute(fullPath));
+            Debug.Assert(assembly != null);
+
+            identity = AddToCache(fullPath, identity ?? AssemblyIdentity.FromAssemblyDefinition(assembly));
+            Debug.Assert(identity != null);
+
+            lock (_guard)
+            {
+                // The same assembly may be loaded from two different full paths (e.g. when loaded from GAC, etc.),
+                // or another thread might have loaded the assembly after we checked above.
+                if (_loadedAssembliesByIdentity.TryGetValue(identity, out var existingAssembly))
+                {
+                    assembly = existingAssembly;
+                }
+                else
+                {
+                    _loadedAssembliesByIdentity.Add(identity, assembly);
+                }
+
+                // An assembly file might be replaced by another file with a different identity.
+                // Last one wins.
+                _loadedAssembliesByPath[fullPath] = assembly;
+
+                return assembly;
+            }
+        }
+
+        private AssemblyIdentity GetOrAddAssemblyIdentity(string fullPath)
+        {
+            // Debug.Assert(PathUtilities.IsAbsolute(fullPath));
+
+            lock (_guard)
+            {
+                if (_loadedAssemblyIdentitiesByPath.TryGetValue(fullPath, out var existingIdentity))
+                {
+                    return existingIdentity;
+                }
+            }
+
+            // var identity = null;//AssemblyIdentityUtils.TryGetAssemblyIdentity(fullPath);
+            return AddToCache(fullPath, null);
+        }
+
+        private AssemblyIdentity AddToCache(string fullPath, AssemblyIdentity identity)
+        {
+            lock (_guard)
+            {
+                if (_loadedAssemblyIdentitiesByPath.TryGetValue(fullPath, out var existingIdentity) && existingIdentity != null)
+                {
+                    identity = existingIdentity;
+                }
+                else
+                {
+                    _loadedAssemblyIdentitiesByPath[fullPath] = identity;
+                }
+            }
+
+            return identity;
+        }
+
+        public Assembly Load(string displayName)
+        {
+            if (!AssemblyIdentity.TryParseDisplayName(displayName, out var requestedIdentity))
+            {
+                return null;
+            }
+
+            ImmutableArray<string> candidatePaths;
+            lock (_guard)
+            {
+
+                // First, check if this loader already loaded the requested assembly:
+                if (_loadedAssembliesByIdentity.TryGetValue(requestedIdentity, out var existingAssembly))
+                {
+                    return existingAssembly;
+                }
+                // Second, check if an assembly file of the same simple name was registered with the loader:
+                if (!_knownAssemblyPathsBySimpleName.TryGetValue(requestedIdentity.Name, out var pathList))
+                {
+                    return null;
+                }
+
+                Debug.Assert(pathList.Count > 0);
+                candidatePaths = pathList.ToImmutableArray();
+            }
+
+            // Multiple assemblies of the same simple name but different identities might have been registered.
+            // Load the one that matches the requested identity (if any).
+            foreach (var candidatePath in candidatePaths)
+            {
+                var candidateIdentity = GetOrAddAssemblyIdentity(candidatePath);
+
+                if (requestedIdentity.Equals(candidateIdentity))
+                {
+                    return LoadFromPathUncheckedCore(candidatePath, candidateIdentity);
+                }
+            }
+
+            return null;
         }
     }
 
-    public class AppViewModel
-    {
-
-    }
-    }
+}

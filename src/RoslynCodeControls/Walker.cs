@@ -58,10 +58,6 @@ namespace RoslynCodeControls
             base.VisitInterfaceDeclaration(node);
         }
 
-        public override void VisitRecordDeclaration(RecordDeclarationSyntax node)
-        {
-            base.VisitRecordDeclaration(node);
-        }
 
         public override void VisitEnumDeclaration(EnumDeclarationSyntax node)
         {

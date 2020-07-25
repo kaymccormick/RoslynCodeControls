@@ -5,7 +5,6 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfTestApp"
         xmlns:roslynCodeControls="clr-namespace:RoslynCodeControls;assembly=RoslynCodeControls"
-        xmlns:modernWpf="http://modernwpf"
         xmlns:codeAnalysis="clr-namespace:Microsoft.CodeAnalysis;assembly=Microsoft.CodeAnalysis.Workspaces"
         xmlns:codeAnalysis1="clr-namespace:Microsoft.CodeAnalysis;assembly=Microsoft.CodeAnalysis"
         mc:Ignorable="d" FontSize="24"
@@ -628,54 +627,69 @@
         <local:DiagnosticConverter x:Key="DiagnosticConverter" />
     </Window.Resources>
     <Window.CommandBindings>
-        <CommandBinding  Command="Open" Executed="OnDocumentOpen"/>
-        <CommandBinding  Command="Print" Executed="OnPrintExecuted"/>
+        <CommandBinding Command="Open" Executed="OnOpen" />
+        <CommandBinding Command="Print" Executed="OnPrintExecuted" />
     </Window.CommandBindings>
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Menu Grid.Row="0" FontSize="24.0">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open File" Click="OpenFile"/>
+                <MenuItem Header="_Open File" Click="OpenFile" />
 
-                <MenuItem Header="_Print" Click="PrintFile"/>
+                <MenuItem Header="_Print" Click="PrintFile" />
             </MenuItem>
-            <MenuItem Header="_Project" ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Project.Documents}">
+            <MenuItem Header="_Solution"
+                      ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=ViewModel.Solution.Projects}">
+                <MenuItem.ItemTemplate>
+                    <DataTemplate DataType="{x:Type codeAnalysis:Project}">
+                        <MenuItem Header="{Binding Path=Name}" Command="Open" CommandParameter="{Binding}" />
+                    </DataTemplate>
+                </MenuItem.ItemTemplate>
+            </MenuItem>
+
+            <MenuItem Header="_Project"
+                      ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Project.Documents}">
                 <MenuItem.ItemTemplate>
                     <DataTemplate DataType="{x:Type codeAnalysis:Document}">
-                        <MenuItem Header="{Binding Name}" Command="Open" CommandParameter="{Binding}"/>
+                        <MenuItem Header="{Binding Name}" Command="Open" CommandParameter="{Binding}" />
                     </DataTemplate>
                 </MenuItem.ItemTemplate>
             </MenuItem>
             <MenuItem Header="_Tools">
-                <MenuItem Header="SearchAsync NuGet" Click="SearchNuget"/>
-                <MenuItem Header="PowerShell" Click="PowershellExecuted"/>
+                <MenuItem Header="SearchAsync NuGet" Click="SearchNuget" />
+                <MenuItem Header="CompileAsync" Click="Compile"/>
+                <MenuItem Header="PowerShell" Click="PowershellExecuted" />
             </MenuItem>
             <MenuItem Header="Tool_bars">
-                <MenuItem IsCheckable="True" Header="Character _Movement" IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
-                <MenuItem IsCheckable="True" Header="_Font Style" IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}"/>
+                <MenuItem IsCheckable="True" Header="Character _Movement"
+                          IsChecked="{Binding ElementName=CharacterMovementToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
+                <MenuItem IsCheckable="True" Header="_Font Style"
+                          IsChecked="{Binding ElementName=FontsToolbar,Path=Visibility,Converter={StaticResource B},Mode=TwoWay}" />
             </MenuItem>
         </Menu>
         <ToolBarTray Grid.Row="1">
             <ToolBar Band="1" BandIndex="1" x:Name="FileOpsToolbar">
                 <Button Command="Print">
-                    <Image Source="pack://application:,,,/icon-print-6.jpg" MaxWidth="16"/>
+                    <Image Source="pack://application:,,,/icon-print-6.jpg" MaxWidth="16" />
                 </Button>
             </ToolBar>
-                <ToolBar Band="1" BandIndex="2" x:Name="CharacterMovementToolbar">
+            <ToolBar Band="1" BandIndex="2" x:Name="CharacterMovementToolbar">
                 <ToolBar.ContextMenu>
                     <ContextMenu>
-                        <MenuItem CommandTarget="{x:Reference mainWindow}" Header="Hide" Command="{x:Static local:MainWindow.HideToolBar}"/></ContextMenu>
+                        <MenuItem CommandTarget="{x:Reference mainWindow}" Header="Hide"
+                                  Command="{x:Static local:MainWindow.HideToolBar}" />
+                    </ContextMenu>
                 </ToolBar.ContextMenu>
                 <Button FontSize="24" Command="MoveLeftByCharacter"
-                        CommandTarget="{x:Reference CodeControl}" >
+                        CommandTarget="{x:Reference CodeControl}">
                     <TextBlock Text="&#x1f81c;">
                         <TextBlock.Effect>
-                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality"></BlurEffect>
+                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
                         </TextBlock.Effect>
                     </TextBlock>
 
@@ -684,91 +698,102 @@
                         CommandTarget="{x:Reference CodeControl}">
                     <TextBlock Text="&#x1f81d;">
                         <TextBlock.Effect>
-                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality"></BlurEffect>
+                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
                         </TextBlock.Effect>
                     </TextBlock>
                 </Button>
                 <Button FontSize="24" Command="MoveDownByLine"
-                            CommandTarget="{x:Reference CodeControl}" >
+                        CommandTarget="{x:Reference CodeControl}">
                     <TextBlock Text="&#x1f81f;">
                         <TextBlock.Effect>
-                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality"></BlurEffect>
+                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
                         </TextBlock.Effect>
                     </TextBlock>
                 </Button>
                 <Button FontSize="24" Command="MoveRightByCharacter"
-                        CommandTarget="{x:Reference CodeControl}" >
+                        CommandTarget="{x:Reference CodeControl}">
                     <TextBlock Text="&#x1f81e;">
                         <TextBlock.Effect>
-                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality"></BlurEffect>
+                            <BlurEffect Radius="3" KernelType="Gaussian" RenderingBias="Quality" />
                         </TextBlock.Effect>
                     </TextBlock>
                 </Button>
 
             </ToolBar>
             <ToolBar Band="1" BandIndex="3" x:Name="FontsToolbar">
-                <TextBlock Text="Font:" Margin="0,0,5,0" VerticalAlignment="Center"></TextBlock>
-                <ComboBox x:Name="FontComboBox" SelectionChanged="FontComboBox_OnSelectionChanged" VerticalAlignment="Center"
-                    ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Fonts}"
-                    SelectedItem="{Binding ElementName=CodeControl,Path=FontFamily,Mode=OneWay}"
-                    >
+                <TextBlock Text="Font:" Margin="0,0,5,0" VerticalAlignment="Center" />
+                <ComboBox x:Name="FontComboBox" SelectionChanged="FontComboBox_OnSelectionChanged"
+                          VerticalAlignment="Center"
+                          ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Fonts}"
+                          SelectedItem="{Binding ElementName=CodeControl,Path=FontFamily,Mode=OneWay}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type FontFamily}">
                             <TextBlock FontFamily="{Binding}" Text="{Binding Path=FamilyNames[en-US]}" />
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <TextBlock Text="Size:" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Size:" Margin="5,0,0,0" VerticalAlignment="Center" />
                 <ComboBox x:Name="FontSizeCombo" SelectionChanged="FontSizeCombo_OnSelectionChanged"
                           ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=CommonFontSizes}"
-                          SelectedItem="{Binding ElementName=CodeControl,Path=FontSize,Mode=OneWay}"
-                          />
+                          SelectedItem="{Binding ElementName=CodeControl,Path=FontSize,Mode=OneWay}" />
             </ToolBar>
         </ToolBarTray>
-	        <ScrollViewer Margin="0,40,0,0" x:Name="StatusScrollViewer"  x:FieldModifier="public" Background="Transparent" Grid.Row="2" Grid.Column="0" Grid.RowSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Panel.ZIndex="10"  Visibility="Hidden">
-            <TextBlock FontWeight="Black"  TextWrapping="Wrap" x:Name="status" Visibility="Visible" x:FieldModifier="public"   HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity=".6" >
+        <ScrollViewer Margin="0,40,0,0" x:Name="StatusScrollViewer" x:FieldModifier="public" Background="Transparent"
+                      Grid.Row="2" Grid.Column="0" Grid.RowSpan="2" HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch" Panel.ZIndex="10" Visibility="Hidden">
+            <TextBlock FontWeight="Black" TextWrapping="Wrap" x:Name="status" Visibility="Visible"
+                       x:FieldModifier="public" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity=".6">
                 <TextBlock.Background>
-                    <SolidColorBrush Color="Beige" Opacity=".5"></SolidColorBrush>
-                </TextBlock.Background></TextBlock>
+                    <SolidColorBrush Color="Beige" Opacity=".5" />
+                </TextBlock.Background>
+            </TextBlock>
         </ScrollViewer>
         <Border Grid.Row="2" Padding="15">
             <TabControl x:Name="Tabs">
                 <TabItem>
-                <roslynCodeControls:EnhancedCodeControl CornerRadius="3"   BorderBrush="CornflowerBlue"  BorderThickness="5" EnableToolBars="False"  xml:space="preserve"
-                                                        FontFamily="Lucida Console" FontSize="18"
-                                                        x:Name="CodeControl" />
+                    <roslynCodeControls:EnhancedCodeControl CornerRadius="3" BorderBrush="CornflowerBlue"
+                                                            BorderThickness="5" EnableToolBars="False"
+                                                            xml:space="preserve"
+                                                            FontFamily="Lucida Console" FontSize="18"
+                                                            x:Name="CodeControl" />
                 </TabItem>
                 <TabItem Header="Diagnostics">
                     <Grid TextElement.FontSize="12">
-                    <ListView HorizontalAlignment="Stretch" ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Diagnostics}">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="Id" DisplayMemberBinding="{Binding Id}"></GridViewColumn>
-                                <GridViewColumn Header="Severity" DisplayMemberBinding="{Binding Severity}"></GridViewColumn>
-                                <GridViewColumn Header="Location" DisplayMemberBinding="{Binding Location.SourceSpan}"></GridViewColumn>
+                        <ListView x:Name="DiagnosticsListView" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Diagnostics}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Id" DisplayMemberBinding="{Binding Id}" />
+                                    <GridViewColumn Header="Severity" DisplayMemberBinding="{Binding Severity}" />
+                                    <GridViewColumn Header="Location"
+                                                    DisplayMemberBinding="{Binding Location.SourceSpan}" />
                                     <GridViewColumn Header="Message" Width="300">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type codeAnalysis1:Diagnostic}">
-                                                <TextBlock TextWrapping="Wrap" Text="{Binding Converter={StaticResource DiagnosticConverter}}"/>
+                                                <TextBlock TextWrapping="Wrap"
+                                                           Text="{Binding Converter={StaticResource DiagnosticConverter}}" />
                                             </DataTemplate>
-                                            
-                                    </GridViewColumn.CellTemplate>
-                                        </GridViewColumn>
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
+
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
                     </Grid>
                 </TabItem>
-            </TabControl></Border>
-	        <StatusBar Grid.Row="3">
-            <Ellipse Margin="5" Width="20" Height="20" x:Name="Ellipse" Fill="Red"/>
-            <TextBlock Text="{Binding ElementName=Code,Path=CodeControl.CodeControl.InsertionPoint}"/>
-            <Ellipse Margin="5" Width="20" Height="20" x:Name="Ellipse2" Fill="Gray"/>
+            </TabControl>
+        </Border>
+        <StatusBar Grid.Row="3">
+            <Ellipse Margin="5" Width="20" Height="20" x:Name="Ellipse" Fill="Red" />
+            <TextBlock Text="{Binding ElementName=Code,Path=CodeControl.CodeControl.InsertionPoint}" />
+            <Ellipse Margin="5" Width="20" Height="20" x:Name="Ellipse2" Fill="Gray" />
         </StatusBar>
-        <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="18" DataContext="{Binding ElementName=CodeControl}" Visibility="Collapsed">
-            <TextBlock Text="{Binding Status}" Width="100"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" TextElement.FontSize="18"
+                    DataContext="{Binding ElementName=CodeControl}" Visibility="Collapsed">
+            <TextBlock Text="{Binding Status}" Width="100" />
             <TextBlock Margin="5,0,0,0" Text="{Binding ElementName=CodeControl,Path=InsertionPoint}" />
-            <StackPanel Margin="5,0,0,0" Orientation="Horizontal" DataContext="{Binding ElementName=CodeControl,Path=InsertionCharInfo}">
+            <StackPanel Margin="5,0,0,0" Orientation="Horizontal"
+                        DataContext="{Binding ElementName=CodeControl,Path=InsertionCharInfo}">
                 <TextBlock Text="Insertion: " FontWeight="Bold" />
                 <Border BorderThickness="2" HorizontalAlignment="Center" BorderBrush="Black" Margin="1" MinWidth="25"
                         MinHeight="25">

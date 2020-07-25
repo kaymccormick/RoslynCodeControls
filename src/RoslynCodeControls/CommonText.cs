@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.TextFormatting;
 using System.Windows.Threading;
@@ -22,6 +21,7 @@ namespace RoslynCodeControls
         /// 
         /// </summary>
         /// <param name="iface1"></param>
+        /// <param name="source"></param>
 #if false
         [ItemCanBeNull]
         public static async Task<CustomTextSource4> UpdateFormattedText(ICodeView iface1)
@@ -75,7 +75,7 @@ namespace RoslynCodeControls
 
                 iface1.PerformingUpdate = false;
                 iface1.InitialUpdate = false;
-                iface1.RaiseEvent(new RoutedEventArgs(RoslynCodeControl.RenderCompleteEvent, iface1));
+                iface1.RaiseEvent(new RoutedEventArgs(RoslynCodeBase.RenderCompleteEvent, iface1));
                 iface1.Status = CodeControlStatus.Rendered;
                 var insertionPoint = iface1.InsertionPoint;
                 if (insertionPoint == 0) iface1.InsertionCharInfo = iface1.CharInfos.FirstOrDefault();
@@ -92,8 +92,6 @@ namespace RoslynCodeControls
         /// <param name="compilation"></param>
         /// <param name="fontSize"></param>
         /// <param name="pDebugFn"></param>
-        /// <param name="d"></param>
-        /// <param name="x"></param>
         /// <returns></returns>
         public static CustomTextSource4 CreateAndInitTextSource(double pixelsPerDip,
             Typeface tf, SyntaxTree st, SyntaxNode node, Compilation compilation, double fontSize,
@@ -164,6 +162,7 @@ namespace RoslynCodeControls
                 var pageBegin = new Point(0, 0);
                 var pageEnd = new Point(0, 0);
                 if (mainUpdateParameters.Paginate)
+                    // ReSharper disable once PossibleInvalidOperationException
                     pageEnd.Offset(mainUpdateParameters.PageSize.Value.Width,
                         mainUpdateParameters.PageSize.Value.Height);
 
@@ -311,7 +310,6 @@ namespace RoslynCodeControls
                     runsInfos?.Add(textRunInfo);
 
                     curPos.X += advanceSum;
-                    ///moveNext = enum1.MoveNext();
                 }
             }
 #if DEBUGTEXTSOURCE

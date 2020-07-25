@@ -88,5 +88,14 @@ namespace WpfTestApp
         }
 
         public List<string> SavedFiles { get; set; } = new List<string>();
+
+        private async void SearchTerm_OnPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                await SearchAsync(SearchTerm.Text);
+            }
+        }
     }
 }
