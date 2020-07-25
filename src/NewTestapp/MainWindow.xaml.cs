@@ -202,7 +202,7 @@ namespace NewTestapp
             
         }
 
-        private void DebugFn(string obj)
+        private static void DebugFn(string obj, int debugLevel=10)
         {
             Debug.WriteLine(obj);
         }

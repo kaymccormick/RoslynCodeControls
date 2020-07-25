@@ -46,6 +46,12 @@ namespace RoslynCodeControls
     /// </summary>
     public sealed class RoslynCodeControl : RoslynCodeBase, ILineDrawer, INotifyPropertyChanged, IFace1, ICodeView
     {
+        public delegate void ContentChangedRoutedEventHandler(
+            object sender,
+            ContentChangedRoutedEventArgs e);
+
+        public static readonly RoutedEvent ContentChangedEvent = EventManager.RegisterRoutedEvent("ContentChanged",
+            RoutingStrategy.Bubble, typeof(ContentChangedRoutedEventHandler), typeof(RoslynCodeControl));
         /// <inheritinpc />
         public RoslynCodeControl() : this(null)
         {
@@ -162,7 +168,9 @@ namespace RoslynCodeControls
 #if DEBUG
                 DebugFn("Writing update complete " + @in);
 #endif
-                var updateComplete = new UpdateComplete(@in.InputRequest, ip, @in.Timestamp, r.RenderRequestTimestamp,
+                var updateComplete = new UpdateComplete(@in.InputRequest, ip, 
+                    @in.Change,
+                    @in.Timestamp, r.RenderRequestTimestamp,
                     @in.RedrawLineResult.BeganTimestamp, @in.RedrawLineResult.Timestamp);
                 await UpdateCompleteChannel.Writer.WriteAsync(updateComplete);
             }
@@ -351,7 +359,6 @@ namespace RoslynCodeControls
         }
 
 
-    
         public RegionInfo HoverRegionInfo
         {
             get { return (RegionInfo) GetValue(HoverRegionInfoProperty); }
@@ -516,6 +523,7 @@ namespace RoslynCodeControls
             DebugFn($"{nameof(HandleRenderRequestAsync)}: {renderRequest}");
 #endif
             var inn = renderRequest.Input;
+            // ReSharper disable once ConvertIfStatementToNullCoalescingAssignment
             if (renderRequest.Input.CustomTextSource4.CurrentRendering == null)
                 renderRequest.Input.CustomTextSource4.CurrentRendering = FontRendering.CreateInstance(inn.FontSize,
                     TextAlignment.Left,
@@ -545,7 +553,7 @@ namespace RoslynCodeControls
             redrawLine.DrawingGroup.Freeze();
             var postUpdateInput = new PostUpdateInput(this,
                 renderRequest.InsertionPoint, renderRequest.InputRequest,
-                redrawLine);
+                redrawLine, change);
             var postUpdateRequest = new PostUpdateRequest(postUpdateInput, renderRequest.Timestamp);
             DebugFn("writing post update request");
             await PostUpdateChannel.Writer.WriteAsync(postUpdateRequest);
@@ -825,6 +833,7 @@ namespace RoslynCodeControls
             Debug2Container = (UIElement) GetTemplateChild("debug2container");
             Debug3Container = (UIElement) GetTemplateChild("debug3container");
 #endif
+            SelectionDrawing = (DrawingGroup) GetTemplateChild("SelectionDrawing");
             CompletionPopup = (Popup) GetTemplateChild("CompletionPopup");
             CompletionComboBox = (ComboBox) GetTemplateChild("CompletionComboBox");
             _scrollViewer = (ScrollViewer) GetTemplateChild("ScrollViewer");
@@ -876,6 +885,8 @@ namespace RoslynCodeControls
             _rect2 = (Rectangle) GetTemplateChild("Rect2");
             _dg2 = (DrawingGroup) GetTemplateChild("DG2");
         }
+
+        public DrawingGroup SelectionDrawing { get; set; }
 
         public ComboBox CompletionComboBox { get; set; }
 
@@ -1299,6 +1310,7 @@ public override bool PerformingUpdate
             if (CustomTextSource != null)
             {
                 ChangingText = true;
+                
                 SyntaxNode = CustomTextSource.Node;
                 SyntaxTree = CustomTextSource.Tree;
                 var doc = Document.WithSyntaxRoot(SyntaxNode);
@@ -1309,6 +1321,8 @@ public override bool PerformingUpdate
                 SemanticModel = sm;
                 ChangingText = false;
                 DebugFn("Finished updating roslyn properties.");
+                RaiseEvent(new ContentChangedRoutedEventArgs(this));
+
             }
             else
             {
@@ -1381,7 +1395,7 @@ public override bool PerformingUpdate
 #if DEBUG
             debugFn(nameof(RedrawLine));
 #endif
-            
+
             var lineOriginPoint = new Point(x, y);
 
             double width, height;
@@ -1392,7 +1406,7 @@ public override bool PerformingUpdate
             var rb = CustomTextSource4.RunsBefore(offset, source.Runs);
             var rbi = CustomTextSource4.RunInfosBefore(offset, source.RunInfos);
             var runCount = rb.Count();
-            
+
             if (runCount == 0)
             {
             }
@@ -1804,12 +1818,12 @@ public override bool PerformingUpdate
         private JoinableTaskCollection _taskCollection;
         private TypeInfo _typeInfo;
         private AdhocWorkspace _workspace;
-        private Drawing _selectionGeometry;
+        private GeometryGroup _selectionGeometry;
+        private int _endOffset;
 
         #region Mouse
 
         /// <inheritdoc />
-
         protected override void OnMouseMove(MouseEventArgs e)
         {
             if (!_enableMouse) return;
@@ -1818,36 +1832,35 @@ public override bool PerformingUpdate
             {
                 var point = e.GetPosition(Rectangle);
                 var b = VisualTreeHelper.GetContentBounds(Rectangle);
-                DebugFn(b.ToString());
-                DebugFn(point.ToString());
+                // DebugFn(b.ToString());
+                // DebugFn(point.ToString());
                 if (!b.Contains(point)) return;
                 if (CustomTextSource?.RunInfos == null) return;
                 var origPoint = point;
                 point.Offset(DrawingBrushViewbox.X, DrawingBrushViewbox.Y);
                 var runInfo = CustomTextSource.RunInfos.Where(zz1 =>
                 {
-                    DebugFn($"{zz1.Rect} - {origPoint} {point}");
+                    // DebugFn($"{zz1.Rect} - {origPoint} {point}");
                     return zz1.Rect.Contains(point);
                 }).ToList();
-                if (!runInfo.Any())
-                {
-                    SetNoneHover();
-                }
+                if (!runInfo.Any()) SetNoneHover();
 #if DEBUG
-                _debugFn?.Invoke(runInfo.Count().ToString());
+                // _debugFn?.Invoke(runInfo.Count().ToString());
 #endif
+                if (!runInfo.Any())
+                    return;
                 var first = runInfo.First();
 #if DEBUG
-                _debugFn?.Invoke(first.Rect.ToString());
+                // _debugFn?.Invoke(first.Rect.ToString());
 #endif
                 if (first.TextRun == null) return;
 #if DEBUG
-                _debugFn?.Invoke(first.TextRun.ToString() ?? "");
+                // _debugFn?.Invoke(first.TextRun.ToString() ?? "");
 #endif
                 if (first.TextRun is CustomTextCharacters c0)
                 {
 #if DEBUG
-                    _debugFn?.Invoke(c0.Text);
+                    // _debugFn?.Invoke(c0.Text);
 #endif
                 }
 
@@ -1855,23 +1868,24 @@ public override bool PerformingUpdate
                 var hoverRegionInfo = new RegionInfo(first.TextRun, first.Rect, first.StartCharInfo);
                 var ci = hoverRegionInfo.FirstCharInfo;
                 CharInfo civ = null;
+                var charRect = Rect.Empty;
                 while (ci != null)
                 {
                     var r = new Rect(ci.Value.XOrigin, ci.Value.YOrigin, ci.Value.AdvanceWidth, first.Rect.Height);
-                    
+
                     if (r.Contains(point))
                     {
+                        charRect = r;
                         civ = ci.Value;
                         break;
                     }
+
                     ci = ci.Next;
                 }
+
                 HoverRegionInfo = hoverRegionInfo;
                 int? newHoverOffset = null;
-                if (civ != null)
-                {
-                    newHoverOffset = civ.Index;
-                }
+                if (civ != null) newHoverOffset = civ.Index;
                 SyntaxNode newHoverSyntaxNode = null;
                 SyntaxToken? newHoverSyntaxToken = null;
                 if (first.TextRun is SyntaxTokenTextCharacters stc)
@@ -1879,7 +1893,7 @@ public override bool PerformingUpdate
                     newHoverSyntaxNode = stc.Node;
                     newHoverSyntaxToken = stc.Token;
                 }
-                
+
                 if (newHoverSyntaxNode != HoverSyntaxNode)
                 {
                     if (ToolTip is ToolTip tt) tt.IsOpen = false;
@@ -1892,7 +1906,6 @@ public override bool PerformingUpdate
                             {
                                 sym = SemanticModel?.GetDeclaredSymbol(newHoverSyntaxNode);
                                 operation = SemanticModel.GetOperation(newHoverSyntaxNode);
-                                    
                             }
                             catch
                             {
@@ -1940,31 +1953,66 @@ public override bool PerformingUpdate
                 HoverSyntaxNode = newHoverSyntaxNode;
                 HoverOffset = newHoverOffset.Value;
 
-                if (SelectionEnabled && IsSelecting)
-                {
-                    if (_selectionGeometry != null) TextDestination.Children.Remove(_selectionGeometry);
+                ComputeSelection(newHoverOffset, charRect);
+
+                if (!SelectionEnabled || e.LeftButton != MouseButtonState.Pressed) return;
+                if (IsSelecting) return;
+                var xy = e.GetPosition(_scrollViewer);
+                if (!(xy.X < _scrollViewer.ViewportWidth) || !(xy.X >= 0) || !(xy.Y >= 0) ||
+                    !(xy.Y <= _scrollViewer.ViewportHeight)) return;
+
+                _startOffset = HoverOffset;
+                _startRow = HoverRow;
+                _startColumn = HoverColumn;
+                _startNode = HoverSyntaxNode;
+                DebugFn($"Selecting");
+                IsSelecting = true;
+                _selectionGeometry = new GeometryGroup();
+                e.Handled = true;
+                Rectangle.CaptureMouse();
+            }
+            catch (Exception ex)
+            {
 #if DEBUG
-                    _debugFn?.Invoke("Calculating selection");
+                _debugFn?.Invoke(ex.ToString());
+#endif
+            }
+            finally
+            {
+                dc?.Close();
+            }
+        }
+
+        private void ComputeSelection(int? newHoverOffset, Rect charRect)
+        {
+            if (!SelectionEnabled || !IsSelecting) return;
+            if (_endOffset != newHoverOffset.Value)
+                return;
+#if DEBUG
+            _debugFn?.Invoke("Calculating selection");
 #endif
 
-                    var group = new DrawingGroup();
+            var group = new DrawingGroup();
 
-                    int begin;
-                    int end;
-                    if (_startOffset < newHoverOffset)
-                    {
-                        begin = _startOffset;
-                        end = newHoverOffset.Value;
-                    }
-                    else
-                    {
-                        begin = newHoverOffset.Value;
-                        end = _startOffset;
-                    }
+            int begin;
+            int end;
+            if (_startOffset < newHoverOffset)
+            {
+                begin = _startOffset;
+                end = newHoverOffset.Value;
+            }
+            else
+            {
+                begin = newHoverOffset.Value;
+                end = _startOffset;
+            }
 
-                    var green = new SolidColorBrush(Colors.Green) {Opacity = .2};
-                    var blue = new SolidColorBrush(Colors.Blue) {Opacity = .2};
-                    var red = new SolidColorBrush(Colors.Red) {Opacity = .2};
+            var green = new SolidColorBrush(Colors.Green) {Opacity = .2};
+            var blue = new SolidColorBrush(Colors.Blue) {Opacity = .2};
+            var red = new SolidColorBrush(Colors.Red) {Opacity = .2};
+            _selectionGeometry.Children.Add(new RectangleGeometry(charRect));
+            DebugFn($"{_selectionGeometry.Bounds}", 0);
+            _endOffset = end;
 
 #if false
                         foreach (var regionInfo in LineInfos.SelectMany(z => z.Regions).Where(info =>
@@ -2007,44 +2055,11 @@ public override bool PerformingUpdate
                             @group.Children.Add(new GeometryDrawing(green, null, geo));
                         }
 #endif
-                    DebugFn($@"{@group.Bounds}", 0);
-                    _selectionGeometry = @group;
-                    // _dg2.Children.Add(_selectionGeometry);
-                    // _myDrawingBrush.Drawing = TextDestination;
-                    _selectionEnd = newHoverOffset.Value;
-                    // InvalidateVisual();
-                }
+            DebugFn($@"{@group.Bounds}", 0);
 
 
-                HoverSyntaxNode = newHoverSyntaxNode;
-
-
-                if (!SelectionEnabled || e.LeftButton != MouseButtonState.Pressed) return;
-                if (IsSelecting) return;
-                var xy = e.GetPosition(_scrollViewer);
-                if (!(xy.X < _scrollViewer.ViewportWidth) || !(xy.X >= 0) || !(xy.Y >= 0) ||
-                    !(xy.Y <= _scrollViewer.ViewportHeight)) return;
-             
-                _startOffset = HoverOffset;
-                _startRow = HoverRow;
-                _startColumn = HoverColumn;
-                _startNode = HoverSyntaxNode;
-
-                IsSelecting = true;
-                e.Handled = true;
-                Rectangle.CaptureMouse();
-
-            }
-            catch (Exception ex)
-            {
-#if DEBUG
-                _debugFn?.Invoke(ex.ToString());
-#endif
-            }
-            finally
-            {
-                dc?.Close();
-            }
+            SelectionDrawing.Children[0] = new GeometryDrawing(null, new Pen(red, 1), _selectionGeometry);
+            _selectionEnd = newHoverOffset.Value;
         }
 
         private void SetNoneHover()
@@ -2097,10 +2112,9 @@ public override bool PerformingUpdate
             InsertionPoint = HoverOffset;
         }
 
-
         #endregion
 
-        public bool SelectionEnabled { get; set; }
+        public bool SelectionEnabled { get; set; } = true;
 
         public bool IsSelecting { get; set; }
 
@@ -2189,6 +2203,14 @@ public override bool PerformingUpdate
             foreach (var joinableTask in _taskCollection) DebugFn("Task " + joinableTask.ToString());
             await _taskCollection.JoinTillEmptyAsync();
             DebugFn("return from shutdown");
+        }
+    }
+
+    public class ContentChangedRoutedEventArgs : RoutedEventArgs
+    {
+        /// <inheritdoc />
+        public ContentChangedRoutedEventArgs(object source) : base(RoslynCodeControl.ContentChangedEvent, source)
+        {
         }
     }
 }

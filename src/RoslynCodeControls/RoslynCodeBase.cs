@@ -35,7 +35,7 @@ namespace RoslynCodeControls
             _debugFn = debugOut ?? DebugFn0;
 
 #else
-_debugFn = debugOut ?? ((s) => { });
+_debugFn = debugOut ?? ((s,i) => { });
 #endif
 
             TextDestination = new DrawingGroup();

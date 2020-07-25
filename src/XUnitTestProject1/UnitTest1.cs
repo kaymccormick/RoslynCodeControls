@@ -87,26 +87,41 @@ namespace XUnitTestProject1
             NewMethod("ab");
         }
 
-        private void NewMethod(string input)
+        [WpfFact]
+        public void TestDoInputAsync3()
+        {
+            var path = "C:\\Users\\mccor.LAPTOP-T6T0BN1K\\source\\repos\\KayMcCormick.Dev\\src\\RoslynCodeControls\\src\\XUnitTestProject1\\UnitTest1.cs";
+            var code = File.ReadAllText(
+                path);
+            NewMethod(code, false);
+        }
+
+
+        private void NewMethod(string input, bool checkResult=true)
         {
             var insertionPoint = 0;
             
             
             Func<RoslynCodeControl,string,TestContext, Task> a = async (rcc,  inputChar,context) =>
             {
-                var ir = new InputRequest(InputRequestKind.TextInput, inputChar);
+                InputRequest ir;
+                ir = inputChar == "\r\n" ? new InputRequest(InputRequestKind.NewLine) : new InputRequest(InputRequestKind.TextInput, inputChar);
+
                 var done = await rcc.DoUpdateTextAsync(insertionPoint, ir);
-                Assert.Equal(inputChar, done.InputRequest.Text);
+                if (checkResult)
+                {
+                    Assert.Equal(inputChar, done.InputRequest.Text);
 
-                Assert.Single(rcc.LineInfos2);
-                var il = rcc.InsertionLine;
-                Assert.Equal(il, rcc.LineInfos2.First.Value);
-                Assert.Equal(0, il.Offset);
-                Assert.Equal(context.Length + 3, il.Length);
-                Assert.Equal(0, il.LineNumber);
-                Assert.Equal(new Point(0, 0), il.Origin);
-                var ci = il.FirstCharInfo;
+                    Assert.Single(rcc.LineInfos2);
+                    var il = rcc.InsertionLine;
+                    Assert.Equal(il, rcc.LineInfos2.First.Value);
+                    Assert.Equal(0, il.Offset);
+                    Assert.Equal(context.Length + 3, il.Length);
+                    Assert.Equal(0, il.LineNumber);
+                    Assert.Equal(new Point(0, 0), il.Origin);
+                    var ci = il.FirstCharInfo;
 
+                }
 
                 _f.Debugfn(done.ToString());
             };
@@ -115,10 +130,18 @@ namespace XUnitTestProject1
             {
                 await CodeControl.UpdateFormattedTextAsync();
                 var context = new TestContext();
-                foreach (var ch in input)
+                var lines = input.Split("\r\n");
+                foreach (var line in lines)
                 {
-                    await a(CodeControl, ch.ToString(), context);
-                    context.Length++;
+                    _f.Debugfn(line);
+                    foreach (var ch in line)
+                    {
+                        await a(CodeControl, ch.ToString(), context);
+                        context.Length++;
+                    }
+
+                    await a(CodeControl, "\r\n", context);
+                    context.Length += 2;
                 }
             });
 
@@ -140,11 +163,14 @@ namespace XUnitTestProject1
 
 
 #pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
+            if(checkResult)
             Assert.True(continueWith.Result);
 #pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
 
             var s = CodeControl.CustomTextSource;
-            Assert.Collection(s.Runs, run => { Assert.IsType<SyntaxTokenTextCharacters>(run); },
+            if (!checkResult)
+                return;
+                Assert.Collection(s.Runs, run => { Assert.IsType<SyntaxTokenTextCharacters>(run); },
                 run => { Assert.IsType<CustomTextEndOfParagraph>(run); });
             Assert.Collection(s.RunInfos, runInfo => { Assert.IsType<SyntaxTokenTextCharacters>(runInfo.TextRun); });
         }
@@ -305,7 +331,9 @@ namespace XUnitTestProject1
             Action<string> debugOut = (s) => _outputHelper.WriteLine(s);
             _codeControl.JTF2 = _f.JTF2;
             // c.JTF = new JoinableTaskFactory(new JoinableTaskContext());
-            _codeControl.SourceText = File.ReadAllText(@"C:\temp\dockingmanager.cs");
+            var path = "C:\\Users\\mccor.LAPTOP-T6T0BN1K\\source\\repos\\KayMcCormick.Dev\\src\\RoslynCodeControls\\src\\XUnitTestProject1\\UnitTest1.cs";
+
+            _codeControl.SourceText = File.ReadAllText(path);
 
             var w = new Window();
             _window = w;
@@ -323,7 +351,7 @@ namespace XUnitTestProject1
                 Debug.WriteLine(msg1);
                 _outputHelper.WriteLine(msg1);
             }));
-            // w.Loaded += OnWOnLoaded2;
+            w.Loaded += OnWOnLoaded2;
             _closeWindow = true;
             w.ShowDialog();
         }
@@ -434,17 +462,15 @@ namespace XUnitTestProject1
                 _window?.Close();
         }
 
-#if false
         private async void OnWOnLoaded2(object sender, RoutedEventArgs args)
         {
-            var c2 = _control0;
+            var c2 = CodeControl;
             await c2.UpdateFormattedTextAsync();
 
             WriteDocument(c2);
             if (_closeWindow)
                 _window.Close();
         }
-#endif
 
         private static void WriteDocument(RoslynCodeBase b)
         {

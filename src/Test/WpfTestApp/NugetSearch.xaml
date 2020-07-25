@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:WpfTestApp"
              xmlns:protocol="clr-namespace:NuGet.Protocol;assembly=NuGet.Protocol"
              mc:Ignorable="d">
-    <UserControl.CommandBindings><CommandBinding Command="Save" Executed="Save"></CommandBinding></UserControl.CommandBindings>
+    <UserControl.CommandBindings><CommandBinding Command="Save" Executed="SaveAsync"></CommandBinding></UserControl.CommandBindings>
     <Grid >
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -19,7 +19,7 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <TextBox x:Name="SearchTerm" Width="150" />
-        <Button Content="Search" Grid.Column="1" Click="DoSearch" />
+        <Button Content="SearchAsync" Grid.Column="1" Click="DoSearch" />
         <ListView x:Name="Results" Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Stretch">
             <ListView.View>
                 <GridView>

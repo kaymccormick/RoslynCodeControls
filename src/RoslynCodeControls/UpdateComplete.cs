@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.CodeAnalysis.Text;
 
 namespace RoslynCodeControls
 {
@@ -6,6 +7,7 @@ namespace RoslynCodeControls
     {
         public InputRequest InputRequest { get; }
         public int NewInsertionPoint { get; }
+        public TextChange? Change { get; }
         public DateTime PostUpdateTimestamp { get; }
         public DateTime RenderRequestTimestamp { get; }
         public DateTime RenderBeganTimestamp { get; }
@@ -17,11 +19,13 @@ namespace RoslynCodeControls
             return $"{nameof(InputRequest)}: {InputRequest}, {nameof(NewInsertionPoint)}: {NewInsertionPoint}";
         }
 
-        public UpdateComplete(InputRequest inputRequest, int newInsertionPoint, DateTime postUpdateTimestamp,
+        public UpdateComplete(InputRequest inputRequest, int newInsertionPoint, TextChange? change,
+            DateTime postUpdateTimestamp,
             DateTime rRenderRequestTimestamp, DateTime renderBeganTimestamp, DateTime renderCompleteTimestamp)
         {
             InputRequest = inputRequest;
             NewInsertionPoint = newInsertionPoint;
+            Change = change;
             PostUpdateTimestamp = postUpdateTimestamp;
             RenderRequestTimestamp = rRenderRequestTimestamp;
             RenderBeganTimestamp = renderBeganTimestamp;

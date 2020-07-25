@@ -978,8 +978,8 @@ var chL = newTree.GetChangedSpans(Tree);
         {
             var text = inputRequest.Text;
 #if DEBUG
-            _debugFn?.Invoke($"Insertion point is {insertionPoint}.");
-            _debugFn?.Invoke($"Input text is \"{text}\"");
+            _debugFn?.Invoke($"Insertion point is {insertionPoint}.", 3);
+            _debugFn?.Invoke($"Input text is \"{text}\"", 3);
 #endif
             var change = inputRequest.Kind == InputRequestKind.Backspace
                 ? new TextChange(new TextSpan(insertionPoint - 1, 1), "")

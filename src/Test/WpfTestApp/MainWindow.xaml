@@ -7,6 +7,7 @@
         xmlns:roslynCodeControls="clr-namespace:RoslynCodeControls;assembly=RoslynCodeControls"
         xmlns:modernWpf="http://modernwpf"
         xmlns:codeAnalysis="clr-namespace:Microsoft.CodeAnalysis;assembly=Microsoft.CodeAnalysis.Workspaces"
+        xmlns:codeAnalysis1="clr-namespace:Microsoft.CodeAnalysis;assembly=Microsoft.CodeAnalysis"
         mc:Ignorable="d" FontSize="24"
         Title="MainWindow" Height="1000" Width="800">
     <Window.Resources>
@@ -624,6 +625,7 @@
             </Setter>
         </Style>
         <local:VisibilityToBooleanConverter x:Key="B" />
+        <local:DiagnosticConverter x:Key="DiagnosticConverter" />
     </Window.Resources>
     <Window.CommandBindings>
         <CommandBinding  Command="Open" Executed="OnDocumentOpen"/>
@@ -650,6 +652,7 @@
                 </MenuItem.ItemTemplate>
             </MenuItem>
             <MenuItem Header="_Tools">
+                <MenuItem Header="SearchAsync NuGet" Click="SearchNuget"/>
                 <MenuItem Header="PowerShell" Click="PowershellExecuted"/>
             </MenuItem>
             <MenuItem Header="Tool_bars">
@@ -734,6 +737,27 @@
                 <roslynCodeControls:EnhancedCodeControl CornerRadius="3"   BorderBrush="CornflowerBlue"  BorderThickness="5" EnableToolBars="False"  xml:space="preserve"
                                                         FontFamily="Lucida Console" FontSize="18"
                                                         x:Name="CodeControl" />
+                </TabItem>
+                <TabItem Header="Diagnostics">
+                    <Grid TextElement.FontSize="12">
+                    <ListView HorizontalAlignment="Stretch" ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType=Window},Path=Diagnostics}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Id" DisplayMemberBinding="{Binding Id}"></GridViewColumn>
+                                <GridViewColumn Header="Severity" DisplayMemberBinding="{Binding Severity}"></GridViewColumn>
+                                <GridViewColumn Header="Location" DisplayMemberBinding="{Binding Location.SourceSpan}"></GridViewColumn>
+                                    <GridViewColumn Header="Message" Width="300">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate DataType="{x:Type codeAnalysis1:Diagnostic}">
+                                                <TextBlock TextWrapping="Wrap" Text="{Binding Converter={StaticResource DiagnosticConverter}}"/>
+                                            </DataTemplate>
+                                            
+                                    </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                    </Grid>
                 </TabItem>
             </TabControl></Border>
 	        <StatusBar Grid.Row="3">

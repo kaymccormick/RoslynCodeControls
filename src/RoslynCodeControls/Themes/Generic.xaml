@@ -106,6 +106,10 @@
                                                 </DrawingBrush.Transform>
                                                 <DrawingBrush.Drawing>
                                                     <DrawingGroup x:Name="DG2">
+
+                                                        <DrawingGroup x:Name="SelectionDrawing">
+                                                            <DrawingGroup/>
+                                                        </DrawingGroup>
                                                         <GeometryDrawing>
                                                             <GeometryDrawing.Pen>
                                                                 <Pen Brush="Red" Thickness="0" />

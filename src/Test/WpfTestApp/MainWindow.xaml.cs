@@ -6,8 +6,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management.Automation;
-using System.Management.Automation.Internal;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -31,8 +29,8 @@ using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.VisualStudio.Threading;
 using Microsoft.Win32;
 using RoslynCodeControls;
-using WpfTerminalControlLib;
 
+using Path = System.IO.Path;
 namespace WpfTestApp
 {
     /// <summary>
@@ -42,6 +40,26 @@ namespace WpfTestApp
     {
         public static RoutedUICommand HideToolBar =
             new RoutedUICommand("Hide toolbar", nameof(HideToolBar), typeof(MainWindow));
+
+        public static readonly DependencyProperty ViewModelProperty = DependencyProperty.Register(
+            "ViewModel", typeof(AppViewModel), typeof(MainWindow), new PropertyMetadata(default(AppViewModel), OnViewModelChanged));
+
+        public AppViewModel ViewModel
+        {
+            get { return (AppViewModel) GetValue(ViewModelProperty); }
+            set { SetValue(ViewModelProperty, value); }
+        }
+
+        private static void OnViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            ((MainWindow) d).OnViewModelChanged((AppViewModel) e.OldValue, (AppViewModel) e.NewValue);
+        }
+
+
+
+        protected virtual void OnViewModelChanged(AppViewModel oldValue, AppViewModel newValue)
+        {
+        }
 
         public static double[] CommonFontSizes
         {
@@ -92,31 +110,40 @@ namespace WpfTestApp
 
         public MainWindow()
         {
+            var tmp = System.IO.Path.GetTempFileName();
+            File.Delete(tmp);
+            Directory.CreateDirectory(tmp);
+            WorkDir = tmp;
+            AnalyzersDir = Path.Combine(WorkDir, "analyzers");
+            Directory.CreateDirectory(AnalyzersDir);
             InitializeComponent();
             CoerceValue(FontsProperty);
             Loaded += OnLoaded;
-            LoadAnalyzes();
+            LoadAnalyzers(@"C:\temp\roslyn.analyzers.dll");
 
             CommandBindings.Add(new CommandBinding(HideToolBar, OnExecutedHideToolBar));
         }
 
-        private void LoadAnalyzes()
+        public string AnalyzersDir { get; set; }
+
+        public string WorkDir { get; set; }
+
+        private void LoadAnalyzers(string dllFile)
         {
-            
-            var analyzersAssembly  = Assembly.LoadFrom(@"C:\temp\roslyn.analyzers.dll");
+            var analyzersAssembly  = Assembly.LoadFrom(dllFile);
             var analyzerTypes = analyzersAssembly.ExportedTypes.Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) &&  t.GetCustomAttribute<DiagnosticAnalyzerAttribute>() != null).ToList();
             foreach (var analyzerType in analyzerTypes)
             {
                 Debug.WriteLine(analyzerType);
                 var  z= (DiagnosticAnalyzer)Activator.CreateInstance(analyzerType);
-                var c = new MyContxt(z);
+                var c = new MyAnalyzerContext(z);
                 z.Initialize(c);
                 AnalyzerContexts.Add(c);
 
             }
         }
 
-        public List<MyContxt> AnalyzerContexts { get; set; } = new List<MyContxt>();
+        public List<MyAnalyzerContext> AnalyzerContexts { get; set; } = new List<MyAnalyzerContext>();
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
@@ -128,7 +155,7 @@ namespace WpfTestApp
             Thread.CurrentThread.Name = "App thread";
             _host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
 
-            await LoadFileOrProject();
+            await LoadFileOrProjectAsync();
 #if false
             var project = _workspace.AddProject("Default project", LanguageNames.CSharp);
             var documentId = DocumentId.CreateNewId(project.Id);
@@ -164,7 +191,7 @@ namespace WpfTestApp
             CodeControl.SemanticModel = semanticModelAsync;
             if (semanticModelAsync != null) CodeControl.Compilation = semanticModelAsync.Compilation;
 
-
+            CodeControl.AddHandler(RoslynCodeControl.ContentChangedEvent, new RoslynCodeControl.ContentChangedRoutedEventHandler(CodeControlContentnChanged));
             CodeControl.AddHandler(RoslynCodeBase.RenderStartEvent, new RoutedEventHandler((sender, args) =>
             {
                 StartTime = DateTime.Now;
@@ -177,49 +204,72 @@ namespace WpfTestApp
             }));
             await CodeControl.UpdateFormattedTextAsync();
 
-            foreach (var action in AnalyzerContexts.SelectMany(z=>z.SyntaxTreeActions))
+            var d = RunAnalyzers(CodeControl, AnalyzerContexts, tree, semanticModelAsync);
+            Diagnostics = d;
+        }
+
+        private static List<Diagnostic> RunAnalyzers(EnhancedCodeControl enhancedCodeControl, List<MyAnalyzerContext> myAnalyzerContexts, SyntaxTree tree, SemanticModel model)
+        {
+            List<Diagnostic> reported = new List<Diagnostic>();
+            foreach (var action in myAnalyzerContexts.SelectMany(z => z.SyntaxTreeActions))
             {
-                SyntaxTreeAnalysisContext ct = new SyntaxTreeAnalysisContext(CodeControl.SyntaxTree,
+                SyntaxTreeAnalysisContext ct = new SyntaxTreeAnalysisContext(enhancedCodeControl.SyntaxTree,
                     new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
-                    diagnostic => { Debug.WriteLine(diagnostic.GetMessage());}, diagnostic => true, CancellationToken.None);
+                    diagnostic =>
+                    {
+                        Debug.WriteLine(diagnostic.GetMessage());
+                        reported.Add(diagnostic);
+                    }, diagnostic => true, CancellationToken.None);
                 action(ct);
             }
 
 
-            foreach (var (item1, item2, item3) in AnalyzerContexts.SelectMany(z => z.SyntaxNodeActions))
+            foreach (var (item1, item2, item3) in myAnalyzerContexts.SelectMany(z => z.SyntaxNodeActions))
             {
-                if (item2 == typeof(SyntaxKind))
+                if (item2 != typeof(SyntaxKind)) continue;
+                Debug.WriteLine(item2);
+                foreach (SyntaxKind o in item3)
                 {
-                    Debug.WriteLine(item2);
-                    foreach (SyntaxKind o in item3)
+                    var nodes = tree.GetRoot().DescendantNodesAndSelf().Where(n => n.Kind() == o);
+                    foreach (var syntaxNode in nodes)
                     {
-                        var nodes = tree.GetRoot().DescendantNodesAndSelf().Where(n => n.Kind() == o);
-                        foreach (var syntaxNode in nodes)
-                        {
-                            var ctx = new SyntaxNodeAnalysisContext(syntaxNode, semanticModelAsync,
-                                new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
-                                diagnostic =>
-                                {
-                                    var diagnosticLocation = diagnostic.Location.SourceSpan.ToString();
-                                    var message = $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
-                                    Debug.WriteLine(
-                                        message);
-                                },
-                                tru => true,
-                                CancellationToken.None);
-                            item1(ctx);
-                        }
-
-                        Debug.WriteLine(o);
+                        var ctx = new SyntaxNodeAnalysisContext(syntaxNode, model,
+                            new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty),
+                            diagnostic =>
+                            {
+                                reported.Add(diagnostic);
+                                var diagnosticLocation = diagnostic.Location.SourceSpan.ToString();
+                                var message =
+                                    $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
+                                Debug.WriteLine(
+                                    message);
+                            },
+                            tru => true,
+                            CancellationToken.None);
+                        item1(ctx);
                     }
+
+                    Debug.WriteLine(o);
                 }
             }
 
+            return reported;
         }
 
-        public DateTime StartTime { get; set; }
+        private void CodeControlContentnChanged(object sender, ContentChangedRoutedEventArgs e)
+        {
+            
+            var c = (RoslynCodeControl)e.OriginalSource;
+            var tree = c.SyntaxTree;
+            var model = c.SemanticModel;
+            var reported = RunAnalyzers(CodeControl, AnalyzerContexts, tree, model);
+            Diagnostics = reported;
 
-        public JoinableTaskFactory JTF { get; set; } = new JoinableTaskFactory(new JoinableTaskContext());
+        }
+
+        private DateTime StartTime { get; set; }
+
+        private JoinableTaskFactory JTF { get; set; } = new JoinableTaskFactory(new JoinableTaskContext());
         public string Filename { get; set; }
         public ICommand StartupCommmad { get; set; }
 
@@ -245,7 +295,7 @@ namespace WpfTestApp
             if (!d.ShowDialog().GetValueOrDefault()) return;
             Filename = d.FileName;
             // CodeControl.Filename = d.FileName;
-            JTF.RunAsync(LoadFileOrProject);
+            JTF.RunAsync(LoadFileOrProjectAsync);
         }
 
         private void PrintFile(object sender, RoutedEventArgs e)
@@ -269,6 +319,7 @@ namespace WpfTestApp
             "Document", typeof(Document), typeof(MainWindow),
             new PropertyMetadata(default(Document), OnDocumentChanged));
 
+        // ReSharper disable once MemberCanBePrivate.Global
         public Document Document
         {
             get { return (Document) GetValue(DocumentProperty); }
@@ -285,11 +336,18 @@ namespace WpfTestApp
 
         private Task _task;
         private MefHostServices _host;
-        
+        public static readonly DependencyProperty DiagnosticsProperty = DependencyProperty.Register("Diagnostics", typeof(IEnumerable), typeof(MainWindow), new PropertyMetadata(default(IEnumerable)));
+
         public Project Project
         {
             get { return (Project) GetValue(ProjectProperty); }
             set { SetValue(ProjectProperty, value); }
+        }
+
+        public IEnumerable Diagnostics
+        {
+            get { return (IEnumerable) GetValue(DiagnosticsProperty); }
+            set { SetValue(DiagnosticsProperty, value); }
         }
 
         private static void OnProjectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -307,7 +365,7 @@ namespace WpfTestApp
         {
         }
 
-        public async Task LoadFileOrProject()
+        private async Task LoadFileOrProjectAsync()
         {
             if (Filename != null && Filename.EndsWith(".csproj"))
             {
@@ -337,20 +395,11 @@ namespace WpfTestApp
             Document = w.CurrentSolution.GetDocument(documentInfo.Id);
         }
 
-        // private void Target1(object sender, RoutedEventArgs e)
-        // {
-            // Ellipse2.Fill = Brushes.Orange;
-        // }
-
-        // private void Target(object sender, RoutedEventArgs e)
-        // {
-            // Ellipse2.Fill = Brushes.GreenYellow;
-        // }
-
+      
         private async Task LoadProjectAsync(string s)
         {
-            StatusScrollViewer.Visibility = Visibility.Visible;
-            status.Visibility = Visibility.Visible;
+            // StatusScrollViewer.Visibility = Visibility.Visible;
+            // status.Visibility = Visibility.Visible;
 
             var ww = MSBuildWorkspace.Create();
             var project = await ww.OpenProjectAsync(s, new Progress1(this)).ConfigureAwait(true);
@@ -376,7 +425,8 @@ namespace WpfTestApp
                                     {
 
                                         var diagnosticLocation = diagnostic.Location.SourceSpan.ToString();
-                                        var message = $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
+                                        var message =
+                                            $"{diagnostic.Descriptor.Description}  {diagnostic.Severity}  {diagnostic.Id}  {diagnosticLocation}  {diagnostic.GetMessage()}";
 
 
 
@@ -387,7 +437,14 @@ namespace WpfTestApp
                                     },
                                     tru => true,
                                     CancellationToken.None);
-                                item1(ctx);
+                                try
+                                {
+                                    item1(ctx);
+                                }
+                                catch
+                                {
+
+                                }
                             }
 
                             Debug.WriteLine(o);
@@ -396,7 +453,7 @@ namespace WpfTestApp
                 }
             }
             StatusScrollViewer.Visibility = Visibility.Hidden;
-
+            status.Visibility = Visibility.Hidden;
 
         }
 
@@ -408,10 +465,6 @@ namespace WpfTestApp
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        // private void Combo_OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
-        // {
-        // combo.SelectedIndex = 0;
-        // }
         private void OnDocumentOpen(object sender, ExecutedRoutedEventArgs e)
         {
             if (e.Parameter is Document d)
@@ -423,11 +476,13 @@ namespace WpfTestApp
 
         private void PowershellExecuted(object sender, RoutedEventArgs e)
         {
+#if POWERSHELL
+
             var shell = new WpfTerminalControl();
             shell.BeginInit();
             shell.ForegroundColor = ConsoleColor.Black;
             shell.BackgroundColor = ConsoleColor.White;
-            shell.Background=Brushes.White;
+            shell.Background = Brushes.White;
             ;
             shell.Foreground = Brushes.Black;
             ;
@@ -448,112 +503,30 @@ namespace WpfTestApp
 
             Tabs.Items.Add(new TabItem() {Header = "PowerShell", Content = shell});
             Tabs.SelectedIndex = Tabs.Items.Count - 1;
+
+#endif
+        }
+
+        private void SearchNuget(object sender, RoutedEventArgs e)
+        {
+            var w = new Window();
+            var nugetSearch = new NugetSearch {AnalyzersDir = AnalyzersDir};
+            w.Content = nugetSearch;
+            w.ShowDialog();
+            AddAnalyzerDlls(nugetSearch.SavedFiles);
+        }
+
+        private void AddAnalyzerDlls(List<string> files)
+        {
+            foreach (var file in files)
+            {
+                LoadAnalyzers(file);
+            }
         }
     }
 
-    public class MyContxt : AnalysisContext
+    public class AppViewModel
     {
-        public DiagnosticAnalyzer Analyzer { get; }
 
-        /// <inheritdoc />
-        public MyContxt(DiagnosticAnalyzer analyzer)
-        {
-            Analyzer = analyzer;
-        }
-
-        /// <inheritdoc />
-        public override void RegisterSymbolStartAction(Action<SymbolStartAnalysisContext> action, SymbolKind symbolKind)
-        {
-            
-        }
-
-        /// <inheritdoc />
-        public override void RegisterOperationBlockStartAction(Action<OperationBlockStartAnalysisContext> action)
-        {
-         
-        }
-
-        /// <inheritdoc />
-        public override void RegisterOperationBlockAction(Action<OperationBlockAnalysisContext> action)
-        {
-         
-        }
-
-        /// <inheritdoc />
-        public override void RegisterOperationAction(Action<OperationAnalysisContext> action, ImmutableArray<OperationKind> operationKinds)
-        {
-            
-        }
-
-        /// <inheritdoc />
-        public override void EnableConcurrentExecution()
-        {
-            ConcurrentExetion = true;
-            Debug.WriteLine(nameof(EnableConcurrentExecution));
-        }
-
-        public bool ConcurrentExetion { get; set; }
-
-        /// <inheritdoc />
-        public override void ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags analysisMode)
-        {
-            GeneratedAnalysisMode = analysisMode;
-        }
-
-        public GeneratedCodeAnalysisFlags GeneratedAnalysisMode { get; set; }
-
-        /// <inheritdoc />
-        public override void RegisterCompilationStartAction(Action<CompilationStartAnalysisContext> action)
-        {
-            Debug.WriteLine(nameof(RegisterCompilationStartAction));
-        }
-
-        /// <inheritdoc />
-        public override void RegisterCompilationAction(Action<CompilationAnalysisContext> action)
-        {
-            Debug.WriteLine(nameof(RegisterCompilationAction));
-        }
-
-        /// <inheritdoc />nameof(
-        public override void RegisterSemanticModelAction(Action<SemanticModelAnalysisContext> action)
-        {
-            Debug.WriteLine(nameof(RegisterSemanticModelAction));
-        }
-
-        /// <inheritdoc />
-        public override void RegisterSymbolAction(Action<SymbolAnalysisContext> action, ImmutableArray<SymbolKind> symbolKinds)
-        {
-            Debug.WriteLine(nameof(RegisterSymbolAction));
-        }
-
-        /// <inheritdoc />
-        public override void RegisterCodeBlockStartAction<TLanguageKindEnum>(Action<CodeBlockStartAnalysisContext<TLanguageKindEnum>> action)
-        {
-            Debug.WriteLine(nameof(RegisterCodeBlockStartAction));
-        }
-
-        /// <inheritdoc />
-        public override void RegisterCodeBlockAction(Action<CodeBlockAnalysisContext> action)
-        {
-            Debug.WriteLine(nameof(RegisterCodeBlockAction));
-        }
-
-        /// <inheritdoc />
-        public override void RegisterSyntaxTreeAction(Action<SyntaxTreeAnalysisContext> action)
-        {
-            Debug.WriteLine(nameof(RegisterSyntaxTreeAction));
-            SyntaxTreeActions.Add(action);
-        }
-
-        public List<Action<SyntaxTreeAnalysisContext>> SyntaxTreeActions { get; } = new List<Action<SyntaxTreeAnalysisContext>>();
-
-        /// <inheritdoc />
-        public override void RegisterSyntaxNodeAction<TLanguageKindEnum>(Action<SyntaxNodeAnalysisContext> action, ImmutableArray<TLanguageKindEnum> syntaxKinds)
-        {
-            Debug.WriteLine(nameof(RegisterSyntaxNodeAction));
-            SyntaxNodeActions.Add(Tuple.Create(action, typeof(TLanguageKindEnum), (IList)syntaxKinds));
-        }
-
-        public List< Tuple< Action<SyntaxNodeAnalysisContext>, Type,IList >> SyntaxNodeActions  { get; } = new List<Tuple<Action<SyntaxNodeAnalysisContext>, Type, IList>>();
     }
-}
+    }

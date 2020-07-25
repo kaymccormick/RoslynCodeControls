@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Management.Automation;
+
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -39,7 +39,9 @@ namespace WpfTestApp
             InitializeComponent();
         }
 
-        public async Task Search(string searchTerm)
+        public string AnalyzersDir { get; set; }
+
+        public async Task SearchAsync(string searchTerm)
         {
             ILogger logger = NullLogger.Instance;
             CancellationToken cancellationToken = CancellationToken.None;
@@ -62,60 +64,29 @@ namespace WpfTestApp
             // }
         }
 
-        private void DoSearch(object sender, RoutedEventArgs e)
+        private async void DoSearch(object sender, RoutedEventArgs e)
         {
-            Search(SearchTerm.Text);
+            await SearchAsync(SearchTerm.Text);
         }
 
-        private async void Save(object sender, ExecutedRoutedEventArgs e)
+        private async void SaveAsync(object sender, ExecutedRoutedEventArgs e)
         {
             var p = (PackageSearchMetadataBuilder.ClonedPackageSearchMetadata) e.Parameter;
 
-            ILogger logger = NullLogger.Instance;
-            CancellationToken cancellationToken = CancellationToken.None;
-
-            SourceCacheContext cache = new SourceCacheContext();
-            SourceRepository repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json");
-            FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource>();
-
-            string packageId = p.Identity.Id;
+            var packageId = p.Identity.Id;
             
-            NuGetVersion packageVersion = p.Identity.Version;
-            await using MemoryStream packageStream = new MemoryStream();
-
-            await resource.CopyNupkgToStreamAsync(
-                packageId,
-                packageVersion,
-                packageStream,
-                cache,
-                logger,
-                cancellationToken);
-
-            Debug.WriteLine($"Downloaded package {packageId} {packageVersion}");
-
-            using PackageArchiveReader packageReader = new PackageArchiveReader(packageStream);
-            NuspecReader nuspecReader = await packageReader.GetNuspecReaderAsync(cancellationToken);
-            foreach (var file in packageReader.GetFiles().Where(f=>Path.GetExtension(f).ToLowerInvariant()==".dll"))
+            var packageVersion = p.Identity.Version;
+            var dlls  = await NugetUtils.SaveAsync(packageId, packageVersion);
+            foreach (var dll in dlls)
             {
-                var s = packageReader.GetStream(file);
-                var tf = Path.GetTempFileName();
-                packageReader.ExtractFile(file, tf, logger);
-                try
-                {
-                    var a = Assembly.LoadFrom(tf);
-                    var az = a.ExportedTypes.Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t));
-                    foreach (var type in az)
-                    {
-                        Debug.WriteLine(type);
-                    }
-                }
-                catch
-                {
-
-                }
+                var destFile = Path.Combine(AnalyzersDir, Path.GetFileName(dll));
+                File.Copy(dll, destFile);
+                SavedFiles.Add(destFile);
             }
-            Debug.WriteLine($"Tags: {nuspecReader.GetTags()}");
-            Debug.WriteLine($"Description: {nuspecReader.GetDescription()}");
+            Window.GetWindow(this)?.Close();
+
         }
+
+        public List<string> SavedFiles { get; set; } = new List<string>();
     }
 }
