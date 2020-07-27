@@ -41,7 +41,7 @@ namespace RoslynCodeControls
 
         public override void VisitClassDeclaration(ClassDeclarationSyntax node)
         {
-            var classNode = new ClassNode(node.Identifier.ToString());
+            var classNode = new ClassNode(node.Identifier.ToString(), node);
             _nodes.Peek().Children.Add(classNode);
             _nodes.Push(classNode);
             base.VisitClassDeclaration(node);
@@ -110,7 +110,21 @@ namespace RoslynCodeControls
 
         public override void VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
         {
+            var si = Model?.GetDeclaredSymbol(node);
+            string s = null;
+            s = si?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+            if (s == null)
+            {
+                s = $"{node.Identifier}";
+            }
+            var constructorNode = new ConstructorNode(node);
+            _nodes.Peek().Children.Add(constructorNode);
+            _nodes.Push(constructorNode);
+
             base.VisitConstructorDeclaration(node);
+            _nodes.Pop();
+
         }
 
         public override void VisitDestructorDeclaration(DestructorDeclarationSyntax node)
@@ -120,7 +134,25 @@ namespace RoslynCodeControls
 
         public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
         {
-            base.VisitPropertyDeclaration(node);
+            var si = Model?.GetDeclaredSymbol(node);
+            string s = null;
+            s = si?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+            if (s == null)
+            {
+                s = $"{node.Identifier}";
+            }
+            var constructorNode = new PropertyNode(node);
+            _nodes.Peek().Children.Add(constructorNode);
+            _nodes.Push(constructorNode);
+
+
+            base.VisitPropertyDeclaration(node); 
+            
+            _nodes.Pop();
+            
+
+
         }
 
         public override void VisitEventDeclaration(EventDeclarationSyntax node)

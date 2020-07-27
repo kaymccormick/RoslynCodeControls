@@ -6,13 +6,17 @@ using System.Windows.Media.Imaging;
 
 namespace RoslynCodeControls
 {
-    public class UpdateInfo
+    public readonly struct UpdateInfo
     {
-        public BitmapSource ImageSource { get; set; }
-        public Rect Rect { get; set; }
-        public DrawingGroup DrawingGroup { get; set; }
-        public List<CharInfo> CharInfos { get; set; }
-        public bool FinalBlock { get; set; }
-        public LineInfo2 LineInfo { get; set; }
+        public UpdateInfo(DrawingGroup myGroup, in int liIndex, LineInfo2[] lineInfos)
+        {
+            DrawingGroup = myGroup;
+            NumLineInfos = liIndex;
+            LineInfos = lineInfos;
+        }
+
+        public DrawingGroup DrawingGroup { get;  }
+        public LineInfo2[] LineInfos { get;  }
+        public int NumLineInfos { get;  }
     }
 }

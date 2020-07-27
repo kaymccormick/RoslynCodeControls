@@ -7,9 +7,9 @@
         public InputRequest InputRequest { get; }
         public int InsertionPoint { get;  }
         public RenderRequestInput Input { get; }
-        public LineInfo2 LineInfo { get; }
+        public LineInfo2? LineInfo { get; }
 
-        public RenderRequest(InputRequest inputRequest, int insertionPoint, RenderRequestInput input, LineInfo2 lineInfo)
+        public RenderRequest(InputRequest inputRequest, int insertionPoint, RenderRequestInput input, LineInfo2? lineInfo)
         {
             InputRequest = inputRequest;
             InsertionPoint = insertionPoint;

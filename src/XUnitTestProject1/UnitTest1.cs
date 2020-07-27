@@ -100,13 +100,13 @@ namespace XUnitTestProject1
         [WpfFact]
         public void TestDoInputAsync1()
         {
-            NewMethod(this, "a");
+            TestHelper.DoInput(this, "a\r\nb",false);
         }
 
         [WpfFact]
         public void TestDoInputAsync2()
         {
-            NewMethod(this, "ab");
+            TestHelper.DoInput(this, "ab");
         }
 
         [WpfFact]
@@ -116,88 +116,9 @@ namespace XUnitTestProject1
                 "C:\\Users\\mccor.LAPTOP-T6T0BN1K\\source\\repos\\KayMcCormick.Dev\\src\\RoslynCodeControls\\src\\XUnitTestProject1\\UnitTest1.cs";
             var code = File.ReadAllText(
                 path);
-            NewMethod(this, code, false);
+            TestHelper.DoInput(this, code, false);
         }
 
-
-        private static void NewMethod(UnitTest1 unitTest1, string input, bool checkResult = true)
-        {
-            var insertionPoint = 0;
-
-
-            Func<RoslynCodeControl, string, TestContext, Task> a = async (rcc, inputChar, context) =>
-            {
-                InputRequest ir;
-                ir = inputChar == "\r\n"
-                    ? new InputRequest(InputRequestKind.NewLine)
-                    : new InputRequest(InputRequestKind.TextInput, inputChar);
-
-                var done = await rcc.DoUpdateTextAsync(insertionPoint, ir);
-                if (checkResult)
-                {
-                    Assert.Equal(inputChar, done.InputRequest.Text);
-
-                    Assert.Single(rcc.LineInfos2);
-                    var il = rcc.InsertionLine;
-                    Assert.Equal(il, rcc.LineInfos2.First.Value);
-                    Assert.Equal(0, il.Offset);
-                    Assert.Equal(context.Length + 3, il.Length);
-                    Assert.Equal(0, il.LineNumber);
-                    Assert.Equal(new Point(0, 0), il.Origin);
-                    var ci = il.FirstCharInfo;
-                }
-
-                unitTest1._f.Debugfn(done.ToString());
-            };
-
-            var jt = unitTest1.JTF.RunAsync(async () =>
-            {
-                await unitTest1.CodeControl.UpdateFormattedTextAsync();
-                var context = new TestContext();
-                var lines = input.Split("\r\n");
-                foreach (var line in lines)
-                {
-                    unitTest1._f.Debugfn(line);
-                    foreach (var ch in line)
-                    {
-                        await a(unitTest1.CodeControl, ch.ToString(), context);
-                        context.Length++;
-                    }
-
-                    await a(unitTest1.CodeControl, "\r\n", context);
-                    context.Length += 2;
-                }
-            });
-
-            var continueWith = jt.JoinAsync().ContinueWith(unitTest1.ContinuationFunction);
-            continueWith.ContinueWith(t =>
-            {
-                unitTest1.CodeControl.Shutdown();
-                return t.Result;
-            });
-
-            //, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
-
-            while (!continueWith.IsCompleted)
-            {
-                TestHelper.DoEvents();
-                Thread.Sleep(500);
-                unitTest1.MyFixture.Debugfn("loop");
-            }
-
-
-#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
-            if (checkResult)
-                Assert.True(continueWith.Result);
-#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
-
-            var s = unitTest1.CodeControl.CustomTextSource;
-            if (!checkResult)
-                return;
-            Assert.Collection(s.Runs, run => { Assert.IsType<SyntaxTokenTextCharacters>(run); },
-                run => { Assert.IsType<CustomTextEndOfParagraph>(run); });
-            Assert.Collection(s.RunInfos, runInfo => { Assert.IsType<SyntaxTokenTextCharacters>(runInfo.TextRun); });
-        }
 
         public bool ContinuationFunction(Task t)
         {
@@ -241,7 +162,7 @@ namespace XUnitTestProject1
                 source, maxY, maxX, fontSize,
                 fontFamilyName,
                 FontWeights.Regular);
-            LineInfo2 curLineInfo = null;
+            LineInfo2? curLineInfo = null;
             if (curLineInfoObjects != null)
                 curLineInfo = new LineInfo2((int) curLineInfoObjects[0],
                     (LinkedListNode<CharInfo>) curLineInfoObjects[1], (int) curLineInfoObjects[2],
@@ -361,16 +282,32 @@ namespace XUnitTestProject1
                 StartTime = DateTime.Now;
                 Debug.WriteLine("render start");
             }));
+            List<TimeSpan> timings = new List<TimeSpan>();
+            TimeSpan? span=null;
             roslynCodeControl.AddHandler(RoslynCodeBase.RenderCompleteEvent, new RoutedEventHandler((sender, args) =>
             {
-                var span = DateTime.Now - StartTime;
+                span = DateTime.Now - StartTime;
+                timings.Add(span.Value);
                 var msg1 = "render complete " + span;
                 Debug.WriteLine(msg1);
                 OutputHelper.WriteLine(msg1);
             }));
-            w.Loaded += (sender1, args1) => TestHelper.OnWOnLoaded2(this, sender1, args1);
             _closeWindow = true;
+            w.Loaded += (sender1, args1) => JTF.RunAsync(() => TestHelper.OnLoadedAsync(this.CodeControl, this.CloseWindow, this.Window));
             w.ShowDialog();
+            int i = 0;
+            foreach (var timeSpan in timings)
+            {
+                var message = $"{i}: {timeSpan}";
+                OutputHelper.WriteLine(message);
+                ProtoLogger.Instance.LogAction(message);
+            }
+
+            var info = new TimeSpan(0,0,0,0,(int) timings.Average(z=>z.TotalMilliseconds)).ToString();
+
+            ProtoLogger.Instance.LogAction("Average is " + info);
+            
+
         }
 
 #if false

@@ -6,7 +6,7 @@ using JetBrains.Annotations;
 
 namespace RoslynCodeControls
 {
-    internal sealed class ProtoLogger
+    public sealed class ProtoLogger
     {
         private readonly Func<object, byte[]> _getBytes;
         private readonly IPEndPoint _ipEndPoint;

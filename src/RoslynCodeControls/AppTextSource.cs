@@ -28,9 +28,5 @@ namespace RoslynCodeControls
         public abstract TextRunProperties BasicProps();
 
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public abstract object TextInput(int insertionPoint, InputRequest inputRequest, int lineInfoOffset);
     }
 }

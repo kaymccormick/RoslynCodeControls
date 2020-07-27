@@ -133,7 +133,7 @@ namespace RoslynCodeControls
         {
             LinkedListNode<CharInfo> charInfoNode = null;
             const int batchLines = 100;
-            var lineInfos0 = new LineInfo2[batchLines];
+            var lineInfos0 = new LineInfo		2[batchLines];
             var lineInfos1 = new LineInfo2[batchLines];
             var lineInfos = lineInfos0;
             int @switch = 0;

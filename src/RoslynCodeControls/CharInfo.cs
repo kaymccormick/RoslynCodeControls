@@ -1,4 +1,5 @@
 ﻿// ReSharper disable UnusedAutoPropertyAccessor.Global
+
 namespace RoslynCodeControls
 {
     public class CharInfo
@@ -32,7 +33,8 @@ namespace RoslynCodeControls
         /// <inheritdoc />
         public override string ToString()
         {
-            return $"{nameof(Index)}: {Index}, {nameof(LineNumber)}: {LineNumber}, {nameof(LineIndex)}: {LineIndex}, {nameof(RunIndex)}: {RunIndex}, {nameof(Character)}: {Character}, {nameof(AdvanceWidth)}: {AdvanceWidth:N1}, {nameof(CaretStop)}: {CaretStop}, {nameof(XOrigin)}: {XOrigin}, {nameof(YOrigin)}: {YOrigin}";
+            return
+                $"{nameof(Index)}: {Index}, {nameof(LineNumber)}: {LineNumber}, {nameof(LineIndex)}: {LineIndex}, {nameof(RunIndex)}: {RunIndex}, {nameof(Character)}: {Character}, {nameof(AdvanceWidth)}: {AdvanceWidth:N1}, {nameof(CaretStop)}: {CaretStop}, {nameof(XOrigin)}: {XOrigin}, {nameof(YOrigin)}: {YOrigin}";
         }
     }
 }

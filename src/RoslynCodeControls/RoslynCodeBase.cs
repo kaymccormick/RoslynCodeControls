@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -15,27 +17,36 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Completion;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.VisualStudio.Threading;
+// ReSharper disable VirtualMemberNeverOverridden.Global
+// ReSharper disable UnusedParameter.Global
+#pragma warning disable 8603
+#pragma warning disable 8625
+#pragma warning disable 8604
+#pragma warning disable 8618
+#pragma warning disable 8600
 
 namespace RoslynCodeControls
 {
-    public class RoslynCodeBase : Control, ICodeView, IDocumentPaginatorSource
+    public class RoslynCodeBase : Control, ICodeView, IDocumentPaginatorSource, INotifyPropertyChanged
     {
+        public static readonly DependencyProperty LengthProperty = DependencyProperty.Register("Length", typeof(int), typeof(RoslynCodeControl), new PropertyMetadata(default(int)));
+
         public delegate void DebugDelegate(string msg, int debugLevel=0);
+        // ReSharper disable once UnusedMember.Global
         public RoslynCodeBase() : this(null)
         {
         }
 
-        /// <param name="debugOut"></param>
-        /// <inheritdoc />
         public RoslynCodeBase([CanBeNull] DebugDelegate debugOut = null)
         {
 #if DEBUG
             _debugFn = debugOut ?? DebugFn0;
 
 #else
-_debugFn = debugOut ?? ((s,i) => { });
+            _debugFn = debugOut ?? ((s,i) => { });
 #endif
 
             TextDestination = new DrawingGroup();
@@ -99,7 +110,7 @@ _debugFn = debugOut ?? ((s,i) => { });
                 return;
             if (newValue == null) return;
             UpdatingSourceText = true;
-            DebugFn("Source text changed, creating copilation etc");
+            DebugFn("Source text changed, creating compilation etc");
             var compilation = CSharpCompilation.Create(
                 "test",
                 new[]
@@ -115,15 +126,15 @@ _debugFn = debugOut ?? ((s,i) => { });
             UpdatingSourceText = false;
         }
 
-        protected bool UpdatingSourceText { get; set; }
+        protected bool UpdatingSourceText { get; private set; }
 
         protected bool ChangingText { get; set; }
 
         public virtual Rect DrawingBrushViewbox { get; set; }
 
-        public double MaxX { get; set; }
+        public double MaxX { get; protected set; }
 
-        public double MaxY { get; set; }
+        public double MaxY { get; protected set; }
 
         /// <inheritdoc />
         public virtual DrawingBrush DrawingBrush { get; }
@@ -144,7 +155,7 @@ _debugFn = debugOut ?? ((s,i) => { });
         public CodeControlStatus Status { get; set; }
 
         /// <inheritdoc />
-        public double XOffset { get; set; }
+        public double XOffset { get; set; } = 20;
 
         /// <inheritdoc />
         public double OutputWidth { get; set; }
@@ -162,12 +173,8 @@ _debugFn = debugOut ?? ((s,i) => { });
 
 
         /// <inheritdoc />
-        public DispatcherOperation<CustomTextSource4> InnerUpdateDispatcherOperation { get; set; }
-
-        /// <inheritdoc />
         public Channel<UpdateInfo> UpdateChannel { get; set; }
 
-        /// <inheritdoc />
         public virtual DocumentPaginator DocumentPaginator
         {
             get { return new RoslynPaginator(this); }
@@ -175,7 +182,7 @@ _debugFn = debugOut ?? ((s,i) => { });
 
 
         /// <inheritdoc />
-        public ScrollViewer _scrollViewer { get; set; }
+        public ScrollViewer ScrollViewer { get; set; }
 
         /// <inheritdoc />
         public CustomTextSource4 CustomTextSource { get; set; }
@@ -211,7 +218,7 @@ _debugFn = debugOut ?? ((s,i) => { });
         public LinkedList<CharInfo> CharInfos { get; set; } = new LinkedList<CharInfo>();
 
         /// <inheritdoc />
-        public Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters,
+        public CustomTextSource4 InnerUpdate(MainUpdateParameters mainUpdateParameters,
             TextSourceInitializationParameters textSourceInitializationParameters)
         {
             return CommonText.InnerUpdateAsync(mainUpdateParameters,
@@ -264,10 +271,11 @@ _debugFn = debugOut ?? ((s,i) => { });
         public static readonly DependencyProperty SourceTextProperty = RoslynProperties.SourceTextProperty;
 
         public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
-        protected DebugDelegate _debugFn;
+        protected readonly DebugDelegate _debugFn;
         private Rectangle _rectangle;
+        private int _length;
 
-        protected virtual void DebugFn(string msg, int debugLevel=10)
+        public virtual void DebugFn(string msg, int debugLevel=10)
         {
 #if DEBUG
             _debugFn?.Invoke(msg, debugLevel);
@@ -304,10 +312,11 @@ _debugFn = debugOut ?? ((s,i) => { });
             }
             else
             {
-                var runTask = JTF.RunAsync(ReaderListenerAsync);
+                JTF.RunAsync(ReaderListenerAsync);
 
                 codeView.PerformingUpdate = true;
                 codeView.Status = CodeControlStatus.Rendering;
+                codeView.Reset();
                 codeView.RaiseEvent(new RoutedEventArgs(RenderStartEvent, this));
 
                 var textStorePosition = 0;
@@ -318,7 +327,7 @@ _debugFn = debugOut ?? ((s,i) => { });
                 var line = 0;
 
                 _debugFn?.Invoke("Calling inner update");
-                // _scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                // ScrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
                 var fontFamilyFamilyName = codeView.FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
                 _debugFn?.Invoke(fontFamilyFamilyName);
                 _debugFn?.Invoke("OutputWidth " + codeView.OutputWidth);
@@ -335,7 +344,7 @@ _debugFn = debugOut ?? ((s,i) => { });
                 await JTF2.SwitchToMainThreadAsync();
 
                 SecondaryThreadTasks();
-                var source = await codeView.InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
+                var source = codeView.InnerUpdate(mainUpdateParameters, customTextSource4Parameters);
                 await JTF.SwitchToMainThreadAsync();
 
                 codeView.CustomTextSource = source;
@@ -347,6 +356,7 @@ _debugFn = debugOut ?? ((s,i) => { });
                 codeView.Status = CodeControlStatus.Rendered;
                 codeView.InsertionPoint = 0;
                 codeView.InsertionLineNode = codeView.FindLine(0);
+                await UpdateRoslynPropertiesAsync();
             }
         }
 
@@ -359,7 +369,11 @@ _debugFn = debugOut ?? ((s,i) => { });
             while (!UpdateChannel.Reader.Completion.IsCompleted)
             {
                 var ui = await UpdateChannel.Reader.ReadAsync();
+                for (var i = 0; i < ui.NumLineInfos; i++)
+                {
+                    LineInfos2.AddLast(ui.LineInfos[i]);
 
+                }
                 // fixme
                 //CharInfos.AddRange(ui.CharInfos);
                 var dg = ui.DrawingGroup;
@@ -388,37 +402,13 @@ _debugFn = debugOut ?? ((s,i) => { });
                 Rectangle.Width = width;
                 Rectangle.Height = height;
 
-                LinkedListNode<LineInfo2> llNode = null;
-
-                var lineInfo2 = ui.LineInfo;
-                var li0 = FindLine(lineInfo2.LineNumber, InsertionLineNode);
-                if (li0 == null)
-                {
-                    li0 = FindLine(lineInfo2.LineNumber - 1);
-                    if (li0 != null)
-                    {
-                        llNode = LineInfos2.AddAfter(li0, lineInfo2);
-                    }
-                    else
-                    {
-                        if (LineInfos2.Any()) throw new InvalidOperationException();
-                        llNode = LineInfos2.AddFirst(lineInfo2);
-                    }
-                }
-                else
-                {
-                    // if (Equals(roslynCodeControl1.LineInfos2.First, li0))
-                    // roslynCodeControl1.OnPropertyChanged(nameof(FirstLine));
-                    li0.Value = lineInfo2;
-                    // roslynCodeControl1.OnPropertyChanged(nameof(InsertionLine));
-                    llNode = li0;
-                }
+                
             }
         }
 
         public virtual LinkedList<LineInfo2> LineInfos2 { get; } = new LinkedList<LineInfo2>();
 
-        public virtual LineInfo2 InsertionLine
+        public virtual LineInfo2? InsertionLine
         {
             get { return InsertionLineNode?.Value; }
         }
@@ -451,6 +441,65 @@ _debugFn = debugOut ?? ((s,i) => { });
                     return li0;
 
             return null;
+        }
+
+        /// <inheritdoc />
+        public virtual void Reset()
+        {
+            LineInfos2.Clear();
+            Rectangle.Width = 0;
+            Rectangle.Height = 0;
+
+        }
+
+        public static readonly DependencyProperty TextSourceTextProperty = DependencyProperty.Register(
+            "TextSourceText", typeof(string), typeof(RoslynCodeControl),
+            new PropertyMetadata(default(string)));
+
+        public string TextSourceText
+        {
+            get { return (string)GetValue(TextSourceTextProperty); }
+            set { SetValue(TextSourceTextProperty, value); }
+        }
+
+
+        protected virtual async Task UpdateRoslynPropertiesAsync()
+        {
+            if (CustomTextSource == null)
+            {
+                DebugFn("Text source is null");
+            }
+            else
+            {
+                ChangingText = true;
+
+                SyntaxNode = CustomTextSource.Node;
+                SyntaxTree = CustomTextSource.Tree;
+                TextSourceText = CustomTextSource.Text.ToString();
+                var doc = Document.WithSyntaxRoot(SyntaxNode);
+                var sm = await doc.GetSemanticModelAsync();
+                if (sm != null) Compilation = sm.Compilation;
+                Length = CustomTextSource.Length;
+                Document = doc;
+                SemanticModel = sm;
+                ChangingText = false;
+                DebugFn("Finished updating roslyn properties.");
+                RaiseEvent(new ContentChangedRoutedEventArgs(this));
+            }
+        }
+        public int Length
+        {
+            get { return (int)GetValue(LengthProperty); }
+            set { SetValue(LengthProperty, value); }
+        }
+
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [NotifyPropertyChangedInvocator]
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

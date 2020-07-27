@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BasicEditor": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\mccor.LAPTOP-T6T0BN1K\\source\\repos\\KayMcCormick.Dev\\src\\RoslynCodeControls\\src\\BasicEditor\\MainWindow.xaml.cs"
+    }
+  }
+}

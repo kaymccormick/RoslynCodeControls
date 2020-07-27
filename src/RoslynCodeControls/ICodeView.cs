@@ -7,21 +7,14 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.VisualStudio.Threading;
 
 namespace RoslynCodeControls
 {
-    public interface IFace1 : ICodeView
-    {
-        /* Drawing /rendering */
-    }
-
     public interface ICodeView
     {
-        LineInfo2 InsertionLine { get; }
-        
+        LineInfo2? InsertionLine { get; }
         Rectangle Rectangle { get; }
         Document Document { get; }
         string SourceText { get; set; }
@@ -43,7 +36,7 @@ namespace RoslynCodeControls
         Channel<UpdateInfo> UpdateChannel { get; set; }
         DocumentPaginator DocumentPaginator { get; }
         Dispatcher Dispatcher { get; }
-        ScrollViewer _scrollViewer { get; set; }
+        ScrollViewer ScrollViewer { get; set; }
         CustomTextSource4 CustomTextSource { get; set; }
         bool InitialUpdate { get; set; }
         int InsertionPoint { get; set; }
@@ -54,8 +47,8 @@ namespace RoslynCodeControls
         Task UpdateFormattedTextAsync();
         void RaiseEvent(RoutedEventArgs p0);
         TextSourceInitializationParameters CreateDefaultTextSourceArguments();
-        Task<CustomTextSource4> InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters);
+        CustomTextSource4 InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters);
         LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null);
+        void Reset();
     }
-
 }
