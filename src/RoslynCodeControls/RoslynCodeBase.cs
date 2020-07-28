@@ -20,6 +20,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Completion;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.VisualStudio.Threading;
+
 // ReSharper disable VirtualMemberNeverOverridden.Global
 // ReSharper disable UnusedParameter.Global
 #pragma warning disable 8603
@@ -32,9 +33,20 @@ namespace RoslynCodeControls
 {
     public class RoslynCodeBase : Control, ICodeView, IDocumentPaginatorSource, INotifyPropertyChanged
     {
-        public static readonly DependencyProperty LengthProperty = DependencyProperty.Register("Length", typeof(int), typeof(RoslynCodeControl), new PropertyMetadata(default(int)));
 
-        public delegate void DebugDelegate(string msg, int debugLevel=0);
+        public static readonly DependencyProperty LengthProperty = DependencyProperty.Register("Length", typeof(int),
+            typeof(RoslynCodeControl), new PropertyMetadata(default(int)));
+
+        public static readonly DependencyProperty WorkspaceProperty = DependencyProperty.Register(
+            "Workspace", typeof(Workspace), typeof(RoslynCodeBase), new PropertyMetadata(default(Workspace)));
+
+        public Workspace Workspace
+        {
+            get { return (Workspace) GetValue(WorkspaceProperty); }
+            set { SetValue(WorkspaceProperty, value); }
+        }
+        public delegate void DebugDelegate(string msg, int debugLevel = 0);
+
         // ReSharper disable once UnusedMember.Global
         public RoslynCodeBase() : this(null)
         {
@@ -278,7 +290,7 @@ namespace RoslynCodeControls
         private double _lineSpacing;
         private double _lineHeight;
 
-        public virtual void DebugFn(string msg, int debugLevel=10)
+        public virtual void DebugFn(string msg, int debugLevel = 10)
         {
 #if DEBUG
             _debugFn?.Invoke(msg, debugLevel);
@@ -311,7 +323,6 @@ namespace RoslynCodeControls
             if (codeView.PerformingUpdate)
             {
                 _debugFn?.Invoke("Already performing update");
-                
             }
             else
             {
@@ -322,7 +333,7 @@ namespace RoslynCodeControls
                 codeView.Reset();
                 codeView.RaiseEvent(new RoutedEventArgs(RenderStartEvent, this));
 
-                
+
                 var text = await SyntaxTree.GetTextAsync();
                 var o = new Point(double.NaN, 0);
                 for (var i = 0; i < text.Lines.Count; i++)
@@ -368,10 +379,11 @@ namespace RoslynCodeControls
                 codeView.Status = CodeControlStatus.Rendered;
                 codeView.InsertionPoint = 0;
                 codeView.InsertionLineNode = codeView.FindLine(0);
-#if true
+#if false
                 foreach (var x1 in codeView.FindLine(0).List)
                 {
-                    for (var ci1 = x1.FirstCharInfo; ci1 != null && ci1.Value.Index < x1.Offset + x1.Length; ci1 = ci1.Next)
+                    for (var ci1 = x1.FirstCharInfo; ci1 != null && ci1.Value.Index < x1.Offset + x1.Length; ci1 =
+ ci1.Next)
                     {
                         Debug.WriteLine($"{x1.LineNumber:D4},{ci1.Value.LineIndex:D3},{ci1.Value.Index:D6}");
                     }
@@ -474,7 +486,8 @@ namespace RoslynCodeControls
         public string DocumentTitle { get; set; }
         public virtual LinkedListNode<LineInfo2> InsertionLineNode { get; set; }
 
-        public virtual LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null, bool returnLast = false)
+        public virtual LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode =
+ null, bool returnLast = false)
         {
             var li0 = startNode ?? LineInfos2.First;
             for (; li0 != null; li0 = li0.Next){
@@ -518,11 +531,15 @@ namespace RoslynCodeControls
                 SyntaxNode = CustomTextSource.Node;
                 SyntaxTree = CustomTextSource.Tree;
                 TextSourceText = CustomTextSource.Text.ToString();
+                SemanticModel sm = null;
+                if(Document != null){
                 var doc = Document.WithSyntaxRoot(SyntaxNode);
-                var sm = await doc.GetSemanticModelAsync();
-                if (sm != null) Compilation = sm.Compilation;
+                sm = await doc.GetSemanticModelAsync();
+
+                    Document = doc;
+                }
                 Length = CustomTextSource.Length;
-                Document = doc;
+                if (sm != null) Compilation = sm.Compilation;
                 SemanticModel = sm;
                 ChangingText = false;
                 DebugFn("Finished updating roslyn properties.");

@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.QuickInfo;
+
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace RoslynCodeControls
@@ -16,6 +18,7 @@ namespace RoslynCodeControls
         {
         }
 
+        public QuickInfoItem QuickInfoItem { get; set; }
         public SyntaxNode SyntaxNode { get; set; }
         public ISymbol Symbol { get; set; }
         public IEnumerable<SyntaxNodeDepth> Nodes { get; set; }

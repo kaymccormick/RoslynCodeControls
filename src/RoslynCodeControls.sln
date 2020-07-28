@@ -13,7 +13,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WpfTestApp", "Test\WpfTestA
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BasicEditor", "BasicEditor\BasicEditor.csproj", "{D2C6C577-DF8B-4547-B5C8-5BC874B65532}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassDiagram", "ClassDiagram\ClassDiagram.csproj", "{4970C4B1-FA84-4B3B-BEC9-1CA1CDD63C86}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClassDiagram", "ClassDiagram\ClassDiagram.csproj", "{4970C4B1-FA84-4B3B-BEC9-1CA1CDD63C86}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiDoc", "MultiDoc\MultiDoc.csproj", "{79B79765-6A5F-49F4-A2C5-1339C381FD67}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +47,10 @@ Global
 		{4970C4B1-FA84-4B3B-BEC9-1CA1CDD63C86}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4970C4B1-FA84-4B3B-BEC9-1CA1CDD63C86}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4970C4B1-FA84-4B3B-BEC9-1CA1CDD63C86}.Release|Any CPU.Build.0 = Release|Any CPU
+		{79B79765-6A5F-49F4-A2C5-1339C381FD67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79B79765-6A5F-49F4-A2C5-1339C381FD67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79B79765-6A5F-49F4-A2C5-1339C381FD67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79B79765-6A5F-49F4-A2C5-1339C381FD67}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

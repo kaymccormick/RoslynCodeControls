@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -25,6 +26,7 @@ using System.Windows.Threading;
 using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Completion;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.QuickInfo;
 using Microsoft.CodeAnalysis.Text;
@@ -71,6 +73,7 @@ namespace RoslynCodeControls
 
         public RoslynCodeControl(DebugDelegate debugOut = null) : base(debugOut)
         {
+            XOffset = 80;
             OutputWidth = 0;
             _typefaceName = FontFamily.FamilyNames[XmlLanguage.GetLanguage("en-US")];
             _textDestination = new DrawingGroup();
@@ -445,7 +448,7 @@ namespace RoslynCodeControls
         private DrawingGroup _dg2;
         // ReSharper disable once NotAccessedField.Local
         private Grid _innerGrid;
-        private TextCaret _textCaret;
+        public TextCaret TextCaret { get; private set; }
         private Canvas _canvas;
 
         private int _selectionEnd;
@@ -959,7 +962,7 @@ namespace RoslynCodeControls
             CompletionComboBox.Width = 100;
 
             CompletionPopup.StaysOpen = true;
-            CompletionPopup.PlacementTarget = _textCaret;
+            CompletionPopup.PlacementTarget = TextCaret;
             // var left = Canvas.GetLeft(_textCaret);
             // var top = Canvas.GetTop(_textCaret);
             CompletionPopup.PlacementRectangle = new Rect(3, -1 * LineHeight, 100, LineHeight);
@@ -1099,17 +1102,76 @@ namespace RoslynCodeControls
             _canvas = (Canvas) GetTemplateChild("Canvas");
             _innerGrid = (Grid) GetTemplateChild("InnerGrid");
 
-            _textCaret = new TextCaret(FontSize * 1.1);
+            TextCaret = (TextCaret) GetTemplateChild("TextCaret");
+            if (TextCaret != null)
+            {
+                TextCaret.LineHeight = FontSize * 1.1;
 
-            _canvas.Children.Add(_textCaret);
-            Canvas.SetLeft(_textCaret, XOffset);
-            Canvas.SetTop(_textCaret, 0);
+                // _canvas.Children.Add(TextCaret);
+                Canvas.SetLeft(TextCaret, XOffset);
+                Canvas.SetTop(TextCaret, 0);
+            }
+
             _border = (Border) GetTemplateChild("Border");
 
             _rect2 = (Rectangle) GetTemplateChild("Rect2");
             _dg2 = (DrawingGroup) GetTemplateChild("DG2");
             DrawingBrush2 = (DrawingBrush) GetTemplateChild("DrawingBrush2");
             if (DrawingBrush2 != null) DrawingBrush2.Viewbox = DrawingBrushViewbox;
+            if (JTF2 == null)
+            {
+                JTF2 = JTF;
+                if (Workspace != null)
+                {
+                    // if (Workspace is AdhocWorkspace adhocWorkspace)
+                    // {
+                        // We dont necessaarily need to add a solution, only if there isnt one
+                        // adhocWorkspace.AddSolution(SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create()));
+                    // }
+
+                    if (Document == null)
+                    {
+
+                        var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Create(),
+                            "Code Project", "code", LanguageNames.CSharp);
+                        var newSolution = Workspace.CurrentSolution.AddProject(projectInfo);
+                        Workspace.TryApplyChanges(newSolution);
+                        // RaiseEvent(new WorkspaceUpdatedEventArgs(Workspace, this));
+
+                        DocumentInfo documentInfo;
+                        var filename = Filename;
+                        if (filename != null)
+                            documentInfo = DocumentInfo.Create(DocumentId.CreateNewId(projectInfo.Id), "Default",
+                                null, SourceCodeKind.Regular, new FileTextLoader(filename, Encoding.UTF8), filename);
+                        else
+                            documentInfo = DocumentInfo.Create(DocumentId.CreateNewId(projectInfo.Id), "Default",
+                                null, SourceCodeKind.Regular);
+
+                        newSolution = Workspace.CurrentSolution.AddDocument(documentInfo);
+                        Workspace.TryApplyChanges(newSolution);
+                        RaiseEvent(new WorkspaceUpdatedEventArgs(Workspace, this));
+
+                        var Project1 = Workspace.CurrentSolution.GetProject(projectInfo.Id);
+                        Document = Workspace.CurrentSolution.GetDocument(documentInfo.Id);
+                    }
+                }
+                if (Document == null)
+                {
+                    SyntaxTree = SyntaxFactory.ParseSyntaxTree("");
+                    SyntaxNode = SyntaxTree.GetRoot();
+                }
+
+                JTF.RunAsync(async () =>
+                {
+                    if (Document != null && SyntaxTree == null)
+                    {
+                        SyntaxTree = await Document.GetSyntaxTreeAsync();
+                        SyntaxNode = await SyntaxTree.GetRootAsync();
+                    }
+
+                    await UpdateFormattedTextAsync();
+                });
+            }
         }
 
         public DrawingGroup LineNumbersDrawingGroup { get; set; }
@@ -1198,7 +1260,7 @@ namespace RoslynCodeControls
         private void CompletionComboBoxOnGotFocus(object sender, RoutedEventArgs e)
         {
             DebugFn("Ending caret blink");
-            _textCaret.BeginAnimation(VisibilityProperty, null);
+            TextCaret.BeginAnimation(VisibilityProperty, null);
         }
 
         private void CompletionComboBoxOnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -1305,7 +1367,7 @@ namespace RoslynCodeControls
         private static void OnFontSizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var c = ((RoslynCodeControl) d);
-            var textCaret = c._textCaret;
+            var textCaret = c.TextCaret;
 
             var newVal = (double) e.NewValue;
             if (textCaret != null) textCaret.LineHeight = newVal * 1.1;
@@ -1709,14 +1771,14 @@ namespace RoslynCodeControls
         protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
         {
             base.OnGotKeyboardFocus(e);
-            _textCaret.BeginAnimation(VisibilityProperty, _x1);
+            TextCaret.BeginAnimation(VisibilityProperty, _x1);
         }
 
         /// <inheritdoc />
         protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
         {
             base.OnLostKeyboardFocus(e);
-            _textCaret.BeginAnimation(VisibilityProperty, null);
+            TextCaret.BeginAnimation(VisibilityProperty, null);
         }
 
         #endregion
@@ -2057,9 +2119,9 @@ namespace RoslynCodeControls
                     {
                         var ci = prevCharInfoNode.Value;
                         var ciYOrigin = ci.YOrigin - DrawingBrush.Viewbox.Top;
-                        _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
+                        TextCaret.SetValue(Canvas.TopProperty, ciYOrigin);
                         var ciAdvanceWidth = ci.XOrigin + ci.AdvanceWidth - DrawingBrush.Viewbox.Left;
-                        _textCaret.SetValue(Canvas.LeftProperty, ciAdvanceWidth);
+                        TextCaret.SetValue(Canvas.LeftProperty, ciAdvanceWidth);
                         DebugFn($"Caret1 - {ciAdvanceWidth}x{ciYOrigin}");
                         return;
                     }
@@ -2067,13 +2129,13 @@ namespace RoslynCodeControls
                     {
                         // ReSharper disable once PossibleNullReferenceException
                         var ciYOrigin = InsertionLine?.Origin.Y ?? 0 - DrawingBrush.Viewbox.Top;
-                        _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
+                        TextCaret.SetValue(Canvas.TopProperty, ciYOrigin);
                         var ciAdvanceWidth = XOffset + -1 * DrawingBrush.Viewbox.Left;
-                        _textCaret.SetValue(Canvas.LeftProperty, ciAdvanceWidth);
+                        TextCaret.SetValue(Canvas.LeftProperty, ciAdvanceWidth);
 
                         DebugFn($"Caret2 - {ciAdvanceWidth}x{ciYOrigin}");
 
-                        MaxY = Math.Max(MaxY, ciYOrigin - DrawingBrush.Viewbox.Top + _textCaret.LineHeight);
+                        MaxY = Math.Max(MaxY, ciYOrigin - DrawingBrush.Viewbox.Top + TextCaret.LineHeight);
                         Rectangle.Height = MaxY;
                         DrawingBrush.Viewbox = DrawingBrushViewbox = new Rect(DrawingBrushViewbox.X,
                             DrawingBrushViewbox.Y,
@@ -2086,9 +2148,9 @@ namespace RoslynCodeControls
 
                     var ci = charInfoNode.Value;
                     var ciYOrigin = ci.YOrigin - DrawingBrush.Viewbox.Top;
-                    _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
+                    TextCaret.SetValue(Canvas.TopProperty, ciYOrigin);
                     var ciAdvanceWidth = ci.XOrigin - DrawingBrush.Viewbox.Left;
-                    _textCaret.SetValue(Canvas.LeftProperty, ciAdvanceWidth);
+                    TextCaret.SetValue(Canvas.LeftProperty, ciAdvanceWidth);
                     DebugFn($"Caret1 - {ciAdvanceWidth}x{ciYOrigin}");
                     return;
                 }
@@ -2097,9 +2159,9 @@ namespace RoslynCodeControls
                 {
                     var ci = prevCharInfoNode.Value;
                     var ciYOrigin = ci.YOrigin - DrawingBrush.Viewbox.Top;
-                    _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
+                    TextCaret.SetValue(Canvas.TopProperty, ciYOrigin);
                     var ciAdvanceWidth = ci.XOrigin + ci.AdvanceWidth - DrawingBrush.Viewbox.Left;
-                    _textCaret.SetValue(Canvas.LeftProperty,
+                    TextCaret.SetValue(Canvas.LeftProperty,
                         ciAdvanceWidth);
 
                     DebugFn($"Caret3 - {ciAdvanceWidth}x{ciYOrigin}");
@@ -2224,7 +2286,7 @@ namespace RoslynCodeControls
         {
             if (!_enableMouse) return;
             DrawingContext dc = null;
-            JTF2.RunAsync(() => MouseMoveAsync(e, dc));
+            JTF.RunAsync(() => MouseMoveAsync(e, dc));
         }
 
         private async Task MouseMoveAsync(MouseEventArgs e, DrawingContext dc)
@@ -2281,13 +2343,15 @@ namespace RoslynCodeControls
 
                 HoverRegionInfo = hoverRegionInfo;
                 int? newHoverOffset = null;
+                QuickInfoItem? quickInfo = null;
                 if (civ != null)
                 {
                     newHoverOffset = civ.Index;
-                    var quickInfo = await QuickInfoService.GetService(Document).GetQuickInfoAsync(Document, newHoverOffset.Value);
+                    quickInfo = await QuickInfoService.GetService(Document)
+                        .GetQuickInfoAsync(Document, newHoverOffset.Value);
                     if (quickInfo != null)
                     {
-                        
+
                     }
                 }
 
@@ -2301,59 +2365,66 @@ namespace RoslynCodeControls
 
                 if (newHoverSyntaxNode != HoverSyntaxNode)
                 {
-                    if (ToolTip is ToolTip tt) tt.IsOpen = false;
-                    if (newHoverSyntaxNode != null)
+                }
+
+                if (ToolTip is ToolTip tt) tt.IsOpen = false;
+                ISymbol sym = null;
+                IOperation operation = null;
+                var nodes = new Stack<SyntaxNodeDepth>();
+                if (newHoverSyntaxNode != null)
+                {
+                    if (SemanticModel != null)
+                        try
+                        {
+                            sym = SemanticModel?.GetDeclaredSymbol(newHoverSyntaxNode);
+                            operation = SemanticModel.GetOperation(newHoverSyntaxNode);
+                        }
+                        catch
+                        {
+                            // ignored
+                        }
+
+                    if (sym != null)
                     {
-                        ISymbol sym = null;
-                        IOperation operation = null;
-                        if (SemanticModel != null)
-                            try
-                            {
-                                sym = SemanticModel?.GetDeclaredSymbol(newHoverSyntaxNode);
-                                operation = SemanticModel.GetOperation(newHoverSyntaxNode);
-                            }
-                            catch
-                            {
-                                // ignored
-                            }
-
-                        if (sym != null)
-                        {
-                            HoverSymbol = sym;
+                        HoverSymbol = sym;
 #if DEBUG
-                            _debugFn?.Invoke(sym.Kind.ToString());
+                        _debugFn?.Invoke(sym.Kind.ToString());
 #endif
-                        }
+                    }
 
-                        var node = newHoverSyntaxNode;
-                        var nodes = new Stack<SyntaxNodeDepth>();
-                        var depth = 0;
-                        while (node != null)
-                        {
-                            node = node.Parent;
-                            depth++;
-                        }
+                    var node = newHoverSyntaxNode;
+                    var depth = 0;
+                    while (node != null)
+                    {
+                        node = node.Parent;
+                        depth++;
+                    }
 
+                    depth--;
+                    node = newHoverSyntaxNode;
+                    while (node != null)
+                    {
+                        nodes.Push(new SyntaxNodeDepth {SyntaxNode = node, Depth = depth});
+                        node = node.Parent;
                         depth--;
-                        node = newHoverSyntaxNode;
-                        while (node != null)
-                        {
-                            nodes.Push(new SyntaxNodeDepth {SyntaxNode = node, Depth = depth});
-                            node = node.Parent;
-                            depth--;
-                        }
-
-
-                        var content = new CodeToolTipContent()
-                            {Symbol = sym, SyntaxNode = newHoverSyntaxNode, Nodes = nodes, Operation = operation};
-                        var template =
-                            TryFindResource(new DataTemplateKey(typeof(CodeToolTipContent))) as DataTemplate;
-                        var toolTip = new ToolTip {Content = content, ContentTemplate = template};
-                        ToolTip = toolTip;
-                        toolTip.IsOpen = true;
                     }
                 }
 
+                var content = new CodeToolTipContent()
+                {
+                    Symbol = sym,
+                    SyntaxNode = newHoverSyntaxNode,
+                    Nodes = nodes,
+                    Operation = operation,
+                    QuickInfoItem = quickInfo
+                };
+                var template =
+                    TryFindResource(new DataTemplateKey(typeof(CodeToolTipContent))) as DataTemplate;
+                var toolTip = new ToolTip {Content = content, ContentTemplate = template};
+                ToolTip = toolTip;
+                toolTip.IsOpen = true;
+            
+                
                 HoverToken = newHoverSyntaxToken;
                 HoverSyntaxNode = newHoverSyntaxNode;
                 if (newHoverOffset.HasValue)
@@ -2505,7 +2576,7 @@ namespace RoslynCodeControls
                             if (st2 != null)
                                 if (SemanticModel != null)
                                 {
-                                    var r = SemanticModel.AnalyzeDataFlow(st1, st2);
+                                    var r = ModelExtensions.AnalyzeDataFlow(SemanticModel, st1, st2);
                                     if (r != null)
                                         return;
 #if DEBUG
@@ -2529,19 +2600,6 @@ namespace RoslynCodeControls
         public bool SelectionEnabled { get; set; } = true;
 
         public bool IsSelecting { get; set; }
-
-        public AdhocWorkspace Workspace
-        {
-            // ReSharper disable once UnusedMember.Global
-            get { return _workspace; }
-            set
-            {
-                if (Equals(value, _workspace)) return;
-                _workspace = value;
-                OnPropertyChanged();
-            }
-        }
-
 
         public double InitialScrollPosition { get; set; }
 

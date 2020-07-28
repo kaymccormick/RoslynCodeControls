@@ -6,6 +6,8 @@ namespace RoslynCodeControls
 {
     public static class RoslynProperties
     {
+        public static readonly RoutedEvent WorkspaceUpdatedEvent = EventManager.RegisterRoutedEvent("WorkspaceUpdated", RoutingStrategy.Bubble, typeof(WorkspaceUpdatedEventHandler), typeof(RoslynProperties));
+            
         public static readonly DependencyProperty DocumentProperty = DependencyProperty.RegisterAttached(
             "Document", typeof(Document), typeof(RoslynProperties),
             new PropertyMetadata(default(Document), OnDocumentChanged));
@@ -106,6 +108,19 @@ namespace RoslynCodeControls
                 var model = await newValue.GetSemanticModelAsync().ConfigureAwait(true);
                 SetSemanticModel(d, model);
             }
+        }
+    }
+
+    public delegate void WorkspaceUpdatedEventHandler(object sender, WorkspaceUpdatedEventArgs e);
+
+    public class WorkspaceUpdatedEventArgs : RoutedEventArgs
+    {
+        public Workspace Workspace { get;  }
+
+        /// <inheritdoc />
+        public WorkspaceUpdatedEventArgs(Workspace workspace, object sender) : base(RoslynProperties.WorkspaceUpdatedEvent, sender)
+        {
+            Workspace = workspace;
         }
     }
 }
