@@ -26,6 +26,7 @@ using JetBrains.Annotations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Completion;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.QuickInfo;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.Threading;
 using CSharpExtensions = Microsoft.CodeAnalysis.CSharp.CSharpExtensions;
@@ -172,7 +173,7 @@ namespace RoslynCodeControls
                 var insertionPoint = @in.InsertionPoint;
                 var text = inputRequest.Text;
                 var ip = inputRequest.Kind == InputRequestKind.Backspace
-                    ? insertionPoint - 1
+                    ? insertionPoint - @in.Change.Value.Span.Length
                     : insertionPoint + (text?.Length ?? 0);
 
                 PostUpdate(@in, ip);
@@ -608,6 +609,27 @@ namespace RoslynCodeControls
             // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault
             switch (e.Key)
             {
+                case Key.PageDown:
+                    if (e.KeyboardDevice.Modifiers == ModifierKeys.None)
+                    {
+                        e.Handled = true;
+                        CodeViewportPanel.PageDown();
+                        var lineNode = FindLine((int)CodeViewportPanel.VerticalOffset, InsertionLineNode, true);
+                        InsertionLineNode = lineNode;
+                        InsertionPoint = lineNode.Value.Offset;
+                    }
+                    break;
+                case Key.PageUp:
+                    if (e.KeyboardDevice.Modifiers == ModifierKeys.None)
+                    {
+                        e.Handled = true;
+                        ScrollViewer.PageUp();
+                        var lineNode = FindLine((int)ScrollViewer.VerticalOffset);
+                        InsertionLineNode = lineNode;
+                        InsertionPoint = lineNode.Value.Offset;
+                    }
+                    break;
+
                 case Key.F3:
                     if (InFindOperation)
                     {
@@ -670,6 +692,8 @@ namespace RoslynCodeControls
                     break;
                 case Key.Down:
                     e.Handled = true;
+
+                    
                     if (CanMoveDownByLine()) MoveDownByLine();
 
                     break;
@@ -702,16 +726,17 @@ namespace RoslynCodeControls
             FoundTextIndex = index;
             FindTextBox.Background = Brushes.White;
             double? y = null;
-            CharInfo? firstChar = null;
             CharInfo? endChar = null;
             LineInfo2? theLine = null;
-            firstChar = FindCharStretch(index, searchTextLength, ref endChar, ref y, ref theLine);
+            var firstChar = FindCharStretch(index, searchTextLength, ref endChar, ref y, ref theLine);
 
             var rect1 = new Rect(firstChar.XOrigin, firstChar.YOrigin, endChar.XOrigin + endChar.AdvanceWidth - firstChar.XOrigin, theLine.Height);
+            rect1.Inflate(ExpandFoundTextRectSize);
             TextSearchInstanceRect = rect1;
 
-            ScrollViewer.ScrollToVerticalOffset(y.Value - ScrollViewer.ViewportHeight / 2);
-
+            var scrollPos = theLine.LineNumber - ScrollViewer.ViewportHeight / 2;
+            if (scrollPos >= 0)
+                ScrollViewer.ScrollToVerticalOffset(scrollPos);
         }
         private void FindNext()
         {
@@ -733,18 +758,14 @@ namespace RoslynCodeControls
             firstChar = FindCharStretch(index,  searchTextLength, ref endChar, ref y, ref theLine);
 
             var rect1 = new Rect(firstChar.XOrigin, firstChar.YOrigin, endChar.XOrigin + endChar.AdvanceWidth - firstChar.XOrigin, theLine.Height);
+            rect1.Inflate(ExpandFoundTextRectSize);
             TextSearchInstanceRect = rect1;
 
-            ScrollViewer.ScrollToVerticalOffset(y.Value - ScrollViewer.ViewportHeight / 2);
+            var scrollPos = theLine.LineNumber - ScrollViewer.ViewportHeight / 2;
+            if(scrollPos >= 0)
+                ScrollViewer.ScrollToVerticalOffset(scrollPos);
 
         }
-
-       
-        public int CurrentFindIndex { get; set; }
-
-        public int FoundTextIndex { get; set; }
-
-        public bool InFindOperation { get; set; }
 
         private void FindTextBoxOnTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -768,12 +789,16 @@ namespace RoslynCodeControls
             firstChar = FindCharStretch(index, searchTextLength, ref endChar, ref y, ref theLine);
 
             var rect1 = new Rect(firstChar.XOrigin, firstChar.YOrigin, endChar.XOrigin + endChar.AdvanceWidth - firstChar.XOrigin, theLine.Height);
+            
+            rect1.Inflate(ExpandFoundTextRectSize);
             TextSearchInstanceRect = rect1;
+            var scrollPos = theLine.LineNumber - ScrollViewer.ViewportHeight / 2;
+            if (scrollPos >= 0)
+                ScrollViewer.ScrollToVerticalOffset(scrollPos);
 
-            ScrollViewer.ScrollToVerticalOffset(y.Value - ScrollViewer.ViewportHeight / 2);
         }
 
-        private CharInfo FindCharStretch(int index,  int searchTextLength, ref CharInfo endChar,
+        private CharInfo? FindCharStretch(int index,  int searchTextLength, ref CharInfo endChar,
             ref double? y, ref LineInfo2 theLine)
         {
             CharInfo? firstChar=null;
@@ -807,6 +832,12 @@ namespace RoslynCodeControls
 
             return firstChar;
         }
+
+        public int CurrentFindIndex { get; set; }
+
+        public int FoundTextIndex { get; set; }
+
+        public bool InFindOperation { get; set; }
 
         public Rect TextSearchInstanceRect
         {
@@ -931,7 +962,7 @@ namespace RoslynCodeControls
             CompletionPopup.PlacementTarget = _textCaret;
             // var left = Canvas.GetLeft(_textCaret);
             // var top = Canvas.GetTop(_textCaret);
-            CompletionPopup.PlacementRectangle = new Rect(3, -1 * _textCaret.lineHeight, 100, _textCaret.lineHeight);
+            CompletionPopup.PlacementRectangle = new Rect(3, -1 * LineHeight, 100, LineHeight);
             CompletionPopup.Placement = PlacementMode.Bottom;
             CompletionPopup.IsOpen = true;
 #if false
@@ -1023,6 +1054,9 @@ namespace RoslynCodeControls
 #if DEBUG
             DebugOnApplyTemplate();
 #endif
+            LineNumbersDrawingGroup = (DrawingGroup) GetTemplateChild("LineNumbers");
+            CodeViewportPanel = (CodeViewportPanel) GetTemplateChild("CodeViewportPanel");
+            CodeViewportPanel.CodeControl = this;
             SelectionDrawing = (DrawingGroup) GetTemplateChild("SelectionDrawing");
             CompletionPopup = (Popup) GetTemplateChild("CompletionPopup");
             CompletionComboBox = (ComboBox) GetTemplateChild("CompletionComboBox");
@@ -1053,8 +1087,8 @@ namespace RoslynCodeControls
                         new Binding("DrawingBrushViewbox.Height") {Source = this});
                 }
 
-                Rectangle.Width = MaxX - DrawingBrushViewbox.Left;
-                Rectangle.Height = MaxY - DrawingBrushViewbox.Top;
+                Rectangle.Width = MaxX - DrawingBrushViewbox.Left + Rectangle.StrokeThickness * 2;
+                Rectangle.Height = MaxY - DrawingBrushViewbox.Top + Rectangle.StrokeThickness * 2;
                 Rectangle.Fill = DrawingBrush;
                 DrawingBrush.Viewbox = DrawingBrushViewbox;
             }
@@ -1077,6 +1111,8 @@ namespace RoslynCodeControls
             DrawingBrush2 = (DrawingBrush) GetTemplateChild("DrawingBrush2");
             if (DrawingBrush2 != null) DrawingBrush2.Viewbox = DrawingBrushViewbox;
         }
+
+        public DrawingGroup LineNumbersDrawingGroup { get; set; }
 
         public DrawingBrush DrawingBrush2 { get; set; }
 
@@ -1193,7 +1229,9 @@ namespace RoslynCodeControls
                 return;
             if (_handlingInput)
             {
-                DebugFn("Dropped input " + e.Text);
+                var msg = "Dropped input " + e.Text;
+                DebugFn(msg);
+                ProtoLogger.Instance.LogAction(msg);
                 return;
             }
 
@@ -1259,16 +1297,20 @@ namespace RoslynCodeControls
         {
             var c = (RoslynCodeControl) d;
             var f = (FontFamily) e.NewValue;
+            c.LineSpacing = f.LineSpacing;
+            c.LineHeight = f.LineSpacing * c.FontSize;
             c._typefaceName = f.FamilyNames[XmlLanguage.GetLanguage("en-US")];
         }
 
         private static void OnFontSizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            var textCaret = ((RoslynCodeControl) d)._textCaret;
-            if (textCaret == null) return;
+            var c = ((RoslynCodeControl) d);
+            var textCaret = c._textCaret;
 
-            textCaret.lineHeight = (double) e.NewValue * 1.1;
-
+            var newVal = (double) e.NewValue;
+            if (textCaret != null) textCaret.LineHeight = newVal * 1.1;
+            c.LineHeight = newVal * c.LineSpacing;
+            
             ((UIElement) d).InvalidateVisual();
         }
 
@@ -1855,6 +1897,8 @@ namespace RoslynCodeControls
             var setInsertionLineNode = false;
             if (@in.RedrawLineResult.IsNewLineInfo)
             {
+                roslynCodeControl1.DrawLineNumber(res.LineInfo.LineNumber, res.LineInfo.Origin);
+
                 setInsertionLineNode = true;
                 var li0 = roslynCodeControl1.FindLine(res.LineInfo.LineNumber, roslynCodeControl1.InsertionLineNode);
                 if (li0 == null)
@@ -1882,17 +1926,27 @@ namespace RoslynCodeControls
             }
 
             var nextLineOffset = res.LineInfo.Offset + res.LineInfo.Length;
-
+            var prevLineOffset = res.LineInfo.Offset - 2;
             if (newIp == nextLineOffset)
             {
                 if (!@in.RedrawLineResult.IsNewLineInfo)
                     llNode = roslynCodeControl1.FindLine(res.LineInfo.LineNumber, roslynCodeControl1.InsertionLineNode);
                 // ReSharper disable once PossibleNullReferenceException
                 // ReSharper disable once PossibleNullReferenceException
+                var lineInfoHeight = Math.Max(res.LineInfo.Height, roslynCodeControl1.LineHeight);
+                var origin = new Point(res.LineInfo.Origin.X, res.LineInfo.Origin.Y + lineInfoHeight);
+
+                roslynCodeControl1.DrawLineNumber(res.LineInfo.LineNumber+1, origin);
+
                 llNode = llNode.List.AddAfter(llNode,
                     new LineInfo2(res.LineInfo.LineNumber + 1, null, nextLineOffset,
-                        new Point(res.LineInfo.Origin.X, res.LineInfo.Origin.Y + res.LineInfo.Height), 0, 0));
+                        origin, 0, 0));
                 setInsertionLineNode = true;
+            } else if (newIp == prevLineOffset)
+            {
+                llNode = roslynCodeControl1.FindLine(res.LineInfo.LineNumber - 1);
+                setInsertionLineNode = true;
+                // do we need to remove the line ??
             }
 
             if (setInsertionLineNode)
@@ -1900,6 +1954,26 @@ namespace RoslynCodeControls
 
             roslynCodeControl1.DebugFn("return");
         }
+
+        public override void DrawLineNumber(int lineNumber, Point lineOrigin)
+        {
+            string lineNoStr = (lineNumber + 1).ToString("D5");
+
+            var ft = new FormattedText(lineNoStr, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                LineNumberTypeface, LineNumberEmSize,
+                LineNumberBrush, null, PixelsPerDip);
+
+            var dc1 = LineNumbersDrawingGroup.Append();
+            dc1.DrawText(ft, new Point(0, lineOrigin.Y));
+            dc1.Close();
+        }
+
+        public double LineNumberEmSize => FontSize;
+
+        public Brush LineNumberBrush { get; set; } = Brushes.SlateGray;
+
+        public Typeface LineNumberTypeface { get; set; } = new Typeface(new FontFamily("Lucida Console"),
+            FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
 
 
         /// <summary>
@@ -1999,13 +2073,24 @@ namespace RoslynCodeControls
 
                         DebugFn($"Caret2 - {ciAdvanceWidth}x{ciYOrigin}");
 
-                        MaxY = Math.Max(MaxY, ciYOrigin - DrawingBrush.Viewbox.Top + _textCaret.lineHeight);
+                        MaxY = Math.Max(MaxY, ciYOrigin - DrawingBrush.Viewbox.Top + _textCaret.LineHeight);
                         Rectangle.Height = MaxY;
                         DrawingBrush.Viewbox = DrawingBrushViewbox = new Rect(DrawingBrushViewbox.X,
                             DrawingBrushViewbox.Y,
                             DrawingBrushViewbox.Width, MaxY);
                         return;
                     }
+                }
+                else
+                {
+
+                    var ci = charInfoNode.Value;
+                    var ciYOrigin = ci.YOrigin - DrawingBrush.Viewbox.Top;
+                    _textCaret.SetValue(Canvas.TopProperty, ciYOrigin);
+                    var ciAdvanceWidth = ci.XOrigin - DrawingBrush.Viewbox.Left;
+                    _textCaret.SetValue(Canvas.LeftProperty, ciAdvanceWidth);
+                    DebugFn($"Caret1 - {ciAdvanceWidth}x{ciYOrigin}");
+                    return;
                 }
 
                 if (prevCharInfoNode != null)
@@ -2130,6 +2215,7 @@ namespace RoslynCodeControls
         private TextBox _findTextBox;
         private Rect _drawingBrushViewbox;
         private Rect _textSearchInstanceRect;
+        private Size ExpandFoundTextRectSize { get; set; }= new Size(3, 3);
 
         #region Mouse
 
@@ -2138,6 +2224,11 @@ namespace RoslynCodeControls
         {
             if (!_enableMouse) return;
             DrawingContext dc = null;
+            JTF2.RunAsync(() => MouseMoveAsync(e, dc));
+        }
+
+        private async Task MouseMoveAsync(MouseEventArgs e, DrawingContext dc)
+        {
             try
             {
                 var point = e.GetPosition(Rectangle);
@@ -2165,7 +2256,7 @@ namespace RoslynCodeControls
                 if (first.TextRun is CustomTextCharacters c0)
                 {
 #if DEBUG
-                    _debugFn?.Invoke(c0.Text,5);
+                    _debugFn?.Invoke(c0.Text, 5);
 #endif
                 }
 
@@ -2190,7 +2281,16 @@ namespace RoslynCodeControls
 
                 HoverRegionInfo = hoverRegionInfo;
                 int? newHoverOffset = null;
-                if (civ != null) newHoverOffset = civ.Index;
+                if (civ != null)
+                {
+                    newHoverOffset = civ.Index;
+                    var quickInfo = await QuickInfoService.GetService(Document).GetQuickInfoAsync(Document, newHoverOffset.Value);
+                    if (quickInfo != null)
+                    {
+                        
+                    }
+                }
+
                 SyntaxNode newHoverSyntaxNode = null;
                 SyntaxToken? newHoverSyntaxToken = null;
                 if (first.TextRun is SyntaxTokenTextCharacters stc)
@@ -2256,7 +2356,8 @@ namespace RoslynCodeControls
 
                 HoverToken = newHoverSyntaxToken;
                 HoverSyntaxNode = newHoverSyntaxNode;
-                HoverOffset = newHoverOffset.Value;
+                if (newHoverOffset.HasValue)
+                    HoverOffset = newHoverOffset.Value;
 
                 ComputeSelection(newHoverOffset, charRect);
 
@@ -2499,6 +2600,128 @@ namespace RoslynCodeControls
             await _taskCollection.JoinTillEmptyAsync();
             DebugFn("return from shutdown");
         }
+
+        #region ISCrollInfo implementation
+        /// <inheritdoc />
+        public void LineDown()
+        {
+            
+        }
+
+        public LineInfo2? FirstVisibleLine { get; set; }
+
+        /// <inheritdoc />
+        public void LineLeft()
+        {
+        }
+
+        /// <inheritdoc />
+        public void LineRight()
+        {
+        }
+
+        /// <inheritdoc />
+        public void LineUp()
+        {
+        }
+
+        /// <inheritdoc />
+        public Rect MakeVisible(Visual visual, Rect rectangle)
+        {
+            return default;
+        }
+
+        /// <inheritdoc />
+        public void MouseWheelDown()
+        {
+        }
+
+        /// <inheritdoc />
+        public void MouseWheelLeft()
+        {
+        }
+
+        /// <inheritdoc />
+        public void MouseWheelRight()
+        {
+        }
+
+        /// <inheritdoc />
+        public void MouseWheelUp()
+        {
+        }
+
+        /// <inheritdoc />
+        public void PageDown()
+        {
+        }
+
+        /// <inheritdoc />
+        public void PageLeft()
+        {
+        }
+
+        /// <inheritdoc />
+        public void PageRight()
+        {
+        }
+
+        /// <inheritdoc />
+        public void PageUp()
+        {
+        }
+
+        /// <inheritdoc />
+        public void SetHorizontalOffset(double offset)
+        {
+        }
+
+        /// <inheritdoc />
+        public void SetVerticalOffset(double offset)
+        {
+        }
+
+        /// <inheritdoc />
+        public bool CanHorizontallyScroll
+        {
+            get { return false; }
+            set { }
+        }
+
+        /// <inheritdoc />
+        public bool CanVerticallyScroll { get; set; }
+
+        /// <inheritdoc />
+        public double ExtentHeight
+        {
+            get { return TextDestination.Bounds.Height; }
+        }
+
+        /// <inheritdoc />
+        public double ExtentWidth
+        {
+            get { return TextDestination.Bounds.Width; }
+        }
+
+        /// <inheritdoc />
+        public double HorizontalOffset { get; }
+
+        /// <inheritdoc />
+        public ScrollViewer ScrollOwner
+        {
+            get { return ScrollViewer; }
+            set { }
+        }
+
+        /// <inheritdoc />
+        public double VerticalOffset { get; }
+
+        /// <inheritdoc />
+        public double ViewportHeight { get; }
+
+        /// <inheritdoc />
+        public double ViewportWidth { get; }
+        #endregion
     }
 
     public class ContentChangedRoutedEventArgs : RoutedEventArgs

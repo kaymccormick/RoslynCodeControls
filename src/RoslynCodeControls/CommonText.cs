@@ -199,10 +199,12 @@ namespace RoslynCodeControls
 #endif
 
                     var curCharInfoNode = charInfoNode;
-                    HandleLine(allCharInfos, linePosition, myTextLine, customTextSource4, runCount, nRuns, lineNo, textStorePosition, runsInfos,curCharInfoNode,out charInfoNode, mainUpdateParameters.DebugFn);
+                    HandleLine(allCharInfos, linePosition, myTextLine, customTextSource4, runCount,
+                        nRuns, lineNo, textStorePosition, runsInfos,curCharInfoNode,out charInfoNode, 
+                        mainUpdateParameters.DebugFn);
                     myTextLine.Draw(myDc, linePosition, InvertAxes.None);
 
-                    lineInfos[liIndex++] = new LineInfo2(lineNo, allCharInfos.First, textStorePosition, linePosition, myTextLine.Height,
+                    lineInfos[liIndex++] = new LineInfo2(lineNo, curCharInfoNode != null? curCharInfoNode.Next : allCharInfos.First, textStorePosition, linePosition, myTextLine.Height,
                         myTextLine.Length);
                     linePosition.Y += myTextLine.Height;
                     lineNo++;
@@ -331,6 +333,7 @@ namespace RoslynCodeControls
                             if (lineCharIndex + curLineInfo.Offset >= change.Value.Span.Start)
 #pragma warning restore 8629
                             {
+                                curCi.Value.Index = textStorePosition + lineCharIndex;
                                 curCi.Value.RunIndex = i;
                                 curCi.Value.Character = glCharacter;
                                 curCi.Value.AdvanceWidth = glAdvanceWidth;

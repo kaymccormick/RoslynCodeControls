@@ -10,6 +10,9 @@
     <ProjectReference Include="..\RoslynCodeControls\RoslynCodeControls.csproj" />
 
     <PackageReference Include="Microsoft.VisualStudio.Threading" Version="16.6.13" />
+
+    <PackageReference Include="Microsoft.CodeAnalysis.Metrics" Version="3.3.0" />
+    <PackageReference Include="OmniSharp.Extensions.LanguageClient" Version="0.17.3-beta0001" />
   </ItemGroup>
 
 </Project>

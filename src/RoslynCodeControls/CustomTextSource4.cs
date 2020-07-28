@@ -867,9 +867,11 @@ Debug.WriteLine(syntaxKind.ToString(), DebugCategory.TextFormatting);
             _debugFn?.Invoke($"Insertion point is {insertionPoint}.", 3);
             _debugFn?.Invoke($"Input text is \"{text}\"", 3);
 #endif
-            var change = inputRequest.Kind == InputRequestKind.Backspace
-                ? new TextChange(new TextSpan(insertionPoint - 1, 1), "")
-                : new TextChange(new TextSpan(insertionPoint, 0), text);
+            TextChange change = inputRequest.Kind == InputRequestKind.Backspace ?
+                Text[insertionPoint - 1] == '\n' && Text[insertionPoint - 2] == '\r'
+                ? new TextChange(new TextSpan(insertionPoint - 2, 2), "")
+                    : new TextChange(new TextSpan(insertionPoint - 1, 1), "")
+                    : new TextChange(new TextSpan(insertionPoint, 0), text);
 
             var newText = Text.WithChanges(change);
             if (text != null && newText.Length != Text.Length + text.Length) Debug.WriteLine($"Unexpected length");

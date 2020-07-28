@@ -55,6 +55,8 @@ namespace RoslynCodeControls
                 {SingleReader = true, SingleWriter = true});
             PixelsPerDip = 1.0;
             OutputWidth = 6.5 * 96;
+            LineSpacing = FontFamily.LineSpacing;
+            LineHeight = LineSpacing * FontSize;
         }
 
         private void DebugFn0(string s, int debugLevel)
@@ -155,7 +157,7 @@ namespace RoslynCodeControls
         public CodeControlStatus Status { get; set; }
 
         /// <inheritdoc />
-        public double XOffset { get; set; } = 20;
+        public double XOffset { get; set; }
 
         /// <inheritdoc />
         public double OutputWidth { get; set; }
@@ -273,7 +275,8 @@ namespace RoslynCodeControls
         public static readonly DependencyProperty SemanticModelProperty = RoslynProperties.SemanticModelProperty;
         protected readonly DebugDelegate _debugFn;
         private Rectangle _rectangle;
-        private int _length;
+        private double _lineSpacing;
+        private double _lineHeight;
 
         public virtual void DebugFn(string msg, int debugLevel=10)
         {
@@ -319,6 +322,15 @@ namespace RoslynCodeControls
                 codeView.Reset();
                 codeView.RaiseEvent(new RoutedEventArgs(RenderStartEvent, this));
 
+                
+                var text = await SyntaxTree.GetTextAsync();
+                var o = new Point(double.NaN, 0);
+                for (var i = 0; i < text.Lines.Count; i++)
+                {
+                    DrawLineNumber(i, o);
+                    o.Y += LineHeight;
+                }
+
                 var textStorePosition = 0;
                 var linePosition = new Point(codeView.XOffset, 0);
 
@@ -356,13 +368,42 @@ namespace RoslynCodeControls
                 codeView.Status = CodeControlStatus.Rendered;
                 codeView.InsertionPoint = 0;
                 codeView.InsertionLineNode = codeView.FindLine(0);
-                await UpdateRoslynPropertiesAsync();
+#if true
+                foreach (var x1 in codeView.FindLine(0).List)
+                {
+                    for (var ci1 = x1.FirstCharInfo; ci1 != null && ci1.Value.Index < x1.Offset + x1.Length; ci1 = ci1.Next)
+                    {
+                        Debug.WriteLine($"{x1.LineNumber:D4},{ci1.Value.LineIndex:D3},{ci1.Value.Index:D6}");
+                    }
+                    
+                }
+#endif
+
+#if false
+                var #if av = codeView.FindLine(0).Value.FirstCharInfo.List.Average(c => c.AdvanceWidth);
+                foreach (var x1 in codeView.FindLine(0).Value.FirstCharInfo.List.GroupBy(c => c.AdvanceWidth)
+                    .Select(z => new {Width = z.Key, Count = z.Count()}))
+                {
+                    var msg = $"{x1.Width} - {x1.Count}";
+                    DebugFn(msg);
+                    Debug.WriteLine(msg);
+                }
+                Debug.WriteLine($"Average related to font size is {av/FontSize}");
+
+#endif
+                    await UpdateRoslynPropertiesAsync();
+                ScrollViewer.InvalidateScrollInfo();
+
             }
         }
 
+        public virtual void DrawLineNumber(int lineNumber, Point lineOrigin)
+        {
+        }
         protected virtual void SecondaryThreadTasks()
         {
         }
+
 
         private async Task ReaderListenerAsync()
         {
@@ -388,9 +429,9 @@ namespace RoslynCodeControls
                 MaxX = maxX;
 
 
-                var boundsLeft = Math.Min(TextDestination.Bounds.Left, 0);
+                var boundsLeft = Math.Min(TextDestination.Bounds.Left, 0) - Rectangle?.StrokeThickness ?? 0;
                 boundsLeft -= 3;
-                var boundsTop = Math.Min(TextDestination.Bounds.Top, 0);
+                var boundsTop = Math.Min(TextDestination.Bounds.Top, 0) - Rectangle?.StrokeThickness ?? 0;
                 boundsTop -= 3;
 
                 var width = maxX - boundsLeft;
@@ -399,8 +440,8 @@ namespace RoslynCodeControls
                     new Rect(boundsLeft, boundsTop, width, height);
 
                 if (Rectangle == null) continue;
-                Rectangle.Width = width;
-                Rectangle.Height = height;
+                Rectangle.Width = width + Rectangle.StrokeThickness;
+                Rectangle.Height = height + Rectangle.StrokeThickness ;
 
                 
             }
@@ -408,7 +449,7 @@ namespace RoslynCodeControls
 
         public virtual LinkedList<LineInfo2> LineInfos2 { get; } = new LinkedList<LineInfo2>();
 
-        public virtual LineInfo2? InsertionLine
+        public virtual LineInfo2 InsertionLine
         {
             get { return InsertionLineNode?.Value; }
         }
@@ -433,12 +474,13 @@ namespace RoslynCodeControls
         public string DocumentTitle { get; set; }
         public virtual LinkedListNode<LineInfo2> InsertionLineNode { get; set; }
 
-        public virtual LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null)
+        public virtual LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null, bool returnLast = false)
         {
             var li0 = startNode ?? LineInfos2.First;
-            for (; li0 != null; li0 = li0.Next)
-                if (li0.Value.LineNumber == lineNo)
+            for (; li0 != null; li0 = li0.Next){
+                if (li0.Value.LineNumber == lineNo || (returnLast && li0.Next == null))
                     return li0;
+                }
 
             return null;
         }
@@ -491,6 +533,28 @@ namespace RoslynCodeControls
         {
             get { return (int)GetValue(LengthProperty); }
             set { SetValue(LengthProperty, value); }
+        }
+
+        public virtual CodeViewportPanel CodeViewportPanel { get; set; }
+
+        public double LineHeight
+        {
+            get { return _lineHeight; }
+            set
+            {
+                _lineHeight = value;
+                Debug.WriteLine("line height set to " + _lineHeight);
+            }
+        }
+
+        public double LineSpacing
+        {
+            get { return _lineSpacing; }
+            set
+            {
+                _lineSpacing = value;
+                Debug.WriteLine("Linespacing set to " + _lineSpacing);
+            }
         }
 
 

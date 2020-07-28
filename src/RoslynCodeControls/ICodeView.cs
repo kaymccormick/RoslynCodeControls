@@ -48,7 +48,7 @@ namespace RoslynCodeControls
         void RaiseEvent(RoutedEventArgs p0);
         TextSourceInitializationParameters CreateDefaultTextSourceArguments();
         CustomTextSource4 InnerUpdate(MainUpdateParameters mainUpdateParameters, TextSourceInitializationParameters textSourceInitializationParameters);
-        LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null);
+        LinkedListNode<LineInfo2> FindLine(int lineNo, LinkedListNode<LineInfo2> startNode = null, bool returnLast = false);
         void Reset();
     }
 }

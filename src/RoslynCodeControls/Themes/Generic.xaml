@@ -104,9 +104,9 @@
                 <ContentControl Content="{Binding Symbol}" />
             </StackPanel>
             <!-- <StackPanel Orientation="Horizontal"> -->
-                <!-- <TextBlock Text="Operation: " /> -->
-                <!-- <ContentControl Content="{Binding Operation}" -->
-                                <!-- ContentTemplateSelector="{StaticResource OperationTemplateSelector}" /> -->
+            <!-- <TextBlock Text="Operation: " /> -->
+            <!-- <ContentControl Content="{Binding Operation}" -->
+            <!-- ContentTemplateSelector="{StaticResource OperationTemplateSelector}" /> -->
             <!-- </StackPanel> -->
 
         </StackPanel>
@@ -197,61 +197,66 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
                             </Popup>
-                            <ScrollViewer VerticalAlignment="Stretch" x:Name="ScrollViewer"
+                            <ScrollViewer Grid.Row="0" Grid.Column="0" VerticalAlignment="Stretch"
+                                          x:Name="ScrollViewer"
                                           HorizontalContentAlignment="Left"
-                                          VerticalContentAlignment="Top" Grid.RowSpan="3" Grid.ColumnSpan="2">
-                                <Grid x:Name="InnerGrid" Background="White">
-                                    <Rectangle x:Name="Rectangle" VerticalAlignment="Top" HorizontalAlignment="Left"
-                                               Stroke="Aquamarine"
-                                               TextElement.FontSize="12" />
-                                    <Rectangle x:Name="Rect2" Panel.ZIndex="100" VerticalAlignment="Top"
-                                               Width="{Binding ElementName=Rectangle,Path=ActualWidth}"
-                                               Height="{Binding ElementName=Rectangle,Path=ActualHeight}"
-                                               HorizontalAlignment="Left" IsHitTestVisible="False">
-                                        <Rectangle.Fill>
-                                            <DrawingBrush x:Name="DrawingBrush2" AlignmentX="Left" AlignmentY="Top"
-                                                          ViewboxUnits="Absolute"
-                                                          TileMode="None"
-                                                          Stretch="None">
-                                                <DrawingBrush.Transform>
-                                                    <TranslateTransform x:Name="DG2Transform" />
-                                                </DrawingBrush.Transform>
-                                                <DrawingBrush.Drawing>
-                                                    <DrawingGroup x:Name="DG2">
-
+                                          VerticalContentAlignment="Top" Grid.RowSpan="3" Grid.ColumnSpan="2"
+                                          CanContentScroll="True">
+                                <local:CodeViewportPanel x:Name="CodeViewportPanel" Background="White">
+                                    <!-- <Grid x:Name="InnerGrid" Background="White"> -->
+                                        <Rectangle x:Name="Rectangle" VerticalAlignment="Top"
+                                                   HorizontalAlignment="Left"
+                                                   Stroke="Aquamarine"
+                                                   StrokeThickness="0"/>
+                                        <Rectangle x:Name="Rect2" Panel.ZIndex="100" VerticalAlignment="Top"
+                                                   Width="{Binding ElementName=Rectangle,Path=ActualWidth}"
+                                                   Height="{Binding ElementName=Rectangle,Path=ActualHeight}"
+                                                   HorizontalAlignment="Left" IsHitTestVisible="False">
+                                            <Rectangle.Fill>
+                                                <DrawingBrush x:Name="DrawingBrush2" AlignmentX="Left" AlignmentY="Top"
+                                                              ViewboxUnits="Absolute"
+                                                              TileMode="None"
+                                                              Stretch="None">
+                                                    <DrawingBrush.Transform>
+                                                        <TranslateTransform x:Name="DG2Transform" />
+                                                    </DrawingBrush.Transform>
+                                                    <DrawingBrush.Drawing>
+                                                        
+                                                        <DrawingGroup x:Name="DG2">
+                                                            <DrawingGroup x:Name="LineNumbers"/>
                                                         <DrawingGroup x:Name="SelectionDrawing">
-                                                            <DrawingGroup />
+                                                                <DrawingGroup />
+                                                            </DrawingGroup>
+                                                            <GeometryDrawing>
+                                                                <GeometryDrawing.Pen>
+                                                                    <Pen Brush="Red" Thickness="1" />
+                                                                </GeometryDrawing.Pen>
+                                                                <GeometryDrawing.Geometry>
+                                                                    <RectangleGeometry
+                                                                        Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=HoverRegionInfo.BoundingRect}" />
+                                                                </GeometryDrawing.Geometry>
+                                                            </GeometryDrawing>
+                                                            <GeometryDrawing>
+                                                                <GeometryDrawing.Brush>
+                                                                    <SolidColorBrush Color="Blue" Opacity="0.5" />
+                                                                </GeometryDrawing.Brush>
+                                                                <GeometryDrawing.Geometry>
+                                                                    <RectangleGeometry
+                                                                        Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=TextSearchInstanceRect}" />
+                                                                </GeometryDrawing.Geometry>
+                                                            </GeometryDrawing>
+
                                                         </DrawingGroup>
-                                                        <GeometryDrawing>
-                                                            <GeometryDrawing.Pen>
-                                                                <Pen Brush="Red" Thickness="1" />
-                                                            </GeometryDrawing.Pen>
-                                                            <GeometryDrawing.Geometry>
-                                                                <RectangleGeometry
-                                                                    Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=HoverRegionInfo.BoundingRect}" />
-                                                            </GeometryDrawing.Geometry>
-                                                        </GeometryDrawing>
-                                                        <GeometryDrawing>
-                                                            <GeometryDrawing.Brush>
-                                                                <SolidColorBrush Color="Blue" Opacity="0.5"></SolidColorBrush>
-                                                            </GeometryDrawing.Brush>
-                                                            <GeometryDrawing.Geometry>
-                                                                <RectangleGeometry
-                                                                    Rect="{Binding RelativeSource={RelativeSource TemplatedParent},Path=TextSearchInstanceRect}" />
-                                                            </GeometryDrawing.Geometry>
-                                                        </GeometryDrawing>
+                                                    </DrawingBrush.Drawing>
+                                                </DrawingBrush>
+                                            </Rectangle.Fill>
+                                        </Rectangle>
+                                        <Canvas x:Name="Canvas" Panel.ZIndex="101" VerticalAlignment="Stretch"
 
-                                                    </DrawingGroup>
-                                                </DrawingBrush.Drawing>
-                                            </DrawingBrush>
-                                        </Rectangle.Fill>
-                                    </Rectangle>
-                                    <Canvas x:Name="Canvas" Panel.ZIndex="101" VerticalAlignment="Stretch"
+                                                HorizontalAlignment="Stretch" />
 
-                                            HorizontalAlignment="Stretch" />
-
-                                </Grid>
-
+                                    <!-- </Grid> -->
+                                </local:CodeViewportPanel>
                             </ScrollViewer>
                             <Border Grid.Column="0" Visibility="Hidden" x:Name="debug1container" Grid.Row="1"
                                     Opacity="1"

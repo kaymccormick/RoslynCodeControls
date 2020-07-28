@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:BasicEditor"
         xmlns:roslynCodeControls="clr-namespace:RoslynCodeControls;assembly=RoslynCodeControls"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Basic Code Editor" Height="450" Width="800">
     <Window.CommandBindings>
         <CommandBinding Command="Paste" Executed="Paste"></CommandBinding>
         <CommandBinding Command="Print" Executed="Print"></CommandBinding>
@@ -22,12 +22,11 @@
             <MenuItem Header="_File">
                 <MenuItem Header="Print" Command="Print"/>
             </MenuItem>
-
             <MenuItem Header="_Edit">
                 <MenuItem Header="Paste" Command="Paste"/>
             </MenuItem>
         </Menu>
-        <roslynCodeControls:RoslynCodeControl FontSize="32" FontFamily="Lucida Console" Grid.Row="1" x:Name="CodeControl" />
+        <roslynCodeControls:RoslynCodeControl XOffset="80"  FontFamily="Lucida Console" FontSize="18" Grid.Row="1" x:Name="CodeControl" />
         <StatusBar Grid.Row="2">
             <TextBlock Text="{Binding ElementName=CodeControl,Path=InsertionPoint}"/>
             <TextBlock Text="/"/>
