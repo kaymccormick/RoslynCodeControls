@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -19,7 +19,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Threading" Version="16.6.13" />
 <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="3.6.0" />
-	<PackageReference Include="NuGet.Protocol" Version="5.7.0-rtm.6702" />
+	<PackageReference Include="NuGet.Protocol" Version="6.0.5" />
     <PackageReference Include="NuGet.Packaging" Version="5.7.0-rtm.6702" />
 <PackageReference Include="System.Threading.Channels" Version="5.0.0-preview.7.20364.11" />  </ItemGroup>
   <ItemGroup>
